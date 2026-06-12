@@ -1,0 +1,932 @@
+SONARA
+L’oreille que vous n’aviez pas.
+DOCUMENT
+VERSION
+DATE
+MARCHÉ
+CDC Technique Global
+1.0
+Juin 2025
+Côte d’Ivoire
+Phase 1 — MVP (0–4 mois)
+Phase 2 — Croissance (4–12 mois)
+Phase 3 — Scale (12 mois+)
+Confidentiel — Usage interne et investisseurs
+1. Vision Produit
+1.1 Qu’est-ce que Sonara ?
+Sonara est une plateforme SaaS B2B qui permet aux entreprises d’Afrique de l’Ouest de lancer des campagnes d’enquêtes téléphoniques entièrement automatisées grâce à une Intelligence Artificielle vocale conversationnelle.
+L’IA appelle les clients, mène une vraie conversation naturelle en français ivoirien, s’adapte aux réponses en temps réel, détecte les incohérences — et produit automatiquement des résumés, des analyses et des exports structurés.
+1.2 Positionnement
+Centre d’appels classique
+Sonara
+Concurrents (Retell, Miravoice)
+1.3 Utilisateurs de la plateforme
+Important : SEULE l’entreprise abonnée accède au dashboard Sonara. Les personnes appelées (clients finaux) n’ont accès à AUCUNE interface. Elles reçoivent uniquement un appel téléphonique.
+Profil
+Qui c’est
+Ce qu’il fait sur Sonara
+Admin entreprise
+Responsable marketing, DG, DSI
+Crée le compte, gère les abonnements, invite des collaborateurs, accès complet.
+Manager campagne
+Chef de projet, chargé d’études
+Crée et pilote les campagnes, importe les contacts, télécharge les rapports.
+Viewer
+Direction générale, client interne
+Consulte les résultats et rapports uniquement. Aucune action possible.
+Super Admin Sonara
+Équipe interne Sonara
+Accès backoffice : gestion des comptes clients, monitoring global, facturation.
+2. Architecture Technique Globale
+2.1 Stack technologique
+Le système est composé de couches indépendantes communiquant via API REST et webhooks. Chaque brique peut être remplacée sans toucher aux autres — principe de conception fondamental de Sonara.
+Couche
+P1 — MVP
+P2/P3 — Scale
+Rôle
+Téléphonie
+Africa’s Talking
+Africa’s Talking + fallback Twilio
+Appels sortants, numéros locaux CI
+Orchestration voix
+Vapi.ai
+Gestion flux audio temps réel STT→LLM→TTS. Migration planifiée pour éliminer les frais Vapi.
+STT
+Deepgram Nova-2
+Deepgram fine-tuné accent CI
+Transcription voix → texte, robuste au bruit
+LLM
+GPT-4o
+GPT-4o + Mistral hébergé localement
+Intelligence conversationnelle, génération résumés
+TTS
+ElevenLabs Turbo v2
+ElevenLabs + voix custom Sonara
+Voix naturelle français, latence < 300ms
+Backend
+FastAPI Python 3.12
+FastAPI + microservices
+Logique métier, webhooks, orchestration
+Base de données
+PostgreSQL / Supabase
+PostgreSQL dédié ST Digital
+Stockage campagnes, contacts, appels
+Frontend
+Next.js 14 + Tailwind
+Next.js 14 + Tailwind
+Dashboard entreprise cliente uniquement
+Jobs async
+APScheduler
+Celery + Redis
+Scheduler campagnes, files de tâches
+Hébergement
+OVHcloud Europe
+ST Digital Grand-Bassam CI
+Infra serveur — voir section 2.4
+Monitoring
+Sentry + logs JSON
+Sentry + Grafana + Prometheus
+Alertes, métriques, performance
+CDN / Fichiers
+Supabase Storage
+Cloudflare R2 ou S3
+CSV importés, exports, audios
+2.2 Couche d’orchestration voix — Stratégie de migration
+L’orchestration voix est la couche la plus critique et la plus coûteuse du système. Elle gère la boucle temps réel : réception audio → STT → LLM → TTS → diffusion audio. Voici la stratégie adoptée par phase.
+Phase
+Solution
+Frais plateforme
+Contrôle
+Pourquoi ce choix
+ P1 
+Vapi.ai
+0,05 USD/min + APIs tierces
+Faible — API fermée
+Déploiement rapide (< 1 semaine). Abstraction complète de la téléphonie. Idéal pour valider le produit sans 2 mois d’infra.
+ P2 
+Pipecat
+Zéro frais de plateforme
+Total — Python open source
+Dès 10 000+ appels/mois, Vapi représente des milliers USD/mois en frais fixes. Pipecat élimine cette charge. Migration progressive sans tout reconstruire.
+ P3 
+LiveKit + Pipecat
+Zéro frais de plateforme
+Total — auto-hébergé CI
+Architecture 100% maîtrisée, hébergée en CI. Aucune dépendance externe pour le flux voix. Requis pour la conformité grands comptes.
+Règle d’or : ne pas optimiser prématurément. Vapi pour démarrer vite et prouver le concept. Migration Pipecat dès que le volume le justifie (économie estimée : ~4 500 USD/mois évités à 3 000 min/jour). Pipeline LiveKit+Pipecat en Phase 3 pour le contrôle total et la conformité locale.
+2.3 Comparatif des solutions d’orchestration
+Critère
+Vapi.ai
+Pipecat
+LiveKit
+Verdict Sonara
+Licence
+Propriétaire fermée
+Open source Apache 2.0
+Open source Apache 2.0
+Pipecat/LiveKit éliminent le lock-in.
+Frais plateforme
+0,05 USD/min
+Zéro
+Zéro
+Pipecat/LiveKit bien plus économiques à volume.
+Vitesse de déploiement
+Rapide (jours)
+Moyenne (semaines)
+Lente (mois)
+Vapi idéal pour le MVP.
+Contrôle du pipeline
+Faible
+Total
+Total
+Pipecat/LiveKit pour les besoins spécifiques CI.
+Support téléphonie
+Natif et simple
+Via SIP trunking
+Via SIP bridge
+Vapi plus simple en P1.
+Auto-hébergement
+Non
+Oui
+Oui
+Pipecat/LiveKit hébergeables en CI.
+Communauté
+Discord (limitée)
+Active, GitHub
+Très active, GitHub
+Pipecat et LiveKit bien supportés long terme.
+Latence typique
+< 800ms
+< 500ms optimisable
+< 400ms WebRTC natif
+LiveKit le plus performant à long terme.
+2.4 Flux technique global d’un appel
+2.5 Hébergement — Stratégie
+Phase
+Hébergeur
+Justification
+Migration prévue
+ P1 
+OVHcloud Europe
+Rapide à déployer, économique (~10k FCFA/mois), infrastructure mature.
+Migration vers ST Digital dès le 1er client banque/assurance.
+ P2 
+ST Digital Grand-Bassam, CI
+Datacenter Tier III en CI. Données hébergées localement. Conformité ARTCI.
+Hébergement principal. OVHcloud en fallback.
+ P3 
+Multi-région CI + Sénégal + Cameroun
+Expansion Afrique de l’Ouest. Un datacenter par pays si réglementation l’exige.
+Architecture multi-tenant isolée par région.
+3. Modules Fonctionnels
+Chaque fonctionnalité est tagée avec sa phase de développement :
+P1 = MVP (priorité absolue)
+P2 = Croissance (après validation)
+P3 = Scale (expansion Afrique)
+Module A — Authentification & Gestion des Comptes
+ID
+Fonctionnalité
+Description
+Phase
+A1
+Inscription entreprise
+Formulaire email + mot de passe. Validation email. Création du compte entreprise.
+ P1 
+A2
+Connexion / Déconnexion
+JWT access token 15min + refresh token 7j. Cookie httpOnly.
+ P1 
+A3
+Réinitialisation mot de passe
+Lien signé par email, expiration 1h.
+ P1 
+A4
+Invitation collaborateur par lien
+L’admin génère un lien UUID expirable (48h). Max 5 users en P1.
+ P1 
+A5
+Gestion des rôles (Admin / Manager / Viewer)
+Droits différenciés par rôle. Admin = accès total, Viewer = lecture seule.
+ P2 
+A6
+Authentification Google OAuth
+Connexion en un clic via compte Google.
+ P2 
+A7
+SSO entreprise (SAML / LDAP)
+Pour les grands comptes exigeant une connexion via leur annuaire interne.
+ P3 
+A8
+Log d’audit des actions
+Historique de toutes les actions utilisateurs (qui a fait quoi, quand).
+ P3 
+A9
+Double authentification (2FA)
+Code OTP par SMS ou appli d’authentification.
+ P3 
+Module B — Gestion des Campagnes
+ID
+Fonctionnalité
+Description
+Phase
+B1
+Création de campagne
+Nom, secteur, objectif. Brief IA en langage naturel injecté comme system prompt GPT-4o.
+ P1 
+B2
+Contrôles de la campagne
+Plage horaire (ex: 8h–19h), nb max de tentatives (1–3), délai entre tentatives.
+ P1 
+B3
+Lancement immédiat ou programmé
+Démarrer maintenant ou fixer une date/heure de début.
+ P1 
+B4
+Statuts de campagne
+Brouillon → Planifiée → En cours → Terminée. Pause / Reprise / Arrêt manuel.
+ P1 
+B5
+Duplication de campagne
+Copie le brief + les réglages. Contacts non copiés (réimport requis).
+ P1 
+B6
+Éditeur de script visuel no-code
+Builder drag & drop : blocs questions, conditions if/else, relances, sauts de questions.
+ P2 
+B7
+Logique conditionnelle avancée
+Branchements selon la réponse : si note < 3 → poser la question de friction.
+ P2 
+B8
+Bibliothèque de templates
+Templates pré-configurés par secteur (banque, télécom, assurance, études).
+ P2 
+B9
+Campagnes multi-vagues
+Programmer plusieurs vagues d’appels (J0, J+7, J+30) sur une même liste.
+ P3 
+B10
+Test A/B de brief IA
+Comparer deux versions du brief sur un même segment pour optimiser les résultats.
+ P3 
+Module C — Gestion des Contacts
+ID
+Fonctionnalité
+Description
+Phase
+C1
+Import CSV
+Upload CSV. Colonnes : prénom, nom, téléphone (obligatoire), ville, segment, note libre. Déduplication sur numéro. Limite P1 : 10 000 contacts/campagne.
+ P1 
+C2
+Template CSV téléchargeable
+Fichier modèle pré-formaté disponible depuis le dashboard.
+ P1 
+C3
+Normalisation numéros CI
+07XXXXXXXX → +22507XXXXXXXX. Validation format avant lancement.
+ P1 
+C4
+Statut individuel par contact
+pending / calling / completed / failed / unreachable / transferred. Mis à jour en temps réel.
+ P1 
+C5
+Liste noire (opt-out)
+Marquer un numéro « Ne plus appeler ». Exclusion de toutes les campagnes futures.
+ P1 
+C6
+Ajout manuel de contacts
+Formulaire pour ajouter 1 contact à la main sans CSV.
+ P2 
+C7
+Segments dynamiques
+Créer des groupes de contacts réutilisables à travers plusieurs campagnes.
+ P2 
+C8
+Intégration CRM (import auto)
+Synchronisation contacts depuis Salesforce, HubSpot, Zoho via API.
+ P2 
+C9
+Annuaire contacts global
+Base de contacts centrale au niveau du compte entreprise, réutilisable entre campagnes.
+ P3 
+C10
+Enrichissement automatique
+Compléter les données contacts manquantes via API tierces (WARC, bases locales CI).
+ P3 
+Module D — Moteur d’Appels
+ID
+Fonctionnalité
+Description
+Phase
+D1
+Appels sortants batch
+Déclenchement via Africa’s Talking. Concurrence configurable (défaut 10 appels simultanés en P1).
+ P1 
+D2
+Gestion non-décroché & retry
+Si pas de réponse : retry selon règles. Statut « non-joignable » après max tentatives.
+ P1 
+D3
+Détection messagerie vocale
+Raccrochage immédiat si répondeur détecté. Statut « messagerie ». Retry planifié.
+ P1 
+D4
+Transfert vers agent humain
+Sur demande du client pendant l’appel : transfert + alerte email à l’entreprise.
+ P1 
+D5
+Durée max par appel
+Configurable (défaut 8 min). L’IA clôture poliment si dépassé.
+ P1 
+D6
+Gestion du bruit de fond
+Deepgram Nova-2 noise cancellation. Reformulation si confiance < 60%.
+ P1 
+D7
+Respect des plages horaires
+Vérification automatique heure locale Abidjan avant chaque appel.
+ P1 
+D8
+Rotation numéros anti-spam
+Pool de numéros locaux CI via Africa’s Talking. Rotation pour éviter le filtrage.
+ P1 
+D9
+Concurrence élevée (100+ appels simultanés)
+Scalabilité verticale et horizontale du moteur d’appels.
+ P2 
+D10
+Rappel à l’heure convenue
+Si le client demande un rappel à une heure précise, le système planifie automatiquement.
+ P2 
+D11
+Appels entrants (inbound)
+Numéros dédiés pour recevoir des appels entrants et les traiter par l’IA.
+ P3 
+D12
+Canaux alternatifs
+WhatsApp Business + USSD pour zones à faible couverture voix.
+ P3 
+Module E — Intelligence Artificielle Conversationnelle
+ID
+Fonctionnalité
+Description
+Phase
+E1
+Brief en langage naturel
+L’entreprise décrit son objectif librement. Le LLM conduit la conversation de façon adaptive sans script rigide.
+ P1 
+E2
+Français ivoirien natif
+Compréhension du nouchi, des expressions locales, des accents CI. Dictionnaire sémantique intégré dans le prompt.
+ P1 
+E3
+Gestion des situations complexes
+Réponse vague → relance. Contradiction → recoupement. Client irrité → apaisement. Hors sujet → retour au fil.
+ P1 
+E4
+Présentation humaine
+L’IA se présente sous un prénom configuré (ex: Awa). Ne révèle pas être une IA sauf si demandé explicitement.
+ P1 
+E5
+Variables dynamiques par contact
+Le prénom, la ville, le segment du contact sont injectés dans le prompt pour personnaliser chaque appel.
+ P1 
+E6
+Voix personnalisable
+Choix de la voix TTS (ElevenLabs) : féminin / masculin, ton chaleureux / professionnel.
+ P2 
+E7
+Détection d’intention d’achat
+Le LLM évalue en post-appel si le client a exprimé un intérêt pour un produit ou service.
+ P2 
+E8
+Score de satisfaction automatique
+Extraction d’une note de satisfaction (0–10) à partir de la transcription, même si le client ne l’a pas exprimée numériquement.
+ P2 
+E9
+Fine-tuning accent CI
+Entraînement de Deepgram Nova-2 sur corpus audio ivoirien (250h+) pour améliorer la transcription.
+ P2 
+E10
+Multilingue (dioula, wolof, etc.)
+Extension à d’autres langues africaines selon les marchés d’expansion.
+ P3 
+E11
+Modèle LLM hébergé localement
+Remplacement partiel de GPT-4o par Mistral / LLaMA hébergé en CI pour réduire les coûts à grande échelle.
+ P3 
+Module F — Résultats & Analyse Post-Appel
+ID
+Fonctionnalité
+Description
+Phase
+F1
+Transcription complète
+Chaque appel produit une transcription structurée [{speaker, text, timestamp}]. Stockée et consultable dans le dashboard.
+ P1 
+F2
+Résumé automatique (3 lignes)
+Post-appel : GPT-4o génère un résumé des points clés. Visible par contact dans le dashboard.
+ P1 
+F3
+Export Excel / CSV
+Téléchargement des résultats complets : infos contact, statut, durée, résumé, transcription tronquée.
+ P1 
+F4
+Score de sentiment (0–10)
+Analyse post-appel du ton général de la conversation. Affiché par contact et en moyenne sur la campagne.
+ P2 
+F5
+Humeur détectée
+Classification : satisfait / neutre / frustré / enthousiaste / agressif. Basé sur la transcription.
+ P2 
+F6
+Risque de départ (churn score)
+Score 0–1 estimant la probabilité que le client parte. Alèrte si score > 0.7.
+ P2 
+F7
+Action recommandée
+Suggestion automatique : rappel commercial / alerte SAV / rien à faire. Basé sur l’analyse IA.
+ P2 
+F8
+Rapport PDF auto-généré
+Rapport de campagne complet en PDF : KPIs, graphiques, insights clés, recommandations.
+ P2 
+F9
+Analyse comparative de campagnes
+Comparer les résultats de plusieurs campagnes sur une même période ou un même segment.
+ P3 
+F10
+Prédictions IA (NPS, churn global)
+Modèles prédictifs à partir de l’historique des appels pour anticiper les tendances.
+ P3 
+F11
+Verbatim clustérisés
+Regroupement automatique des commentaires libres par thème (attente, tarif, qualité...).
+ P3 
+Module G — Dashboard & Interface Utilisateur
+ID
+Fonctionnalité
+Description
+Phase
+G1
+Page d’accueil (KPIs globaux)
+Appels aujourd’hui, taux de réponse moyen, campagnes actives, crédit restant.
+ P1 
+G2
+Liste des campagnes
+Tableau : nom, statut (badge coloré), progression (X/Y appels), date, actions.
+ P1 
+G3
+Détail d’une campagne
+Onglets : Vue générale / Appels / Contacts / Paramètres. KPIs + graphiques.
+ P1 
+G4
+Vue par appel
+Transcription complète + résumé + durée + statut. Accessible en un clic depuis la liste.
+ P1 
+G5
+Notifications en temps réel
+Alertes dans l’interface : campagne terminée, transfert demandé, erreur critique.
+ P1 
+G6
+Graphiques de progression
+Courbe d’appels par jour, répartition des statuts en donut chart, évolution du taux de réponse.
+ P2 
+G7
+Carte géographique CI
+Visualisation des résultats par ville ou région de Côte d’Ivoire sur une carte.
+ P2 
+G8
+Filtres et recherche avancée
+Filtrer les appels par statut, ville, segment, score de sentiment, date.
+ P2 
+G9
+Vue temps réel (live monitoring)
+Tableau de bord « en direct » montrant les appels en cours et leur statut.
+ P2 
+G10
+Application mobile (iOS + Android)
+Version mobile du dashboard : consulter les résultats, recevoir les alertes.
+ P3 
+G11
+Rapports programmés
+Envoi automatique du rapport de campagne par email à une fréquence configurée.
+ P3 
+Module H — Backoffice Sonara (Admin Interne)
+ID
+Fonctionnalité
+Description
+Phase
+H1
+Gestion des comptes clients
+Liste de toutes les entreprises abonnées. Création, suspension, suppression.
+ P1 
+H2
+Gestion du crédit d’appels
+Attribuer, ajuster ou retirer du crédit manuellement. Historique des mouvements.
+ P1 
+H3
+Monitoring global des appels
+Vue d’ensemble de tous les appels en cours sur la plateforme. Détection des anomalies.
+ P1 
+H4
+Facturation manuelle
+Générer une facture PDF pour un client. Suivi des paiements.
+ P2 
+H5
+Facturation automatisée
+Intégration Wave CI / virement bancaire. Renouvellement automatique des abonnements.
+ P2 
+H6
+Tableau de bord financier
+MRR, ARR, churn clients, revenus par plan, coûts API vs revenus.
+ P2 
+H7
+Gestion des incidents
+Détecter, signaler et résoudre les incidents (API down, dégradation qualité voix).
+ P2 
+H8
+Portail client self-service
+Les entreprises gèrent elles-mêmes leur abonnement, leurs factures, leurs options.
+ P3 
+H9
+Marketplace de templates
+Les clients peuvent partager ou acheter des templates de campagnes.
+ P3 
+Module I — Intégrations & API
+ID
+Fonctionnalité
+Description
+Phase
+I1
+API REST publique Sonara
+Endpoints pour déclencher des campagnes et récupérer les résultats programmatiquement.
+ P2 
+I2
+Webhooks sortants
+Envoi automatique des résultats post-appel vers l’URL de l’entreprise cliente.
+ P2 
+I3
+Intégration Salesforce / HubSpot
+Import contacts + export résultats directement dans le CRM.
+ P2 
+I4
+Intégration Google Sheets
+Synchronisation bidirectionnelle contacts / résultats avec Google Sheets.
+ P2 
+I5
+Intégration Zoho CRM
+Même logique que Salesforce / HubSpot, pour les entreprises utilisant Zoho.
+ P3 
+I6
+Intégration WhatsApp Business
+Envoi d’un SMS / WhatsApp avant l’appel pour prévenir le contact.
+ P3 
+I7
+SDK (Python, JavaScript)
+Kit de développement pour intégrer Sonara dans des applications tierces.
+ P3 
+I8
+Intégrations CRM locaux africains
+Compatibilité avec les outils utilisés au Sénégal, Cameroun, Maroc.
+ P3 
+Module J — Conformité & Sécurité
+ID
+Fonctionnalité
+Description
+Phase
+J1
+Identification IA obligatoire
+L’IA se présente dés le début d’appel comme représentant de l’entreprise (loi CI).
+ P1 
+J2
+Respect des plages horaires légales
+Blocage automatique hors 8h–20h heure locale Abidjan.
+ P1 
+J3
+Droit d’opposition (opt-out)
+Liste noire permanente. Le contact peut demander à ne plus être appelé.
+ P1 
+J4
+Chiffrement des données
+HTTPS TLS 1.2+ en transit. Chiffrement AES-256 au repos pour les transcriptions.
+ P1 
+J5
+Isolation des données par entreprise
+Chaque requête filtrée par company_id. Accès cross-tenant impossible.
+ P1 
+J6
+Déclaration ARTCI
+Démarche officielle de déclaration auprès de l’ARTCI pour les communications automatisées.
+ P1 
+J7
+Conformité Loi 2013-450 CI
+Protection des données personnelles. Consentement, droit d’accès, droit à l’effacement.
+ P1 
+J8
+Audit de sécurité
+Test de pénétration (pentest) avant lancement commercial.
+ P2 
+J9
+Certification ISO 27001
+Certification sécurité pour les grands comptes exigeants (banques, télécoms).
+ P3 
+J10
+Conformité multi-pays
+Adaptation aux réglementations Sénégal, Cameroun, Ghana lors de l’expansion.
+ P3 
+4. Modèle de Données (PostgreSQL)
+4.1 Tables principales
+Phase
+Table
+Colonnes clés
+Description
+ P1 
+companies
+id (UUID), name, email, password_hash, plan, api_credit, created_at
+Une entreprise abonnée. credit = appels restants.
+ P1 
+users
+id, company_id, email, role, invite_token, is_active
+Collaborateurs de l’entreprise.
+ P1 
+campaigns
+id, company_id, name, sector, ai_brief (TEXT), status, max_retries, time_start, time_end, scheduled_at
+ai_brief = system prompt injecté dans GPT-4o.
+ P1 
+contacts
+id, campaign_id, phone (normalized), first_name, last_name, city, segment, status, attempts, blacklisted
+Liste des contacts. status: pending|calling|completed|failed|unreachable.
+ P1 
+calls
+id, contact_id, campaign_id, status, duration_sec, started_at, ended_at, vapi_call_id, transcript (JSONB), summary (TEXT)
+Chaque appel. transcript = [{speaker,text,timestamp}].
+ P1 
+call_events
+id, call_id, event_type, payload (JSONB), created_at
+Log des webhooks Vapi pour debug.
+ P2 
+ai_analysis
+id, call_id, sentiment_score, mood, churn_risk, purchase_intent, key_points (JSONB), suggested_action
+Analyse IA post-appel approfondie.
+ P2 
+templates
+id, company_id, name, sector, ai_brief, is_public
+Templates de campagnes réutilisables.
+ P2 
+invoices
+id, company_id, amount_fcfa, status, period_start, period_end, pdf_url
+Factures générées pour chaque client.
+ P3 
+segments
+id, company_id, name, filter_rules (JSONB)
+Groupes dynamiques de contacts.
+5. API Backend — Routes Principales
+Phase
+Méth.
+Route
+Auth
+Description
+ P1 
+POST
+/auth/register
+Public
+Inscription entreprise
+ P1 
+POST
+/auth/login
+Public
+Connexion, retourne JWT
+ P1 
+POST
+/auth/refresh
+Public
+Renouvellement access token
+ P1 
+POST
+/auth/invite
+JWT
+Génération lien invitation
+ P1 
+GET
+/campaigns
+JWT
+Liste des campagnes
+ P1 
+POST
+/campaigns
+JWT
+Création campagne
+ P1 
+GET
+/campaigns/{id}
+JWT
+Détail + KPIs campagne
+ P1 
+PATCH
+/campaigns/{id}
+JWT
+Modifier statut campagne
+ P1 
+POST
+/campaigns/{id}/contacts
+JWT
+Import CSV contacts
+ P1 
+GET
+/campaigns/{id}/calls
+JWT
+Liste appels paginee
+ P1 
+GET
+/calls/{id}
+JWT
+Transcription + résumé
+ P1 
+GET
+/campaigns/{id}/export
+JWT
+Export Excel/CSV
+ P1 
+POST
+/webhooks/vapi
+HMAC
+Webhook événements Vapi
+ P1 
+GET
+/company/usage
+JWT
+Crédit + consommation
+ P2 
+GET
+/calls/{id}/analysis
+JWT
+Analyse IA complète
+ P2 
+GET
+/campaigns/{id}/report
+JWT
+Rapport PDF
+ P2 
+POST
+/webhooks/outbound
+JWT
+Configurer webhook sortant
+ P2 
+GET
+/templates
+JWT
+Bibliothèque de templates
+ P3 
+GET
+/api/v1/campaigns
+API Key
+API publique partenaires
+ P3 
+POST
+/api/v1/campaigns/{id}/launch
+API Key
+Lancement via API externe
+6. Sécurité
+Phase
+Point de sécurité
+Implémentation
+ P1 
+Authentification JWT
+Access token 15min + refresh token 7j. Cookie httpOnly, Secure, SameSite=Strict.
+ P1 
+Hashage mots de passe
+Bcrypt cost 12. Jamais de plain text, jamais loggé.
+ P1 
+Validation webhook Vapi
+Signature HMAC-SHA256 sur chaque requête entrante.
+ P1 
+HTTPS obligatoire
+TLS 1.2+ partout. Certificats Let’s Encrypt auto-renouvelés.
+ P1 
+Isolation des données
+Filtrage systématique par company_id issu du JWT. Cross-tenant impossible.
+ P1 
+Rate limiting
+100 req/min sur routes publiques. 1000 req/min par JWT.
+ P1 
+Protection injection SQL
+ORM SQLAlchemy uniquement. Zéro concaténation de chaînes SQL.
+ P1 
+Clés API tierces
+Variables d’environnement serveur uniquement. Jamais dans le repo Git.
+ P2 
+Chiffrement au repos
+AES-256 pour les transcriptions et données sensibles en base.
+ P2 
+Pentest
+Test de pénétration avant lancement commercial par prestataire externe.
+ P3 
+2FA
+Code OTP par SMS ou appli d’authentification pour les admins.
+ P3 
+ISO 27001
+Certification pour les grands comptes exigeants.
+7. Roadmap par Phase
+Phase 1 — MVP (Mois 1–4)
+Objectif : avoir un produit fonctionnel qui passe de vrais appels, produit des résumés exploitables et peut être vendu à un premier client payant.
+Période
+Livrables
+Semaine 1–2
+Setup infra OVHcloud + CI/CD GitHub Actions. Comptes API (Vapi, Africa’s Talking, ElevenLabs, Deepgram, OpenAI). Schéma BDD PostgreSQL v1.
+Semaine 3–4
+Backend FastAPI : auth JWT complet, CRUD campagnes, import CSV. Tests unitaires.
+Semaine 5–6
+Intégration Vapi + Africa’s Talking. Pipeline appel complet. Webhook réception + sauvegarde. Prompt système dynamique. Test sur 20 appels réels CI.
+Semaine 7
+Génération résumé GPT-4o post-appel. Export Excel/CSV.
+Semaine 8
+Frontend Next.js : auth, dashboard campagnes, liste appels, vue transcription, export. Design system Sonara.
+Semaine 9–12
+Tests end-to-end sur 200 appels réels. Corrections. Client pilote. Monitoring Sentry. Activation facturation.
+Phase 2 — Croissance (Mois 4–12)
+Objectif : enrichir le produit avec les fonctionnalités qui améliorent la rétention client et permettent de monter en gamme.
+Éditeur de script no-code avec logique conditionnelle
+Analyse sentiment + churn score + intentions d’achat
+Rapports PDF auto-générés + live monitoring
+API publique Sonara + webhooks sortants
+Intégrations CRM (Salesforce, HubSpot, Google Sheets)
+Fine-tuning Deepgram sur corpus accent CI
+Migration hébergement vers ST Digital Grand-Bassam
+Facturation automatisée Wave CI
+Phase 3 — Scale (Mois 12+)
+Objectif : expansion Afrique de l’Ouest + fonctionnalités enterprise pour les grands comptes.
+Multilingue : wolof, dioula, mooré, anglais
+Appels entrants (inbound) + USSD + WhatsApp
+LLM hébergé localement (Mistral / LLaMA) pour réduire les coûts
+Expansion : Sénégal, Cameroun, Bénin, Ghana
+Application mobile iOS + Android
+ISO 27001 + SSO entreprise
+Marketplace de templates de campagnes
+Modèles prédictifs (NPS, churn global, verbatim clustérisés)
+8. Structure de Coûts Techniques (par appel de 2 min)
+Hypothèse de calcul : appel de 2 minutes, ~500 caractères TTS, ~1200 tokens LLM. Taux de change : 1 USD = 650 FCFA.
+Phase
+Composant
+Coût / appel
+Base de calcul
+ P1 
+Téléphonie Africa’s Talking CI
+~6–12 FCFA
+Appel sortant local CI. Inf. au tarif Twilio (370–480 FCFA/min).
+ P1 
+Transcription Deepgram Nova-2
+~5,6 FCFA
+0,0043 USD/min × 2 min × 650 = 5,6 FCFA
+ P1 
+LLM GPT-4o (tokens)
+~12 FCFA
+~1200 tokens total ≈ 0,018 USD × 650
+ P1 
+TTS ElevenLabs Turbo v2
+~3,3 FCFA
+0,05 USD/1000 caractères × 500 × 650 FCFA
+ P1 
+Infrastructure serveur
+~3 FCFA
+Proration mensuelle OVHcloud sur volume
+ P1 
+TOTAL coût P1
+∼ 30–36 FCFA
+Marge brute > 50% sur plan Business (60 FCFA/appel)
+ P3 
+LLM Mistral hébergé localement
+~2 FCFA
+Remplacement partiel GPT-4o à 50k+ appels/mois
+ P3 
+TOTAL coût P3 optimisé
+∼ 18–24 FCFA
+Marge brute > 70% à grande échelle
+9. Prochaines Étapes
+Quand
+Étape
+①
+Maintenant
+Valider ce CDC avec l’équipe technique. Identifier le développeur fullstack MVP.
+②
+Semaine 1
+Ouvrir les comptes : Africa’s Talking, Vapi.ai, ElevenLabs, Deepgram, OpenAI, Supabase, OVHcloud.
+③
+Semaine 1
+Contacter ST Digital Grand-Bassam pour un devis hébergement (info@st.digital).
+④
+Semaines 1–2
+Identifier 1 client pilote (banque, télécom ou institut d’études) prêt à tester gratuitement.
+⑤
+Semaines 2–12
+Développement MVP selon le plan Sprint défini en section 7.
+⑥
+Mois 3
+Lancement campagne pilote réelle. Test sur 200+ appels CI.
+⑦
+Mois 4
+Activation de la facturation. Signature des 3 premiers clients payants.
+— Fin du document —
+Confidentiel — Sonara © 2025

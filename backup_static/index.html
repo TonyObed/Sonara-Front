@@ -1,0 +1,3737 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sonara — L'oreille que vous n'aviez pas.</title>
+  <meta name="description" content="Sonara transforme chaque appel téléphonique en donnée exploitable, instantanément. Plateforme d'enquêtes par IA vocale conversationnelle en Afrique de l'Ouest." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js"></script>
+
+  <style>
+    /* ─── RESET & CSS VARIABLES ──────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    :root {
+      /* Colors based on tokens.json */
+      --bg-primary:     #0D0F14;
+      --bg-secondary:   #111318;
+      --bg-tertiary:    #161820;
+      --bg-glass:       rgba(255, 255, 255, 0.03);
+      --bg-glass-hover: rgba(255, 255, 255, 0.06);
+      
+      --brand-navy:     #1B4F72;
+      --brand-navy-lt:  #2471A3;
+      --brand-accent:   #0052FF;
+      --brand-accent-h: #1A66FF;
+      --brand-accent-t: rgba(0, 82, 255, 0.12);
+      
+      --text-primary:   #F5F5F0;
+      --text-secondary: #9CA3AF;
+      --text-muted:     #6B7280;
+      --text-accent:    #0052FF;
+      
+      --border:         rgba(255, 255, 255, 0.08);
+      --border-strong:  rgba(255, 255, 255, 0.16);
+      --border-accent:  rgba(0, 82, 255, 0.40);
+      
+      --success:        #22C55E;
+      --success-bg:     rgba(34, 197, 94, 0.12);
+      --error:          #EF4444;
+      --error-bg:       rgba(239, 68, 68, 0.12);
+      
+      /* Typography */
+      --font-display: 'Satoshi', sans-serif;
+      --font-body: 'Satoshi', sans-serif;
+      --font-mono: 'Roboto Mono', monospace;
+      --font-instrument-sans: 'Instrument Sans', sans-serif;
+      --font-instrument-serif: 'Instrument Serif', serif;
+
+      /* Shadows */
+      --shadow-sm:     0 2px 8px rgba(0, 0, 0, 0.4);
+      --shadow-md:     0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-lg:     0 16px 48px rgba(0, 0, 0, 0.6);
+      --glow-accent:   0 0 40px rgba(0, 82, 255, 0.25);
+      --glow-navy:     0 0 40px rgba(27, 79, 114, 0.25);
+      --glow-card:     0 20px 60px rgba(0, 82, 255, 0.10), 0 4px 16px rgba(0, 0, 0, 0.5);
+
+      /* Layout */
+      --max-w:         1200px;
+      --max-w-narrow:  800px;
+      --pad-section:   100px;
+      --pad-container: 24px;
+      
+      --radius-sm:     6px;
+      --radius-md:     10px;
+      --radius-lg:     16px;
+      --radius-xl:     24px;
+      --radius-full:   9999px;
+
+      /* Easing */
+      --ease-snap:     cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-bounce:   cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ─── BASE STYLES ────────────────────────────────────────── */
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 450;
+      line-height: 26px;
+      letter-spacing: -0.01em;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Mouse Glow Backlight */
+    .mouse-glow {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(0, 82, 255, 0.04) 0%, rgba(27, 79, 114, 0.03) 40%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 1s var(--ease-snap);
+      mix-blend-mode: screen;
+    }
+    body:hover .mouse-glow { opacity: 1; }
+
+    /* Layout Helpers */
+    .container {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 var(--pad-container);
+      position: relative;
+      z-index: 2;
+    }
+    .container--narrow {
+      max-width: var(--max-w-narrow);
+      margin: 0 auto;
+      padding: 0 var(--pad-container);
+      position: relative;
+      z-index: 2;
+    }
+    section {
+      padding: var(--pad-section) 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      font-family: var(--font-display);
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .section-title {
+      font-size: clamp(34px, 5vw, 48px);
+      font-weight: 750;
+      line-height: 1.1;
+      font-variation-settings: 'opsz' 48;
+      margin-bottom: 16px;
+    }
+    .section-title span {
+      color: var(--brand-accent);
+    }
+    .section-subtitle {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: 48px;
+      line-height: 28px;
+    }
+
+    .label-badge {
+      display: inline-flex;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--brand-accent);
+      background: var(--brand-accent-t);
+      border: 1px solid var(--border-accent);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      margin-bottom: 24px;
+    }
+
+    /* Scroll Reveals */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 800ms var(--ease-snap), transform 800ms var(--ease-snap);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 100ms; }
+    .reveal-delay-2 { transition-delay: 200ms; }
+    .reveal-delay-3 { transition-delay: 300ms; }
+    .reveal-delay-4 { transition-delay: 400ms; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 28px;
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 550;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 250ms var(--ease-snap);
+      border: 1.5px solid transparent;
+      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: var(--brand-accent);
+      color: #fff;
+      border-color: var(--brand-accent);
+      box-shadow: 0 4px 20px rgba(0, 82, 255, 0.2);
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: -50%; left: -60%;
+      width: 200%; height: 200%;
+      background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(255, 255, 255, 0.15) 45%,
+        rgba(255, 255, 255, 0.25) 50%,
+        transparent 55%
+      );
+      transform: rotate(45deg) translate(-100%, -100%);
+      transition: transform 0.6s ease;
+    }
+    .btn-primary:hover::after {
+      transform: rotate(45deg) translate(100%, 100%);
+    }
+    .btn-primary:hover {
+      background: var(--brand-accent-h);
+      border-color: var(--brand-accent-h);
+      transform: translateY(-2px);
+      box-shadow: var(--glow-accent), 0 8px 30px rgba(0, 82, 255, 0.3);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-glass);
+      border-color: var(--brand-accent);
+      color: var(--brand-accent);
+      transform: translateY(-2px);
+    }
+
+    /* ─── NEW NAVIGATION (AI BUILDER) ───────────────────────── */
+    .logo-img {
+      height: 32px;
+      width: auto;
+      display: block;
+    }
+    .nav-ai {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: transparent;
+      box-sizing: border-box;
+      transition: all 300ms var(--ease-smooth);
+    }
+    .nav-ai.scrolled {
+      padding: 12px 24px;
+      background: rgba(13, 15, 20, 0.90);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .nav-ai-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+    .nav-ai-logo {
+      display: inline-flex;
+      align-items: center;
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .nav-ai-links {
+      display: none;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    @media (min-width: 768px) {
+      .nav-ai-links {
+        display: flex;
+      }
+    }
+    .nav-ai-links a {
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 200ms ease;
+    }
+    .nav-ai-links a:hover {
+      color: #ffffff;
+    }
+    .nav-ai-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .nav-ai-right .demo-link {
+      display: none;
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: color 200ms ease;
+    }
+    @media (min-width: 640px) {
+      .nav-ai-right .demo-link {
+        display: block;
+      }
+    }
+    .nav-ai-right .demo-link:hover {
+      color: #ffffff;
+    }
+    .nav-ai-right .btn-get-started {
+      background: #ffffff;
+      color: #000000;
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 200ms ease, transform 150ms ease;
+    }
+    .nav-ai-right .btn-get-started:hover {
+      background-color: rgba(255, 255, 255, 0.9);
+    }
+    .nav-ai-right .btn-get-started:active {
+      transform: scale(0.95);
+    }
+
+    /* ─── NEW HERO SECTION (AI BUILDER) ─────────────────────── */
+    .hero-ai {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      background-color: #000000;
+      color: #ffffff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 96px 24px 48px;
+      box-sizing: border-box;
+    }
+    .hero-ai-video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero-ai-overlay {
+      position: absolute;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 1;
+      pointer-events: none;
+    }
+    /* Gradients */
+    .hero-ai-grad-top {
+      position: absolute;
+      top: -20%; left: 20%;
+      width: 600px; height: 600px;
+      background: rgba(30, 58, 138, 0.2); /* bg-blue-900/20 */
+      filter: blur(120px);
+      mix-blend-mode: screen;
+      border-radius: 50%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hero-ai-grad-bottom {
+      position: absolute;
+      bottom: -10%; right: 20%;
+      width: 500px; height: 500px;
+      background: rgba(49, 46, 129, 0.2); /* bg-indigo-900/20 */
+      filter: blur(120px);
+      mix-blend-mode: screen;
+      border-radius: 50%;
+      z-index: 1;
+      pointer-events: none;
+    }
+    /* Content */
+    .hero-ai-content {
+      position: relative;
+      z-index: 10;
+      max-width: 1024px; /* max-w-5xl */
+      margin: 80px auto 0; /* mt-20 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 48px; /* space-y-12 */
+    }
+    /* Typography & Fonts */
+    .hero-ai-pre {
+      font-family: var(--font-instrument-serif), serif;
+      font-size: 30px;
+      line-height: 1.1;
+      color: #ffffff;
+      margin: 0;
+      /* Animation properties */
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @media (min-width: 640px) {
+      .hero-ai-pre { font-size: 48px; }
+    }
+    @media (min-width: 1024px) {
+      .hero-ai-pre { font-size: 48px; }
+    }
+
+    .hero-ai-main {
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-weight: 600;
+      font-size: 60px;
+      line-height: 0.9;
+      letter-spacing: -0.05em; /* tracking-tighter */
+      margin: 0;
+      background: linear-gradient(to bottom, #ffffff 40%, #ffffff 60%, #b4c0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      /* Animation properties */
+      opacity: 0;
+      transform: scale(0.9);
+      animation: scaleUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+    }
+    @media (min-width: 640px) {
+      .hero-ai-main { font-size: 96px; }
+    }
+    @media (min-width: 1024px) {
+      .hero-ai-main { font-size: 136px; }
+    }
+
+    .hero-ai-sub {
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-size: 18px;
+      line-height: 1.65;
+      color: #ffffff;
+      opacity: 0;
+      max-width: 576px; /* max-w-xl */
+      margin: 0 auto;
+      /* Animation properties */
+      animation: fadeIn 1.2s ease 0.8s forwards;
+    }
+    @media (min-width: 640px) {
+      .hero-ai-sub { font-size: 20px; }
+    }
+
+    /* Buttons Container */
+    .hero-ai-buttons {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      /* Animation properties */
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1.0s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
+    }
+    @media (min-width: 640px) {
+      .hero-ai-buttons {
+        flex-direction: row;
+      }
+    }
+
+    /* Primary Button */
+    .hero-ai-btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 8px 8px 24px;
+      background: #ffffff;
+      color: #0a0400;
+      border-radius: 9999px;
+      text-decoration: none;
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-weight: 500;
+      font-size: 18px;
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hero-ai-btn-primary:hover {
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+    .hero-ai-btn-primary .arrow-circle {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #3054ff;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 300ms ease;
+    }
+    .hero-ai-btn-primary:hover .arrow-circle {
+      background: #2040e0;
+    }
+
+    /* Secondary Button */
+    .hero-ai-btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      color: rgba(255, 255, 255, 0.7);
+      text-decoration: none;
+      font-family: var(--font-instrument-sans), sans-serif;
+      font-size: 16px;
+      border-radius: 8px;
+      backdrop-filter: blur(4px);
+      transition: color 200ms ease, background-color 200ms ease;
+    }
+    .hero-ai-btn-secondary:hover {
+      color: #ffffff;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    .hero-ai-btn-secondary svg {
+      transition: transform 200ms ease;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .hero-ai-btn-secondary:hover svg {
+      transform: translateX(4px);
+      color: #ffffff;
+    }
+
+    /* ─── ANIMATIONS ────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scaleUp {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 0.7; }
+    };
+      justify-content: center;
+      gap: 4px;
+      height: 48px;
+    }
+    .visual-bar {
+      width: 4px;
+      background: var(--brand-accent);
+      border-radius: var(--radius-full);
+      animation: pulse-bar 1.5s infinite ease-in-out alternate;
+    }
+    @keyframes pulse-bar {
+      0% { height: 10%; }
+      100% { height: 90%; }
+    }
+
+    /* ─── STATS SECTION (BENTO GRID) ─────────────────────────── */
+    #stats {
+      padding: 80px 0;
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      background: transparent;
+      border-radius: 0;
+      overflow: visible;
+      border: none;
+    }
+    .stat-card {
+      background-color: rgba(255, 255, 255, 0.02);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      transition: all 400ms var(--ease-snap);
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    .stat-card.animate-in {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .stat-card:hover {
+      background-color: rgba(255, 255, 255, 0.04);
+      border-color: var(--brand-accent-h);
+      box-shadow: 0 10px 30px rgba(0, 82, 255, 0.05);
+      transform: translateY(-4px);
+    }
+    .stat-card.large {
+      grid-column: span 2;
+      text-align: left;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .stat-card.large .stat-content {
+      max-width: 70%;
+    }
+    .stat-card.large .stat-graphic {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      background: rgba(0, 82, 255, 0.05);
+      border: 1px solid rgba(0, 82, 255, 0.15);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stat-number {
+      font-family: var(--font-display);
+      font-size: 48px;
+      font-weight: 850;
+      color: var(--brand-accent);
+      line-height: 1;
+      margin-bottom: 6px;
+      font-variation-settings: 'opsz' 48;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 22px;
+    }
+    /* Wave equalizer visual */
+    .voice-wave {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 24px;
+    }
+    .voice-wave-bar {
+      width: 3px;
+      background: var(--brand-accent);
+      border-radius: var(--radius-full);
+      animation: pulse-wave-bar 1.2s infinite ease-in-out alternate;
+    }
+    .voice-wave-bar:nth-child(1) { height: 10px; animation-delay: 0.1s; }
+    .voice-wave-bar:nth-child(2) { height: 24px; animation-delay: 0.3s; }
+    .voice-wave-bar:nth-child(3) { height: 15px; animation-delay: 0.2s; }
+    .voice-wave-bar:nth-child(4) { height: 20px; animation-delay: 0.5s; }
+    .voice-wave-bar:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+    @keyframes pulse-wave-bar {
+      0% { transform: scaleY(0.3); }
+      100% { transform: scaleY(1); }
+    }
+    /* Circular pulse activity visual */
+    .voice-pulse-ring {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .voice-pulse-circle {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 2px solid var(--brand-accent);
+      border-radius: 50%;
+      animation: pulse-circle-glow 1.8s infinite ease-out;
+    }
+    .voice-pulse-circle:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+    .voice-pulse-circle:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+    .voice-pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--brand-accent);
+      border-radius: 50%;
+    }
+    @keyframes pulse-circle-glow {
+      0% {
+        transform: scale(0.6);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.6);
+        opacity: 0;
+      }
+    }
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stat-card.large {
+        grid-column: span 2;
+      }
+    }
+    @media (max-width: 640px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .stat-card.large {
+        grid-column: span 1;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .stat-card.large .stat-content {
+        max-width: 100%;
+      }
+    }
+
+    /* ─── HOW IT WORKS ────────────────────────────────────────── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 56px;
+    }
+    .step-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      position: relative;
+      transition: all 300ms var(--ease-snap);
+    }
+    .step-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 2px;
+      background: linear-gradient(to right, transparent, var(--brand-accent), transparent);
+      opacity: 0;
+      transition: opacity 300ms ease;
+    }
+    .step-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md), var(--glow-accent);
+    }
+    .step-card:hover::before {
+      opacity: 1;
+    }
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .step-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .step-icon-box {
+      width: 48px; height: 48px;
+      background: var(--brand-accent-t);
+      border: 1px solid rgba(0, 82, 255, 0.2);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand-accent);
+    }
+    .step-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .step-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 24px;
+    }
+
+    /* ─── USE CASES ───────────────────────────────────────────── */
+    #usecases {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .usecase-intro {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+      margin-bottom: 56px;
+      flex-wrap: wrap;
+    }
+    .usecases-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .usecase-card {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      transition: all 300ms var(--ease-snap);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .usecase-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-4px);
+      box-shadow: var(--glow-card);
+    }
+    .usecase-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .usecase-sector {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--brand-accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .usecase-vol {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--success);
+      background-color: var(--success-bg);
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+    }
+    .usecase-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .usecase-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 24px;
+      margin-bottom: 24px;
+      flex-grow: 1;
+    }
+    .usecase-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .usecase-tag {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+    }
+
+    /* ─── INTERACTIVE SIMULATOR (DEMO) ────────────────────────── */
+    #demo {
+      background: 
+        radial-gradient(ellipse 50% 50% at 90% 80%, rgba(0, 82, 255, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 10% 20%, rgba(27, 79, 114, 0.06) 0%, transparent 60%);
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 64px;
+      align-items: center;
+    }
+    .demo-interactive-wrapper {
+      background: linear-gradient(145deg, #131720, #0E1015);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      box-shadow: var(--shadow-lg), 0 20px 40px rgba(0,0,0,0.4);
+      position: relative;
+    }
+    .phone-mockup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+    .caller-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .caller-avatar {
+      width: 42px; height: 42px;
+      background: var(--brand-accent-t);
+      border: 1px solid var(--border-accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .caller-details {
+      display: flex;
+      flex-direction: column;
+    }
+    .caller-name {
+      font-size: 14px;
+      font-weight: 650;
+      color: var(--text-primary);
+    }
+    .caller-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .caller-status.active {
+      color: var(--success);
+    }
+    .caller-status.active::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+    .call-timer {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Equalizer Canvas */
+    .wave-canvas-container {
+      height: 60px;
+      background-color: rgba(0, 0, 0, 0.2);
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--border);
+    }
+    #waveCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    /* Dialogue Log */
+    .dialogue-log {
+      height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 8px 4px;
+      margin-bottom: 20px;
+      scroll-behavior: smooth;
+    }
+    .dialogue-log::-webkit-scrollbar {
+      width: 4px;
+    }
+    .dialogue-log::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .dialogue-log::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--radius-full);
+    }
+    
+    .chat-row {
+      display: flex;
+      gap: 10px;
+      max-width: 85%;
+      align-items: flex-start;
+      animation: bubble-in 0.3s var(--ease-snap) forwards;
+    }
+    @keyframes bubble-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .chat-row.ai-row {
+      margin-right: auto;
+    }
+    .chat-row.user-row {
+      margin-left: auto;
+      flex-direction: row-reverse;
+    }
+    .bubble-icon {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-weight: bold;
+    }
+    .ai-row .bubble-icon {
+      background: var(--brand-accent-t);
+      border: 1px solid var(--border-accent);
+      color: var(--brand-accent);
+    }
+    .user-row .bubble-icon {
+      background: var(--brand-navy);
+      border: 1px solid var(--brand-navy-lt);
+      color: #fff;
+    }
+    .bubble-txt {
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13.5px;
+      line-height: 20px;
+    }
+    .ai-row .bubble-txt {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-top-left-radius: 0;
+    }
+    .user-row .bubble-txt {
+      background: var(--brand-navy);
+      border: 1px solid var(--brand-navy-lt);
+      color: #fff;
+      border-top-right-radius: 0;
+    }
+
+    /* Custom Simulator Controls */
+    .simulator-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+    }
+    .simulator-btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .sim-btn {
+      flex: 1;
+      padding: 12px 18px;
+      font-size: 14px;
+    }
+    .custom-question-input {
+      display: flex;
+      gap: 8px;
+    }
+    .custom-question-input input {
+      flex: 1;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: var(--radius-full);
+      padding: 10px 18px;
+      font-size: 13px;
+      outline: none;
+      font-family: var(--font-body);
+      transition: border-color 200ms;
+    }
+    .custom-question-input input:focus {
+      border-color: var(--brand-accent);
+    }
+    .custom-question-input button {
+      padding: 10px 18px;
+      font-size: 13px;
+    }
+
+    /* AI Analysis Report Card */
+    .analysis-report-card {
+      margin-top: 16px;
+      background: rgba(34, 197, 94, 0.05);
+      border: 1px dashed var(--success);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      animation: fade-in 0.4s ease-out forwards;
+    }
+    .analysis-report-card h4 {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--success);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .analysis-report-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 20px;
+      margin-bottom: 8px;
+    }
+    .analysis-report-card strong {
+      color: var(--text-primary);
+    }
+    .report-badge-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .report-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+    }
+    .report-badge.sentiment {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    .report-badge.action {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--error);
+    }
+
+    /* ─── PLATFORM DASHBOARD SHOWCASE ────────────────────────── */
+    #dashboard-showcase {
+      background-color: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .showcase-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 550;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 200ms;
+      position: relative;
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: -17px; left: 0; width: 100%; height: 2px;
+      background-color: var(--brand-accent);
+      transform: scaleX(0);
+      transition: transform 250ms var(--ease-smooth);
+    }
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .tab-btn.active {
+      color: var(--brand-accent);
+    }
+    .tab-btn.active::after {
+      transform: scaleX(1);
+    }
+    
+    .tab-content {
+      display: none;
+      animation: fade-in 400ms var(--ease-snap) forwards;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Dashboard UI mockup inside showcase */
+    .dashboard-mockup {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg), 0 30px 60px rgba(0,0,0,0.5);
+    }
+    .db-header {
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .db-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .db-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background-color: var(--brand-accent);
+    }
+    .db-header h4 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .db-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .db-user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--brand-navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #fff;
+    }
+    .db-user-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .db-body {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: 420px;
+    }
+    .db-sidebar {
+      background: rgba(22, 24, 32, 0.5);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .db-sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all 150ms;
+    }
+    .db-sidebar-item.active, .db-sidebar-item:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    .db-main {
+      padding: 24px;
+    }
+
+    /* Campaigns Tab Inner Mockup */
+    .campaigns-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .campaigns-table th {
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .campaigns-table td {
+      padding: 14px 12px;
+      font-size: 13.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .campaigns-table tr:last-child td {
+      border-bottom: none;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 500;
+    }
+    .status-pill.active {
+      background-color: var(--success-bg);
+      color: var(--success);
+    }
+    .status-pill.completed {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+    }
+    .status-pill.scheduled {
+      background-color: rgba(245, 158, 11, 0.12);
+      color: #F59E0B;
+    }
+    .db-progress-bar {
+      width: 100px;
+      height: 6px;
+      background: var(--border-strong);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    .db-progress-fill {
+      height: 100%;
+      background: var(--brand-accent);
+      border-radius: var(--radius-full);
+    }
+
+    /* Analytics Tab Inner Mockup */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+    .analytics-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+    .analytics-card h5 {
+      font-size: 13px;
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .chart-container {
+      position: relative;
+      height: 160px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding-top: 10px;
+    }
+    .chart-bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .chart-bar-fill {
+      width: 70%;
+      max-width: 24px;
+      background: linear-gradient(to top, var(--brand-navy), var(--brand-accent));
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: height 0.6s ease;
+      position: relative;
+    }
+    .chart-bar-fill::after {
+      content: attr(data-val);
+      position: absolute;
+      top: -20px; left: 50%; transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--brand-accent);
+    }
+    .chart-bar-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+    
+    .sentiment-donut-mock {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+      height: 100%;
+    }
+    .sentiment-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+    .sentiment-label-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sentiment-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .sentiment-percent {
+      font-family: var(--font-mono);
+      font-weight: bold;
+    }
+
+    /* Agent Configuration Tab Inner Mockup */
+    .agent-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .form-group select, .form-group textarea {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      font-size: 13px;
+      outline: none;
+      font-family: var(--font-body);
+    }
+    .form-group textarea {
+      resize: none;
+      height: 90px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 18px;
+    }
+    .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--brand-accent);
+    }
+
+    /* ─── INTEGRATIONS MARQUEE ───────────────────────────────── */
+    #integrations {
+      padding: 60px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-primary);
+    }
+    .marquee-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+      position: relative;
+      padding: 20px 0;
+    }
+    .marquee-container::before, .marquee-container::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0; width: 150px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .marquee-container::before {
+      left: 0;
+      background: linear-gradient(to right, var(--bg-primary), transparent);
+    }
+    .marquee-container::after {
+      right: 0;
+      background: linear-gradient(to left, var(--bg-primary), transparent);
+    }
+    
+    .marquee-row {
+      display: flex;
+      gap: 16px;
+      width: max-content;
+      animation: marquee-left 25s linear infinite;
+    }
+    .marquee-row.reverse {
+      animation: marquee-right 25s linear infinite;
+    }
+    .marquee-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-primary);
+      font-weight: 550;
+      font-size: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .marquee-item svg {
+      color: var(--brand-accent);
+    }
+    @keyframes marquee-left {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @keyframes marquee-right {
+      0% { transform: translateX(-50%); }
+      100% { transform: translateX(0); }
+    }
+
+    /* ─── TESTIMONIALS (CAROUSEL) ────────────────────────────── */
+    #testimonials {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .carousel-wrapper {
+      max-width: var(--max-w-narrow);
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+      padding: 10px 0;
+    }
+    .carousel-track {
+      display: flex;
+      transition: transform 500ms var(--ease-snap);
+      width: 300%; /* 3 slides */
+    }
+    .carousel-slide {
+      width: 33.333%;
+      flex-shrink: 0;
+      padding: 0 10px;
+      text-align: center;
+    }
+    .quote-icon {
+      font-size: 60px;
+      color: rgba(0,82,255,0.15);
+      line-height: 1;
+      font-family: var(--font-display);
+      margin-bottom: 20px;
+    }
+    .quote-text {
+      font-family: var(--font-display);
+      font-size: clamp(18px, 3vw, 24px);
+      line-height: 38px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 32px;
+      font-variation-settings: 'opsz' 24;
+    }
+    .author-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .author-name {
+      font-weight: 650;
+      font-size: 15px;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .author-role {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 32px;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      cursor: pointer;
+      transition: all 200ms;
+    }
+    .dot.active {
+      background: var(--brand-accent);
+      transform: scale(1.25);
+    }
+
+    /* ─── PRICING ────────────────────────────────────────────── */
+    #pricing {
+      border-top: 1px solid var(--border);
+    }
+    .pricing-toggle-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .pricing-toggle-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .pricing-toggle-label.active {
+      color: var(--brand-accent);
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+    .toggle-switch input {
+      opacity: 0; width: 0; height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+      transition: 300ms;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      height: 20px; width: 20px;
+      left: 3px; bottom: 3px;
+      background-color: var(--text-secondary);
+      border-radius: 50%;
+      transition: 300ms var(--ease-snap);
+    }
+    .toggle-switch input:checked + .slider {
+      background-color: var(--brand-accent-t);
+      border-color: var(--brand-accent);
+    }
+    .toggle-switch input:checked + .slider::before {
+      transform: translateX(24px);
+      background-color: var(--brand-accent);
+    }
+    
+    .discount-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--success-bg);
+      color: var(--success);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: bold;
+    }
+    
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .pricing-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: all 300ms var(--ease-snap);
+    }
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--glow-card);
+      border-color: var(--border-accent);
+    }
+    .pricing-card.featured {
+      border-color: var(--brand-accent);
+      background: linear-gradient(185deg, rgba(0, 82, 255, 0.05) 0%, var(--bg-secondary) 100%);
+    }
+    .featured-badge {
+      position: absolute;
+      top: 20px; right: 20px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--brand-accent-t);
+      color: var(--brand-accent);
+      border: 1px solid var(--border-accent);
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .pricing-tier {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .pricing-price-container {
+      margin-bottom: 8px;
+    }
+    .price-value {
+      font-family: var(--font-display);
+      font-size: 48px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1;
+      font-variation-settings: 'opsz' 48;
+      transition: opacity 150ms var(--ease-smooth);
+    }
+    .price-currency {
+      font-size: 18px;
+      vertical-align: top;
+      color: var(--text-secondary);
+      margin-right: 2px;
+    }
+    .price-period {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    .pricing-included {
+      font-size: 13.5px;
+      color: var(--brand-accent);
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      font-weight: 550;
+    }
+    .pricing-features-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 36px;
+      flex-grow: 1;
+    }
+    .pricing-features-list li {
+      font-size: 14px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pricing-features-list li svg {
+      flex-shrink: 0;
+    }
+    .pricing-features-list li.muted {
+      color: var(--text-muted);
+    }
+    .pricing-features-list li.muted svg {
+      color: var(--text-muted);
+    }
+
+    /* ─── FAQ (ACCORDION) ────────────────────────────────────── */
+    #faq {
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+    .faq-wrapper {
+      max-width: var(--max-w-narrow);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .faq-item {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: border-color 200ms;
+    }
+    .faq-item:hover {
+      border-color: var(--border-strong);
+    }
+    .faq-trigger {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      text-align: left;
+    }
+    .faq-question {
+      font-family: var(--font-body);
+      font-size: 15.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .faq-icon-arrow {
+      color: var(--text-secondary);
+      transition: transform 300ms var(--ease-snap);
+    }
+    .faq-item.active .faq-icon-arrow {
+      transform: rotate(180deg);
+      color: var(--brand-accent);
+    }
+    .faq-item.active {
+      border-color: var(--border-accent);
+    }
+    .faq-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 300ms var(--ease-snap);
+    }
+    .faq-content {
+      padding: 0 24px 20px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 24px;
+    }
+
+    /* ─── FAQ END ────────────────────────────────────────────── */
+
+    /* ─── CTA FINAL ──────────────────────────────────────────── */
+    #cta-final {
+      text-align: center;
+      padding: 120px 0;
+      background: 
+        radial-gradient(circle 50% 50% at 50% 50%, rgba(0, 82, 255, 0.08) 0%, transparent 60%),
+        var(--bg-primary);
+      border-top: 1px solid var(--border);
+    }
+    .cta-heading {
+      font-size: clamp(36px, 5vw, 54px);
+      font-weight: 850;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .cta-subtext {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+    .cta-btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── FOOTER ─────────────────────────────────────────────── */
+    footer {
+      background: #090B0E;
+      border-top: 1px solid var(--border);
+      padding: 80px 0 40px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.5fr repeat(3, 1fr);
+      gap: 48px;
+      margin-bottom: 60px;
+    }
+    .footer-logo-desc p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 22px;
+      margin-top: 16px;
+      max-width: 280px;
+    }
+    .footer-col h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .footer-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 150ms;
+    }
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-copy {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .footer-badges {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .footer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: var(--success-bg);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      color: var(--success);
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .footer-badge.secondary {
+      background: var(--bg-glass);
+      color: var(--text-secondary);
+      border-color: var(--border);
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .hero-grid, .demo-grid {
+        grid-template-columns: 1fr;
+        gap: 56px;
+      }
+      .hero-content {
+        max-width: 100%;
+        text-align: center;
+      }
+      .hero-badge, .hero-actions {
+        justify-content: center;
+        margin: 0 auto 24px;
+      }
+      .usecases-grid, .pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+      .db-body {
+        grid-template-columns: 1fr;
+      }
+      .db-sidebar {
+        display: flex;
+        flex-direction: row;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        padding: 10px 16px;
+      }
+    }
+    @media (max-width: 768px) {
+      :root {
+        --pad-section: 70px;
+      }
+      .nav-links {
+        display: none; /* simple mobile behavior fallback */
+      }
+      .menu-toggle {
+        display: block;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .usecases-grid, .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .footer-logo-desc {
+        grid-column: span 2;
+      }
+    }
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+      .footer-logo-desc {
+        grid-column: span 1;
+      }
+      .hero-title {
+        font-size: 38px;
+      }
+    }
+
+    /* ─── THEME TOGGLE BUTTON ────────────────────────────────── */
+    .theme-toggle-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 200ms ease, background-color 200ms ease;
+    }
+    .theme-toggle-btn:hover {
+      color: #ffffff;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    .theme-toggle-btn svg {
+      display: block;
+    }
+    body.light-mode .theme-toggle-btn {
+      color: #4B5563;
+    }
+    body.light-mode .theme-toggle-btn:hover {
+      color: #111827;
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    body.light-mode .theme-toggle-btn .sun-icon {
+      display: none !important;
+    }
+    body.light-mode .theme-toggle-btn .moon-icon {
+      display: block !important;
+    }
+
+    /* ─── LIGHT MODE DESIGN SYSTEM VARIABLES ────────────────── */
+    body.light-mode {
+      --bg-primary:     #F3F4F6;
+      --bg-secondary:   #FFFFFF;
+      --bg-tertiary:    #E5E7EB;
+      --bg-glass:       rgba(0, 0, 0, 0.03);
+      --bg-glass-hover: rgba(0, 0, 0, 0.06);
+      
+      --brand-navy:     #E5E7EB;
+      --brand-navy-lt:  #D1D5DB;
+      
+      --text-primary:   #111827;
+      --text-secondary: #4B5563;
+      --text-muted:     #9CA3AF;
+      
+      --border:         rgba(0, 0, 0, 0.08);
+      --border-strong:  rgba(0, 0, 0, 0.16);
+      
+      --shadow-sm:     0 2px 8px rgba(0, 0, 0, 0.05);
+      --shadow-md:     0 8px 24px rgba(0, 0, 0, 0.08);
+      --shadow-lg:     0 16px 48px rgba(0, 0, 0, 0.10);
+    }
+
+    /* ─── LIGHT MODE SPECIFIC OVERRIDES ────────────────────── */
+    body.light-mode .hero-ai {
+      background-color: #FFFFFF;
+      color: #111827;
+    }
+    body.light-mode .hero-ai-video {
+      filter: invert(1) hue-rotate(180deg) brightness(1.0) contrast(1.4);
+      opacity: 0.55;
+    }
+    body.light-mode .hero-ai-overlay {
+      background-color: rgba(255, 255, 255, 0.40);
+    }
+    body.light-mode .hero-ai-pre {
+      color: #111827;
+    }
+    body.light-mode .hero-ai-main {
+      background: linear-gradient(to bottom, #111827 40%, #1f2937 60%, #312e81 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    body.light-mode .hero-ai-sub {
+      color: #4B5563;
+    }
+    body.light-mode .hero-ai-btn-primary {
+      background: #111827;
+      color: #ffffff;
+    }
+    body.light-mode .hero-ai-btn-primary:hover {
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    }
+    body.light-mode .hero-ai-btn-secondary {
+      color: #4B5563;
+    }
+    body.light-mode .hero-ai-btn-secondary:hover {
+      color: #111827;
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    body.light-mode .hero-ai-btn-secondary svg {
+      color: #4B5563;
+    }
+    body.light-mode .hero-ai-btn-secondary:hover svg {
+      color: #111827;
+    }
+    body.light-mode .nav-ai-links a {
+      color: #4B5563;
+    }
+    body.light-mode .nav-ai-links a:hover {
+      color: #111827;
+    }
+    body.light-mode .nav-ai-right .demo-link {
+      color: #4B5563;
+    }
+    body.light-mode .nav-ai-right .demo-link:hover {
+      color: #111827;
+    }
+    body.light-mode .nav-ai-right .btn-get-started {
+      background: #111827;
+      color: #ffffff;
+    }
+    body.light-mode .nav-ai-right .btn-get-started:hover {
+      background-color: #1f2937;
+    }
+    body.light-mode .nav-ai.scrolled {
+      background: rgba(255, 255, 255, 0.90);
+    }
+    body.light-mode .logo-dark-theme {
+      display: none !important;
+    }
+    body.light-mode .logo-light-theme {
+      display: block !important;
+    }
+    body.light-mode .mouse-glow {
+      background: radial-gradient(circle, rgba(0, 82, 255, 0.08) 0%, rgba(27, 79, 114, 0.04) 40%, transparent 70%);
+    }
+    body.light-mode .stat-card {
+      background-color: rgba(0, 0, 0, 0.02);
+      border-color: rgba(0, 0, 0, 0.05);
+    }
+    body.light-mode .stat-card:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+      border-color: var(--brand-accent);
+      box-shadow: 0 10px 30px rgba(0, 82, 255, 0.04);
+    }
+    body.light-mode .stat-card.large .stat-graphic {
+      background: rgba(0, 82, 255, 0.02);
+      border-color: rgba(0, 82, 255, 0.08);
+    }
+    body.light-mode .step-card {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .step-card:hover {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .usecase-card {
+      background-color: var(--bg-secondary);
+    }
+    body.light-mode .usecase-card:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
+    }
+    body.light-mode .usecase-tag {
+      background: var(--bg-tertiary);
+    }
+    body.light-mode .demo-interactive-wrapper {
+      background: linear-gradient(145deg, #ffffff, #f9fafb);
+      border: 1px solid var(--border-strong);
+    }
+    body.light-mode .wave-canvas-container {
+      background-color: rgba(0, 0, 0, 0.03);
+    }
+    body.light-mode .dialogue-log::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+    }
+    body.light-mode .ai-row .bubble-txt {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .user-row .bubble-icon {
+      background: var(--bg-tertiary);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+    body.light-mode .user-row .bubble-txt {
+      background: var(--bg-tertiary);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+    body.light-mode .custom-question-input input {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .dashboard-mockup {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-lg);
+    }
+    body.light-mode .db-header {
+      background: var(--bg-tertiary);
+    }
+    body.light-mode .db-body {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .db-sidebar {
+      background: rgba(0, 0, 0, 0.02);
+    }
+    body.light-mode .db-sidebar-item.active, body.light-mode .db-sidebar-item:hover {
+      background: var(--bg-tertiary);
+    }
+    body.light-mode .status-pill.completed {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+    body.light-mode .analytics-card {
+      background: var(--bg-tertiary);
+    }
+    body.light-mode .sentiment-row {
+      color: var(--text-primary);
+    }
+    body.light-mode .form-group select, body.light-mode .form-group textarea {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .marquee-item {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .marquee-container::before {
+      background: linear-gradient(to right, var(--bg-primary), transparent);
+    }
+    body.light-mode .marquee-container::after {
+      background: linear-gradient(to left, var(--bg-primary), transparent);
+    }
+    body.light-mode .carousel-slide {
+      color: var(--text-primary);
+    }
+    body.light-mode .pricing-card {
+      background: var(--bg-secondary);
+    }
+    body.light-mode .pricing-card.featured {
+      background: linear-gradient(185deg, rgba(48, 84, 255, 0.05) 0%, var(--bg-secondary) 100%);
+    }
+    body.light-mode .pricing-features-list li {
+      color: var(--text-primary);
+    }
+    body.light-mode .faq-item {
+      background-color: var(--bg-secondary);
+    }
+    body.light-mode .faq-question {
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Light Glow (Interactive) -->
+  <div class="mouse-glow" id="mouseGlow"></div>
+
+  <!-- ═══════════════════════════════════════════════════════ NAV -->
+  <nav class="nav-ai" aria-label="Navigation principale" id="navbar">
+    <div class="nav-ai-inner">
+      <a href="#" class="nav-ai-logo logo">
+        <img src="Branding bard sonara/Sonara_Logo_Variante_01.png" alt="Sonara" class="logo-img logo-dark-theme" />
+        <img src="Branding bard sonara/Sonara_Logo_Variante_05.png" alt="Sonara" class="logo-img logo-light-theme" style="display: none;" />
+      </a>
+      <ul class="nav-ai-links">
+        <li>
+          <a href="#">
+            Products
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6;"><path d="m6 9 6 6 6-6"/></svg>
+          </a>
+        </li>
+        <li><a href="#">Customer Stories</a></li>
+        <li><a href="#">Resources</a></li>
+        <li><a href="#">Pricing</a></li>
+      </ul>
+      <div class="nav-ai-right">
+        <a href="#" class="demo-link">Book A Demo</a>
+        <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle theme">
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <button class="btn-get-started">Get Started</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════ HERO -->
+  <section class="hero-ai">
+    <!-- Background Video Layer -->
+    <video
+      id="bgVideo"
+      class="hero-ai-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+    >
+      <source src="test 1.mp4" type="video/mp4" />
+    </video>
+
+    <!-- Video Overlay -->
+    <div class="hero-ai-overlay"></div>
+
+    <!-- Decorative Gradients -->
+    <div class="hero-ai-grad-top"></div>
+    <div class="hero-ai-grad-bottom"></div>
+
+    <!-- Content Container -->
+    <div class="hero-ai-content">
+      
+      <!-- Pre-headline -->
+      <p class="hero-ai-pre">
+        Design at the speed of thought
+      </p>
+
+      <!-- Main Headline -->
+      <h1 class="hero-ai-main">
+        Build Faster
+      </h1>
+
+      <!-- Subheadline -->
+      <p class="hero-ai-sub">
+        Create fully functional, SEO-optimized websites in seconds with our advanced AI engine.
+      </p>
+
+      <!-- CTA Buttons -->
+      <div class="hero-ai-buttons">
+        <!-- Primary Button -->
+        <a href="#" class="hero-ai-btn-primary">
+          <span>Start Building Free</span>
+          <div class="arrow-circle">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </a>
+
+        <!-- Secondary Button -->
+        <a href="#" class="hero-ai-btn-secondary">
+          <span>See Examples</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ STATS -->
+  <section id="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <!-- Card 1 (Large - Spans 2 Cols) -->
+        <div class="stat-card large">
+          <div class="stat-content">
+            <div class="stat-number" data-target="75" data-suffix="%">0%</div>
+            <div class="stat-label">Réduction moyenne des coûts d'exploitation par rapport à un centre d'appels traditionnel</div>
+          </div>
+          <div class="stat-graphic">
+            <div class="voice-wave" aria-hidden="true">
+              <span class="voice-wave-bar"></span>
+              <span class="voice-wave-bar"></span>
+              <span class="voice-wave-bar"></span>
+              <span class="voice-wave-bar"></span>
+              <span class="voice-wave-bar"></span>
+            </div>
+          </div>
+        </div>
+        <!-- Card 2 (Small - Spans 1 Col) -->
+        <div class="stat-card">
+          <div class="stat-number" data-target="100" data-suffix="k+">0k+</div>
+          <div class="stat-label">Capacité d'appels simultanés sans latence</div>
+        </div>
+        <!-- Card 3 (Small - Spans 1 Col) -->
+        <div class="stat-card">
+          <div class="stat-number" data-target="10" data-prefix="&lt; " data-suffix=" min">0 min</div>
+          <div class="stat-label">Génération de rapports d'analyse</div>
+        </div>
+        <!-- Card 4 (Large - Spans 2 Cols) -->
+        <div class="stat-card large">
+          <div class="stat-content">
+            <div class="stat-number" data-target="92" data-suffix="%">0%</div>
+            <div class="stat-label">Taux moyen de complétion des enquêtes menées intégralement par nos agents IA</div>
+          </div>
+          <div class="stat-graphic">
+            <div class="voice-pulse-ring" aria-hidden="true">
+              <span class="voice-pulse-circle"></span>
+              <span class="voice-pulse-circle"></span>
+              <span class="voice-pulse-circle"></span>
+              <span class="voice-pulse-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ HOW IT WORKS -->
+  <section id="how">
+    <div class="container">
+      <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+        <span class="label-badge reveal">Processus</span>
+        <h2 class="section-title reveal">Trois étapes simples. <span>Zéro humain.</span></h2>
+        <p class="section-subtitle reveal">Mettez en place vos campagnes téléphoniques automatisées en moins de temps qu'il n'en faut pour rédiger un email.</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card reveal">
+          <div class="step-header">
+            <span class="step-badge">ÉTAPE 01</span>
+            <div class="step-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </div>
+          </div>
+          <h3 class="step-title">Configurer l'IA</h3>
+          <p>Rédigez l'objectif de votre enquête et vos questions en français. Définissez le ton, le degré d'expressions locales (nouchi) et importez votre fichier de contacts CSV.</p>
+        </div>
+
+        <div class="step-card reveal reveal-delay-1">
+          <div class="step-header">
+            <span class="step-badge">ÉTAPE 02</span>
+            <div class="step-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </div>
+          </div>
+          <h3 class="step-title">Lancement instantané</h3>
+          <p>Sonara initie les appels. Notre modèle s'adapte à la voix de l'interlocuteur, gère les interruptions, pose des questions de relance personnalisées et rebondit avec fluidité.</p>
+        </div>
+
+        <div class="step-card reveal reveal-delay-2">
+          <div class="step-header">
+            <span class="step-badge">ÉTAPE 03</span>
+            <div class="step-icon-box">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
+            </div>
+          </div>
+          <h3 class="step-title">Analyses & Rapports</h3>
+          <p>Accédez aux transcriptions complètes, aux sentiments détectés (satisfait, neutre, irrité) et aux résumés automatisés via votre dashboard ou par export direct.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ USE CASES -->
+  <section id="usecases">
+    <div class="container">
+      <div class="usecase-intro">
+        <div>
+          <span class="label-badge reveal">Applications</span>
+          <h2 class="section-title reveal">Une IA adaptée à <span>votre industrie</span></h2>
+        </div>
+        <p class="section-subtitle reveal" style="margin-bottom:0; max-width: 440px;">Découvrez comment les banques, opérateurs de téléphonie et assureurs optimisent leur gestion client.</p>
+      </div>
+
+      <div class="usecases-grid">
+        <div class="usecase-card reveal">
+          <div class="usecase-meta">
+            <span class="usecase-sector">Banque & Microfinance</span>
+            <span class="usecase-vol"> KYC Vocal </span>
+          </div>
+          <h3>Satisfaction Client & Qualification</h3>
+          <p>Automatisez les appels post-ouverture de compte, qualifiez les dossiers KYC et menez des enquêtes d'évaluation des conseillers en agence.</p>
+          <div class="usecase-tags">
+            <span class="usecase-tag">Conformité</span>
+            <span class="usecase-tag">NPS</span>
+          </div>
+        </div>
+
+        <div class="usecase-card reveal reveal-delay-1">
+          <div class="usecase-meta">
+            <span class="usecase-sector">Télécommunications</span>
+            <span class="usecase-vol"> NPS de masse </span>
+          </div>
+          <h3>Prévention du Churn & Rétention</h3>
+          <p>Contactez instantanément des milliers de clients suite à un incident réseau ou une baisse d'activité pour mesurer leur attachement et prévenir la perte de clients.</p>
+          <div class="usecase-tags">
+            <span class="usecase-tag">Fidélité</span>
+            <span class="usecase-tag">Grande échelle</span>
+          </div>
+        </div>
+
+        <div class="usecase-card reveal reveal-delay-2">
+          <div class="usecase-meta">
+            <span class="usecase-sector">Assurances</span>
+            <span class="usecase-vol"> Sinistres & Relances </span>
+          </div>
+          <h3>Suivi et renouvellement</h3>
+          <p>Relancez de manière bienveillante les contrats arrivant à échéance et automatisez la qualification initiale des déclarations de sinistres auto/santé.</p>
+          <div class="usecase-tags">
+            <span class="usecase-tag">Renouvellement</span>
+            <span class="usecase-tag">Déclaration</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ INTERACTIVE SIMULATOR (DEMO) -->
+  <section id="demo">
+    <div class="container demo-grid">
+      <div class="demo-interactive-wrapper reveal">
+        <div class="phone-mockup-header">
+          <div class="caller-profile">
+            <div class="caller-avatar">🎙️</div>
+            <div class="caller-details">
+              <span class="caller-name">Awa — Sonara IA</span>
+              <span class="caller-status" id="callStatus">En attente...</span>
+            </div>
+          </div>
+          <span class="call-timer" id="callTimer">00:00</span>
+        </div>
+
+        <div class="wave-canvas-container">
+          <canvas id="waveCanvas"></canvas>
+        </div>
+
+        <div class="dialogue-log" id="dialogueLog">
+          <div style="text-align: center; color: var(--text-muted); font-size: 13px; margin: auto;" id="demoPlaceholder">
+            Cliquez sur "Lancer l'appel de test" ci-dessous pour démarrer la simulation.
+          </div>
+        </div>
+
+        <!-- Simulator Report placeholder (hidden initially) -->
+        <div class="analysis-report-card" id="analysisReport" style="display: none;">
+          <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Rapport d'appel Sonara</h4>
+          <p><strong>Résumé :</strong> <span id="reportSummary">Analyse en cours...</span></p>
+          <div class="report-badge-row">
+            <span class="report-badge sentiment" id="reportSentiment">Sentiment: --</span>
+            <span class="report-badge action" id="reportAction">Action: --</span>
+          </div>
+        </div>
+
+        <div class="simulator-controls">
+          <div class="simulator-btn-row">
+            <button class="btn btn-primary sim-btn" id="startCallBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              Lancer l'appel
+            </button>
+            <button class="btn btn-secondary sim-btn" id="stopCallBtn" disabled>
+              Raccourcir / Raccrocher
+            </button>
+          </div>
+          <div class="custom-question-input">
+            <input type="text" id="customPromptInput" placeholder="Personnalisez la question d'enquête d'Awa..." />
+            <button class="btn btn-secondary" id="applyCustomPromptBtn">Appliquer</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo-info reveal reveal-delay-2">
+        <span class="label-badge">Démonstration</span>
+        <h2 class="section-title">Une IA qui parle <span>comme vos clients.</span></h2>
+        <p class="section-subtitle" style="margin-bottom: 24px;">
+          Les automates vocaux rigides frustrent vos clients. Sonara utilise des modèles linguistiques avancés adaptés à la syntaxe, au rythme et aux expressions de l'Afrique de l'Ouest (français ivoirien, nouchi fluide).
+        </p>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 16px;">
+          <li style="display: flex; gap: 12px; font-size: 14.5px; color: var(--text-secondary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" stroke-width="2.5" style="flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg>
+            <span><strong>Compréhension des nuances :</strong> Détecte les hésitations, gère le nouchi et les réponses vagues en relançant le client.</span>
+          </li>
+          <li style="display: flex; gap: 12px; font-size: 14.5px; color: var(--text-secondary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" stroke-width="2.5" style="flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg>
+            <span><strong>Zéro Latence :</strong> Conversations fluides sans temps d'attente gênant entre les phrases.</span>
+          </li>
+          <li style="display: flex; gap: 12px; font-size: 14.5px; color: var(--text-secondary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand-accent)" stroke-width="2.5" style="flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg>
+            <span><strong>Rapport automatisé :</strong> Les conversations sont retranscrites, analysées par sentiment et synthétisées instantanément.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ PLATFORM SHOWCASE (TABS) -->
+  <section id="dashboard-showcase">
+    <div class="container">
+      <div style="text-align: center; display: flex; flex-direction: column; align-items: center; margin-bottom: 48px;">
+        <span class="label-badge reveal">L'Interface</span>
+        <h2 class="section-title reveal">Prenez le contrôle <span>de vos données</span></h2>
+        <p class="section-subtitle reveal">Explorez l'interface intuitive conçue pour vos équipes marketing et relation client.</p>
+      </div>
+
+      <div class="showcase-tabs reveal">
+        <button class="tab-btn active" onclick="switchTab(event, 'tab-campaigns')">Gestion des Campagnes</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-analytics')">Analyses & Rapports</button>
+        <button class="tab-btn" onclick="switchTab(event, 'tab-agent')">Éditeur d'Agent IA</button>
+      </div>
+
+      <div class="dashboard-mockup reveal reveal-delay-1">
+        <div class="db-header">
+          <div class="db-logo">
+            <img src="Branding bard sonara/Sonara_Logo_Variante_03.png" alt="Sonara Icon" class="db-logo-img" />
+            <h4>Sonara Workspace</h4>
+          </div>
+          <div class="db-user">
+            <span class="db-user-name">Koffi Kouassi</span>
+            <div class="db-user-avatar">KK</div>
+          </div>
+        </div>
+
+        <div class="db-body">
+          <div class="db-sidebar">
+            <a href="#" class="db-sidebar-item active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="10" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+              Tableau de bord
+            </a>
+            <a href="#" class="db-sidebar-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              Campagnes
+            </a>
+            <a href="#" class="db-sidebar-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Contacts
+            </a>
+            <a href="#" class="db-sidebar-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+              Paramètres
+            </a>
+          </div>
+
+          <div class="db-main">
+            <!-- Tab Campaigns -->
+            <div class="tab-content active" id="tab-campaigns">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h5 style="font-size:15px; font-weight:600;">Liste des Campagnes</h5>
+                <button class="btn btn-primary" style="padding:6px 12px; font-size:12px;">+ Nouvelle Campagne</button>
+              </div>
+              <table class="campaigns-table">
+                <thead>
+                  <tr>
+                    <th>Nom de la campagne</th>
+                    <th>Statut</th>
+                    <th>Taux de complétion</th>
+                    <th>Score NPS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Enquête NPS Epargne - Mai 2026</strong></td>
+                    <td><span class="status-pill active">En cours</span></td>
+                    <td>
+                      <div class="db-progress-bar"><div class="db-progress-fill" style="width: 74%"></div></div>
+                      74%
+                    </td>
+                    <td style="color:var(--success); font-weight:600;">+48</td>
+                  </tr>
+                  <tr>
+                    <td><strong>KYC Validation Microcrédit Abidjan</strong></td>
+                    <td><span class="status-pill active">En cours</span></td>
+                    <td>
+                      <div class="db-progress-bar"><div class="db-progress-fill" style="width: 42%"></div></div>
+                      42%
+                    </td>
+                    <td style="color:var(--brand-accent); font-weight:600;">+25</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Sondage Satisfaction Assurance Auto</strong></td>
+                    <td><span class="status-pill completed">Terminé</span></td>
+                    <td>
+                      <div class="db-progress-bar"><div class="db-progress-fill" style="width: 100%"></div></div>
+                      100%
+                    </td>
+                    <td style="color:var(--success); font-weight:600;">+52</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Tab Analytics -->
+            <div class="tab-content" id="tab-analytics">
+              <div class="analytics-grid">
+                <div class="analytics-card">
+                  <h5>Évolution du NPS (Hebdomadaire)</h5>
+                  <div class="chart-container">
+                    <div class="chart-bar-col">
+                      <div class="chart-bar-fill" style="height: 0%;" data-height="40%" data-val="+20"></div>
+                      <div class="chart-bar-label">S1</div>
+                    </div>
+                    <div class="chart-bar-col">
+                      <div class="chart-bar-fill" style="height: 0%;" data-height="55%" data-val="+32"></div>
+                      <div class="chart-bar-label">S2</div>
+                    </div>
+                    <div class="chart-bar-col">
+                      <div class="chart-bar-fill" style="height: 0%;" data-height="75%" data-val="+44"></div>
+                      <div class="chart-bar-label">S3</div>
+                    </div>
+                    <div class="chart-bar-col">
+                      <div class="chart-bar-fill" style="height: 0%;" data-height="90%" data-val="+52"></div>
+                      <div class="chart-bar-label">S4</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="analytics-card">
+                  <h5>Répartition Sentiment</h5>
+                  <div class="sentiment-donut-mock">
+                    <div class="sentiment-row">
+                      <div class="sentiment-label-box">
+                        <span class="sentiment-dot" style="background-color: var(--success);"></span>
+                        <span>Satisfait</span>
+                      </div>
+                      <span class="sentiment-percent">72%</span>
+                    </div>
+                    <div class="sentiment-row">
+                      <div class="sentiment-label-box">
+                        <span class="sentiment-dot" style="background-color: #F59E0B;"></span>
+                        <span>Neutre</span>
+                      </div>
+                      <span class="sentiment-percent">18%</span>
+                    </div>
+                    <div class="sentiment-row">
+                      <div class="sentiment-label-box">
+                        <span class="sentiment-dot" style="background-color: var(--error);"></span>
+                        <span>Irrité</span>
+                      </div>
+                      <span class="sentiment-percent">10%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Agent Editor -->
+            <div class="tab-content" id="tab-agent">
+              <div class="agent-form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Sélection de la Voix</label>
+                    <select>
+                      <option>Awa — Français Ivoirien (Féminin)</option>
+                      <option>Koffi — Français Ivoirien (Masculin)</option>
+                      <option>Coumba — Wolof (Féminin)</option>
+                      <option>Sophie — Français standard (Féminin)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Température du modèle (Créativité)</label>
+                    <select>
+                      <option>0.2 — Strict & Précis</option>
+                      <option selected>0.5 — Naturel & Engageant</option>
+                      <option>0.8 — Très conversationnel</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Consigne Système de l'IA (Prompt)</label>
+                  <textarea>Tu es Awa, conseillère virtuelle pour la Banque XYZ. Appelle le client avec enthousiasme. Parle avec des expressions ivoiriennes courantes (ex: 'Yako', 'D'accord ô'). Sois polie et à l'écoute.</textarea>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ INTEGRATIONS MARQUEE -->
+  <section id="integrations" aria-label="Intégrations partenaires">
+    <div class="container" style="text-align:center; margin-bottom: 24px;">
+      <span class="label-badge" style="margin-bottom: 12px;">Écosystème</span>
+      <h3 style="font-size: 20px; font-weight: 700; color: var(--text-secondary);">S'intègre parfaitement avec vos outils existants</h3>
+    </div>
+    
+    <div class="marquee-container">
+      <!-- Row 1 -->
+      <div class="marquee-row">
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Salesforce CRM
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          HubSpot
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="15" y1="9" y2="15"/><line x1="15" x2="9" y1="9" y2="15"/></svg>
+          Zapier
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+          Oracle Database
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Salesforce CRM
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          HubSpot
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="15" y1="9" y2="15"/><line x1="15" x2="9" y1="9" y2="15"/></svg>
+          Zapier
+        </div>
+      </div>
+      
+      <!-- Row 2 -->
+      <div class="marquee-row reverse">
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          MTN Côte d'Ivoire
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Orange CI API
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="3" y2="21"/><line x1="15" x2="15" y1="3" y2="21"/></svg>
+          Microsoft Excel / CSV
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Wave Money API
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          MTN Côte d'Ivoire
+        </div>
+        <div class="marquee-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Orange CI API
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ TESTIMONIALS -->
+  <section id="testimonials">
+    <div class="container">
+      <div class="carousel-wrapper reveal">
+        <div class="carousel-track" id="carouselTrack">
+          <!-- Slide 1 -->
+          <div class="carousel-slide">
+            <div class="quote-icon">“</div>
+            <p class="quote-text">« Nous avons réduit nos coûts d'enquête de 75% tout en augmentant notre taux de réponse de 40% par rapport aux centres d'appels traditionnels. L'IA de Sonara fait un travail exceptionnel. »</p>
+            <div class="author-info">
+              <span class="author-name">Mamadou Diop</span>
+              <span class="author-role">Directeur Relation Client, Assurances NSIA</span>
+            </div>
+          </div>
+          <!-- Slide 2 -->
+          <div class="carousel-slide">
+            <div class="quote-icon">“</div>
+            <p class="quote-text">« Contacter 10 000 abonnés en une matinée et obtenir des rapports de sentiment structurés avant midi a complètement révolutionné notre façon de piloter notre NPS opérationnel. »</p>
+            <div class="author-info">
+              <span class="author-name">Awa Koné</span>
+              <span class="author-role">Responsable Marketing, MTN Côte d'Ivoire</span>
+            </div>
+          </div>
+          <!-- Slide 3 -->
+          <div class="carousel-slide">
+            <div class="quote-icon">“</div>
+            <p class="quote-text">« Les clients sont bluffés par la voix naturelle d'Awa. Son nouchi léger et respectueux met instantanément à l'aise, permettant de collecter des réponses d'une sincérité rare. »</p>
+            <div class="author-info">
+              <span class="author-name">Jean-Luc Koffi</span>
+              <span class="author-role">Directeur Général, Microfinance Ivoire</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="carousel-dots">
+          <span class="dot active" onclick="jumpToSlide(0)"></span>
+          <span class="dot" onclick="jumpToSlide(1)"></span>
+          <span class="dot" onclick="jumpToSlide(2)"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ PRICING -->
+  <section id="pricing">
+    <div class="container">
+      <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+        <span class="label-badge reveal">Nos Offres</span>
+        <h2 class="section-title reveal">Une tarification simple. <span>En FCFA.</span></h2>
+        <p class="section-subtitle reveal">Des prix transparents adaptés au volume de votre entreprise. Sans engagement à long terme.</p>
+      </div>
+
+      <div class="pricing-toggle-box reveal">
+        <span class="pricing-toggle-label active" id="billingMonthlyLabel">Mensuel</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="pricingToggle" onchange="togglePricing(this)" />
+          <span class="slider"></span>
+        </label>
+        <span class="pricing-toggle-label" id="billingYearlyLabel">
+          Annuel 
+          <span class="discount-badge">Économisez 20%</span>
+        </span>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Card 1 -->
+        <div class="pricing-card reveal">
+          <span class="pricing-tier">Starter</span>
+          <div class="pricing-price-container">
+            <span class="price-currency">FCFA</span>
+            <span class="price-value" id="priceStarter" data-monthly="50k" data-yearly="40k">50k</span>
+          </div>
+          <span class="price-period">par mois</span>
+          <div class="pricing-included">1 000 appels inclus / mois</div>
+          <ul class="pricing-features-list">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>80 FCFA / appel suppl.</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>1 campagne active</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Import CSV & Export Excel</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Transcription & résumé auto</span>
+            </li>
+            <li class="muted">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+              <span>Analyses de sentiment</span>
+            </li>
+            <li class="muted">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+              <span>API & Webhooks</span>
+            </li>
+          </ul>
+          <a href="#demo" class="btn btn-secondary" style="width: 100%;">Démarrer</a>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="pricing-card featured reveal reveal-delay-1">
+          <span class="featured-badge">Recommandé</span>
+          <span class="pricing-tier">Business</span>
+          <div class="pricing-price-container">
+            <span class="price-currency">FCFA</span>
+            <span class="price-value" id="priceBusiness" data-monthly="200k" data-yearly="160k">200k</span>
+          </div>
+          <span class="price-period">par mois</span>
+          <div class="pricing-included">10 000 appels inclus / mois</div>
+          <ul class="pricing-features-list">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>60 FCFA / appel suppl.</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Campagnes illimitées</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Import CSV & Segmentation</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Analyses de sentiment</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Accès API & Webhooks</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Support prioritaire</span>
+            </li>
+          </ul>
+          <a href="#demo" class="btn btn-primary" style="width: 100%;">Sélectionner Business</a>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="pricing-card reveal reveal-delay-2">
+          <span class="pricing-tier">Enterprise</span>
+          <div class="pricing-price-container">
+            <span class="price-value" style="font-size:36px;">Sur devis</span>
+          </div>
+          <span class="price-period">tarifs sur mesure</span>
+          <div class="pricing-included">Volume d'appels illimités</div>
+          <ul class="pricing-features-list">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Coût par appel négocié</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Hébergement des données en CI</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Modèles de voix personnalisés</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>SLA contractuel et sécurité</span>
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Gestionnaire de compte dédié</span>
+            </li>
+          </ul>
+          <a href="mailto:contact@sonara.ai" class="btn btn-secondary" style="width: 100%;">Nous contacter</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ FAQ -->
+  <section id="faq">
+    <div class="container">
+      <div style="text-align: center; display: flex; flex-direction: column; align-items: center; margin-bottom: 48px;">
+        <span class="label-badge reveal">Questions</span>
+        <h2 class="section-title reveal">Foire aux <span>questions</span></h2>
+        <p class="section-subtitle reveal">Toutes les réponses pour aborder votre transition vers les enquêtes vocales assistées par IA.</p>
+      </div>
+
+      <div class="faq-wrapper reveal">
+        <div class="faq-item">
+          <button class="faq-trigger" id="faq-trigger-1" aria-expanded="false" aria-controls="faq-panel-1" onclick="toggleFaq(this)">
+            <span class="faq-question">L'IA parle-t-elle vraiment avec les expressions de Côte d'Ivoire ?</span>
+            <svg class="faq-icon-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-panel" id="faq-panel-1" role="region" aria-labelledby="faq-trigger-1">
+            <div class="faq-content">
+              Oui absolument ! Nos modèles sont optimisés pour le marché ouest-africain. L'IA de Sonara maîtrise les structures de phrases locales, l'accent ivoirien standard, et peut être configurée pour utiliser des expressions de nouchi léger afin d'instaurer un climat de confiance et de proximité avec vos répondants.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" id="faq-trigger-2" aria-expanded="false" aria-controls="faq-panel-2" onclick="toggleFaq(this)">
+            <span class="faq-question">Où sont hébergées les données d'appels et d'enquêtes ?</span>
+            <svg class="faq-icon-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-panel" id="faq-panel-2" role="region" aria-labelledby="faq-trigger-2">
+            <div class="faq-content">
+              Pour nos clients Enterprise et sur demande, nous offrons un hébergement des données directement en Côte d'Ivoire sur des serveurs sécurisés tiers de confiance, garantissant une conformité totale avec la loi 2013-450 relative à la protection des données à caractère personnel encadrée par l'ARTCI.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" id="faq-trigger-3" aria-expanded="false" aria-controls="faq-panel-3" onclick="toggleFaq(this)">
+            <span class="faq-question">Comment s'effectue l'intégration avec nos outils existants ?</span>
+            <svg class="faq-icon-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-panel" id="faq-panel-3" role="region" aria-labelledby="faq-trigger-3">
+            <div class="faq-content">
+              Vous pouvez importer vos contacts très simplement via un fichier CSV classique, ou connecter votre CRM (Salesforce, HubSpot) directement via nos Webhooks et API. Par exemple, vous pouvez déclencher un appel d'enquête automatique 10 minutes après qu'un dossier client ait été marqué comme résolu dans votre outil interne.
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-trigger" id="faq-trigger-4" aria-expanded="false" aria-controls="faq-panel-4" onclick="toggleFaq(this)">
+            <span class="faq-question">Est-il possible de transférer l'appel vers un agent humain ?</span>
+            <svg class="faq-icon-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="faq-panel" id="faq-panel-4" role="region" aria-labelledby="faq-trigger-4">
+            <div class="faq-content">
+              Oui, tout à fait. Si le client en cours d'appel exprime le besoin explicite de parler à un conseiller ("Je veux parler à un responsable" ou "Transférez-moi"), l'IA de Sonara peut immédiatement transférer l'appel vers le numéro de votre centre de support ou agence tout en préservant le contexte.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ CTA FINAL -->
+  <section id="cta-final">
+    <div class="container reveal">
+      <span class="label-badge">Démarrage</span>
+      <h2 class="cta-heading">Transformez la voix de vos clients<br/>en insights exploitables.</h2>
+      <p class="cta-subtext">Aucune ligne de code requise pour lancer votre première campagne. Essayez Sonara gratuitement dès aujourd'hui.</p>
+      <div class="cta-btn-group">
+        <a href="#demo" class="btn btn-primary">Lancer un appel test gratuit</a>
+        <a href="mailto:contact@sonara.ai" class="btn btn-secondary">Parler à un expert</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-logo-desc">
+          <a href="#" class="logo"><img src="Branding bard sonara/Sonara_Logo_Variante_01.png" alt="Sonara" class="logo-img" /></a>
+          <p>La première plateforme ouest-africaine d'enquêtes téléphoniques automatisées par IA vocale conversationnelle. Basée à Abidjan, Côte d'Ivoire.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Produit</h4>
+          <ul class="footer-links">
+            <li><a href="#how">Fonctionnement</a></li>
+            <li><a href="#usecases">Cas d'usage</a></li>
+            <li><a href="#pricing">Tarifs</a></li>
+            <li><a href="#demo">Démo interactive</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Ressources</h4>
+          <ul class="footer-links">
+            <li><a href="#">Documentation</a></li>
+            <li><a href="#">Guides Nouchi IA</a></li>
+            <li><a href="#">Conformité ARTCI</a></li>
+            <li><a href="#">Support technique</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Entreprise</h4>
+          <ul class="footer-links">
+            <li><a href="#">À propos</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Mentions légales</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span class="footer-copy">© 2026 Sonara. Tous droits réservés. Abidjan, Côte d'Ivoire.</span>
+        <div class="footer-badges">
+          <span class="footer-badge">
+            <span style="width:6px;height:6px;background:var(--success);border-radius:50%;display:inline-block;"></span>
+            Données hébergées en CI
+          </span>
+          <span class="footer-badge secondary">Conforme loi 2013-450</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════════════════════════════════════════════ JAVASCRIPT LOGIC -->
+  <script>
+    // ─── BACKGROUND MOUSE GLOW LERP EFFECT ───────────────────────────
+    const mouseGlow = document.getElementById('mouseGlow');
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let currentX = targetX;
+    let currentY = targetY;
+    let glowActive = false;
+
+    window.addEventListener('mousemove', (e) => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+      if (!glowActive) {
+        glowActive = true;
+        updateGlowPosition();
+      }
+    }, { passive: true });
+
+    function updateGlowPosition() {
+      currentX += (targetX - currentX) * 0.08;
+      currentY += (targetY - currentY) * 0.08;
+
+      mouseGlow.style.left = `${currentX}px`;
+      mouseGlow.style.top = `${currentY}px`;
+
+      if (glowActive) {
+        requestAnimationFrame(updateGlowPosition);
+      }
+    }
+
+    // ─── NAVBAR SCROLL STYLE ────────────────────────────────────
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 40) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    }, { passive: true });
+
+    // ─── SCROLL REVEAL (IntersectionObserver) ────────────────────
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+    // ─── DYNAMIC STATISTICS COUNT UP (BENTO & EASED) ──────────────
+    const statsObserver = new IntersectionObserver((entries) => {
+      let delayOffset = 0;
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const cardEl = entry.target;
+          const numberEl = cardEl.querySelector('.stat-number');
+          if (!numberEl) return;
+
+          const target = parseInt(numberEl.getAttribute('data-target'), 10);
+          const prefix = numberEl.getAttribute('data-prefix') || '';
+          const suffix = numberEl.getAttribute('data-suffix') || '';
+          const duration = 2000; // ms
+
+          // Easing function: Cubic Out
+          function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+          }
+
+          // Staggered card slide-in and fade-in
+          setTimeout(() => {
+            cardEl.classList.add('animate-in');
+            
+            // Start count-up animation
+            let startTime = null;
+            function animateCount(timestamp) {
+              if (!startTime) startTime = timestamp;
+              const progress = Math.min((timestamp - startTime) / duration, 1);
+              const easedProgress = easeOutCubic(progress);
+              const currentVal = Math.floor(easedProgress * target);
+              
+              numberEl.textContent = `${prefix}${currentVal}${suffix}`;
+              
+              if (progress < 1) {
+                requestAnimationFrame(animateCount);
+              } else {
+                numberEl.textContent = `${prefix}${target}${suffix}`;
+              }
+            }
+            requestAnimationFrame(animateCount);
+          }, delayOffset);
+
+          delayOffset += 150; // 150ms stagger delay between cards!
+          statsObserver.unobserve(cardEl);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.stat-card').forEach(el => statsObserver.observe(el));
+
+    // ─── INTERACTIVE TAB SWITCHING (DASHBOARD SHOWCASE) ──────────
+    function switchTab(event, tabId) {
+      // Remove active from all tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      // Add active to targeted tab & content
+      event.currentTarget.classList.add('active');
+      const targetContent = document.getElementById(tabId);
+      targetContent.classList.add('active');
+
+      // Animate chart bars if switching to analytics tab
+      if (tabId === 'tab-analytics') {
+        const fills = targetContent.querySelectorAll('.chart-bar-fill');
+        fills.forEach((fill, index) => {
+          fill.style.height = '0%';
+          setTimeout(() => {
+            fill.style.height = fill.getAttribute('data-height');
+          }, 80 + index * 100); // staggered height growth!
+        });
+      } else {
+        // Reset them when not active so they animate again
+        const fills = document.querySelectorAll('.chart-bar-fill');
+        fills.forEach(fill => {
+          fill.style.height = '0%';
+        });
+      }
+    }
+
+    // ─── TESTIMONIALS CAROUSEL SLIDER ───────────────────────────
+    const track = document.getElementById('carouselTrack');
+    const dots = document.querySelectorAll('.dot');
+    let currentSlide = 0;
+    
+    function jumpToSlide(index) {
+      currentSlide = index;
+      track.style.transform = `translateX(-${index * 33.333}%)`;
+      dots.forEach(d => d.classList.remove('active'));
+      dots[index].classList.add('active');
+    }
+
+    // Auto rotate testimonials
+    let carouselInterval = setInterval(() => {
+      currentSlide = (currentSlide + 1) % 3;
+      jumpToSlide(currentSlide);
+    }, 6000);
+
+    // Stop auto rotate on dot click
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        clearInterval(carouselInterval);
+      });
+    });
+
+    // ─── PRICING DYNAMIC TOGGLE ─────────────────────────────────
+    function togglePricing(checkbox) {
+      const isYearly = checkbox.checked;
+      const starterPrice = document.getElementById('priceStarter');
+      const businessPrice = document.getElementById('priceBusiness');
+      const monthlyLabel = document.getElementById('billingMonthlyLabel');
+      const yearlyLabel = document.getElementById('billingYearlyLabel');
+
+      // Fade out prices
+      starterPrice.style.opacity = 0;
+      businessPrice.style.opacity = 0;
+
+      setTimeout(() => {
+        if (isYearly) {
+          starterPrice.textContent = starterPrice.getAttribute('data-yearly');
+          businessPrice.textContent = businessPrice.getAttribute('data-yearly');
+          monthlyLabel.classList.remove('active');
+          yearlyLabel.classList.add('active');
+        } else {
+          starterPrice.textContent = starterPrice.getAttribute('data-monthly');
+          businessPrice.textContent = businessPrice.getAttribute('data-monthly');
+          monthlyLabel.classList.add('active');
+          yearlyLabel.classList.remove('active');
+        }
+        
+        // Fade in prices
+        starterPrice.style.opacity = 1;
+        businessPrice.style.opacity = 1;
+      }, 150);
+    }
+
+    // ─── FAQ ACCORDION LOGIC ────────────────────────────────────
+    function toggleFaq(button) {
+      const faqItem = button.parentElement;
+      const panel = faqItem.querySelector('.faq-panel');
+      const isExpanded = button.getAttribute('aria-expanded') === 'true';
+
+      // Close other FAQs
+      document.querySelectorAll('.faq-item').forEach(item => {
+        if (item !== faqItem && item.classList.contains('active')) {
+          item.classList.remove('active');
+          item.querySelector('.faq-trigger').setAttribute('aria-expanded', 'false');
+          item.querySelector('.faq-panel').style.maxHeight = '0px';
+        }
+      });
+
+      // Toggle current FAQ
+      if (!isExpanded) {
+        faqItem.classList.add('active');
+        button.setAttribute('aria-expanded', 'true');
+        panel.style.maxHeight = panel.scrollHeight + "px";
+      } else {
+        faqItem.classList.remove('active');
+        button.setAttribute('aria-expanded', 'false');
+        panel.style.maxHeight = "0px";
+      }
+    }
+
+    // ─── VOICE CALL SIMULATOR ENGINE (JS SIMULATED CALL) ────────
+    const startCallBtn = document.getElementById('startCallBtn');
+    const stopCallBtn = document.getElementById('stopCallBtn');
+    const callStatus = document.getElementById('callStatus');
+    const callTimer = document.getElementById('callTimer');
+    const dialogueLog = document.getElementById('dialogueLog');
+    const demoPlaceholder = document.getElementById('demoPlaceholder');
+    const customPromptInput = document.getElementById('customPromptInput');
+    const applyCustomPromptBtn = document.getElementById('applyCustomPromptBtn');
+    const analysisReport = document.getElementById('analysisReport');
+    const reportSummary = document.getElementById('reportSummary');
+    const reportSentiment = document.getElementById('reportSentiment');
+    const reportAction = document.getElementById('reportAction');
+
+    // Canvas Equalizer setup
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    let animationId = null;
+    let waveAmplitude = 0; // Target amplitude
+    let currentAmplitude = 0; // Smoothed amplitude
+    let waveFrequency = 0.05;
+    let waveColor = 'rgba(0, 82, 255, 0.8)';
+    let time = 0;
+
+    // Resize canvas
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Draw equalizer waves
+    function drawWave() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = waveColor;
+      
+      // Interpolate amplitude smoothly
+      currentAmplitude += (waveAmplitude - currentAmplitude) * 0.1;
+
+      for (let x = 0; x < canvas.width; x++) {
+        // Compose multiple sine waves for organic soundwave feel
+        const y = canvas.height / 2 + 
+          Math.sin(x * waveFrequency + time) * currentAmplitude * 18 +
+          Math.sin(x * (waveFrequency * 2.3) - time * 1.5) * (currentAmplitude * 6);
+        
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      
+      ctx.stroke();
+      time += 0.15;
+      animationId = requestAnimationFrame(drawWave);
+    }
+
+    // Dialogue script data
+    let customQuestion = "";
+    let callTimerInterval = null;
+    let callDurationSeconds = 0;
+    let callTimeoutIds = [];
+
+    // Helper to format call timer
+    function formatTime(sec) {
+      const min = Math.floor(sec / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${min}:${s}`;
+    }
+
+    // Apply custom prompt question
+    applyCustomPromptBtn.addEventListener('click', () => {
+      const val = customPromptInput.value.trim();
+      if (val) {
+        customQuestion = val;
+        // Show brief visual feedback on button
+        applyCustomPromptBtn.textContent = "Appliquée !";
+        applyCustomPromptBtn.style.borderColor = "var(--success)";
+        applyCustomPromptBtn.style.color = "var(--success)";
+        setTimeout(() => {
+          applyCustomPromptBtn.textContent = "Appliquer";
+          applyCustomPromptBtn.style.borderColor = "var(--border-strong)";
+          applyCustomPromptBtn.style.color = "var(--text-primary)";
+        }, 1500);
+      }
+    });
+
+    // Append speech bubbles to the dialogue logger
+    function appendBubble(sender, text) {
+      if (demoPlaceholder) {
+        demoPlaceholder.remove();
+      }
+      
+      const row = document.createElement('div');
+      row.className = `chat-row ${sender === 'ai' ? 'ai-row' : 'user-row'}`;
+      
+      const icon = document.createElement('div');
+      icon.className = 'bubble-icon';
+      icon.textContent = sender === 'ai' ? 'A' : 'K';
+      
+      const txt = document.createElement('div');
+      txt.className = 'bubble-txt';
+      txt.textContent = text;
+      
+      row.appendChild(icon);
+      row.appendChild(txt);
+      dialogueLog.appendChild(row);
+      dialogueLog.scrollTop = dialogueLog.scrollHeight;
+    }
+
+    // Simulator states & script timing
+    function runSimulatedCall() {
+      // Clear previous logs
+      dialogueLog.innerHTML = '';
+      analysisReport.style.display = 'none';
+      callDurationSeconds = 0;
+      callTimer.textContent = '00:00';
+      
+      // Update header states
+      callStatus.textContent = 'Appel en cours...';
+      callStatus.className = 'caller-status active';
+      startCallBtn.disabled = true;
+      stopCallBtn.disabled = false;
+      
+      // Start call timer
+      callTimerInterval = setInterval(() => {
+        callDurationSeconds++;
+        callTimer.textContent = formatTime(callDurationSeconds);
+      }, 1000);
+
+      // Start soundwave rendering
+      waveAmplitude = 0.2; // quiet hum
+      waveColor = 'rgba(0, 82, 255, 0.7)';
+      if (!animationId) drawWave();
+
+      // Dialogue timeline (in ms)
+      const timeline = [
+        {
+          delay: 1500,
+          action: () => {
+            waveAmplitude = 1.0; // AI speaks
+            waveColor = 'rgba(0, 82, 255, 0.9)'; // Blue for AI
+            appendBubble('ai', "Bonjour Monsieur Koné ! C'est Awa de la Banque XYZ. Yako pour l'attente l'autre jour ô. J'ai besoin de 2 petites minutes pour avoir votre avis sur nos services, c'est possible ?");
+          }
+        },
+        {
+          delay: 5000,
+          action: () => {
+            waveAmplitude = 0.1; // AI stops speaking
+          }
+        },
+        {
+          delay: 6000,
+          action: () => {
+            waveAmplitude = 0.8; // User speaks
+            waveColor = 'rgba(36, 113, 163, 0.9)'; // Navy for user
+            appendBubble('user', "Oui bonjour Awa, y a pas de soucis, tu peux y aller, je t'écoute.");
+          }
+        },
+        {
+          delay: 8500,
+          action: () => {
+            waveAmplitude = 0.1; // User stops
+          }
+        },
+        {
+          delay: 9500,
+          action: () => {
+            waveAmplitude = 1.0; // AI speaks
+            waveColor = 'rgba(0, 82, 255, 0.9)';
+            const question = customQuestion ? customQuestion : "Super, merci ! Globalement, sur une échelle de 1 à 5, comment vous évaluez l'accueil physique dans notre agence d'Angré ?";
+            appendBubble('ai', question);
+          }
+        },
+        {
+          delay: 13500,
+          action: () => {
+            waveAmplitude = 0.1; // AI stops
+          }
+        },
+        {
+          delay: 14500,
+          action: () => {
+            waveAmplitude = 0.8; // User speaks
+            waveColor = 'rgba(36, 113, 163, 0.9)';
+            const answer = customQuestion 
+              ? "Ah, par rapport à ça... Je trouve que c'est un peu lent, mais ça peut aller." 
+              : "Franchement, je mets 3... Les rangs là-bas c'est trop décourageant, on perd tout notre temps.";
+            appendBubble('user', answer);
+          }
+        },
+        {
+          delay: 18500,
+          action: () => {
+            waveAmplitude = 0.1;
+          }
+        },
+        {
+          delay: 19500,
+          action: () => {
+            waveAmplitude = 1.0; // AI speaks
+            waveColor = 'rgba(0, 82, 255, 0.9)';
+            const response = customQuestion
+              ? "C'est bien noté ô ! Nous faisons de notre mieux pour corriger cela. Merci pour votre franchise."
+              : "Ah, Yako pour ça ô ! L'attente dans les rangs à Angré, je comprends tout à fait, c'est pas facile. Mais dites-moi, pour éviter les rangs, est-ce que vous avez déjà testé notre application mobile pour faire vos virements ?";
+            appendBubble('ai', response);
+          }
+        },
+        {
+          delay: 24500,
+          action: () => {
+            waveAmplitude = 0.1;
+          }
+        },
+        {
+          delay: 25500,
+          action: () => {
+            waveAmplitude = 0.8; // User speaks
+            waveColor = 'rgba(36, 113, 163, 0.9)';
+            const answer2 = customQuestion ? "D'accord, merci." : "Ah bon ? Non, je ne savais pas du tout que c'était possible de faire ça depuis la maison.";
+            appendBubble('user', answer2);
+          }
+        },
+        {
+          delay: 28500,
+          action: () => {
+            waveAmplitude = 0.1;
+          }
+        },
+        {
+          delay: 29500,
+          action: () => {
+            waveAmplitude = 1.0; // AI speaks
+            waveColor = 'rgba(0, 82, 255, 0.9)';
+            const endText = customQuestion
+              ? "Merci infiniment d'avoir pris le temps de me répondre ô. Passez une excellente journée !"
+              : "Djaah, mais c'est très simple ô ! Je viens de vous envoyer le lien de téléchargement direct par SMS. Vous allez voir, ça va vous faciliter la vie. Merci infiniment pour votre temps et passez une excellente journée !";
+            appendBubble('ai', endText);
+          }
+        },
+        {
+          delay: 34000,
+          action: () => {
+            waveAmplitude = 0; // Silent
+            terminateCall(true); // Terminate automatically
+          }
+        }
+      ];
+
+      // Schedule timeline
+      timeline.forEach(item => {
+        const id = setTimeout(item.action, item.delay);
+        callTimeoutIds.push(id);
+      });
+    }
+
+    // Terminate Call
+    function terminateCall(completed = false) {
+      // Clear timers and delays
+      clearInterval(callTimerInterval);
+      callTimeoutIds.forEach(id => clearTimeout(id));
+      callTimeoutIds = [];
+      
+      // Update UI button and status states
+      startCallBtn.disabled = false;
+      stopCallBtn.disabled = true;
+      callStatus.textContent = 'Appel terminé';
+      callStatus.className = 'caller-status';
+      waveAmplitude = 0; // Flat wave
+      
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+      // Draw a flat baseline
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.moveTo(0, canvas.height/2);
+      ctx.lineTo(canvas.width, canvas.height/2);
+      ctx.stroke();
+
+      if (completed) {
+        // Show AI generated report
+        analysisReport.style.display = 'block';
+        if (customQuestion) {
+          reportSummary.innerHTML = `L'IA a posé la question personnalisée: <em>"${customQuestion}"</em>. Le client a répondu de façon coopérative.`;
+          reportSentiment.textContent = 'Sentiment: Positif (4/5)';
+          reportAction.textContent = 'Action: Archive standard';
+          reportAction.style.color = 'var(--text-secondary)';
+          reportAction.style.background = 'rgba(255,255,255,0.05)';
+        } else {
+          reportSummary.textContent = "Client insatisfait de l'attente à l'agence d'Angré (Note 3/5). Ne connaissait pas l'application mobile. Lien SMS de téléchargement envoyé automatiquement.";
+          reportSentiment.textContent = "Sentiment: Neutre-Négatif (3/5)";
+          reportAction.textContent = "Action: Relance SMS envoyée";
+          reportAction.style.color = 'var(--brand-accent)';
+          reportAction.style.background = 'var(--brand-accent-t)';
+        }
+      }
+    }
+
+    startCallBtn.addEventListener('click', runSimulatedCall);
+    stopCallBtn.addEventListener('click', () => terminateCall(false));
+
+    // ─── HLS.JS BACKGROUND VIDEO INITIALIZATION ─────────────────
+    const bgVideo = document.getElementById('bgVideo');
+    const videoSrc = "https://stream.mux.com/T6oQJQ02cQ6N01TR6iHwZkKFkbepS34dkkIc9iukgy400g.m3u8";
+
+    if (bgVideo) {
+      let playedLocal = false;
+      
+      // Try local source first
+      bgVideo.play().then(() => {
+        playedLocal = true;
+        console.log("Playing local video source successfully.");
+      }).catch((e) => {
+        console.log("Local video autoplay prevented or failed, loading HLS:", e);
+        loadHLS();
+      });
+
+      // Fallback if local source fails to decode/load
+      bgVideo.addEventListener('error', () => {
+        if (!playedLocal) {
+          console.log("Error loading local source, falling back to HLS.");
+          loadHLS();
+        }
+      }, true);
+
+      function loadHLS() {
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true
+          });
+          hls.loadSource(videoSrc);
+          hls.attachMedia(bgVideo);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            bgVideo.play().catch((e) => console.log("HLS Auto-play prevented:", e));
+          });
+        } else if (bgVideo.canPlayType("application/vnd.apple.mpegurl")) {
+          bgVideo.src = videoSrc;
+          bgVideo.addEventListener("loadedmetadata", () => {
+            bgVideo.play().catch((e) => console.log("HLS Auto-play prevented:", e));
+          });
+        }
+      }
+    }
+
+    // ─── THEME TOGGLE LOGIC ─────────────────────────────────────
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    
+    if (localStorage.getItem('theme') === 'light') {
+      document.body.classList.add('light-mode');
+    }
+    
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('light-mode');
+        if (document.body.classList.contains('light-mode')) {
+          localStorage.setItem('theme', 'light');
+        } else {
+          localStorage.setItem('theme', 'dark');
+        }
+      });
+    }
+
+    // Initially draw flat line on canvas
+    terminateCall(false);
+  </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+/* ================================================================
+   SONARA Dashboard — Design tokens & global layout rules
+   Version Récente (fable sonara). Premium dark/light themes.
+   ================================================================ */
+
+#sn-root {
+  line-height: 1.3;
+  --sn-bg: #0B0B0C; --sn-side: #101013; --sn-panel: #141417; --sn-panel2: #17171B;
+  --sn-inset: #0E0E10; --sn-drawer: #121215; --sn-bubble: #1C1C21; --sn-text: #FFFFFF;
+  --sn-topbar: rgba(11,11,12,.9); --sn-bnav: rgba(16,16,19,.96);
+  --sn-blue2: #4D86FF; --sn-blue3: #80A8FF; --sn-green: #2BD576; --sn-amber: #FFB02E; --sn-red: #FF5C5C;
+  --sn-w03: rgba(255,255,255,.03); --sn-w04: rgba(255,255,255,.04); --sn-w05: rgba(255,255,255,.05); --sn-w06: rgba(255,255,255,.06); --sn-w07: rgba(255,255,255,.07); --sn-w08: rgba(255,255,255,.08); --sn-w09: rgba(255,255,255,.09); --sn-w12: rgba(255,255,255,.12); --sn-w14: rgba(255,255,255,.14); --sn-w16: rgba(255,255,255,.16); --sn-w18: rgba(255,255,255,.18); --sn-w2: rgba(255,255,255,.2); --sn-w22: rgba(255,255,255,.22); --sn-w3: rgba(255,255,255,.3); --sn-w32: rgba(255,255,255,.32); --sn-w35: rgba(255,255,255,.35); --sn-w36: rgba(255,255,255,.36); --sn-w38: rgba(255,255,255,.38); --sn-w4: rgba(255,255,255,.4); --sn-w42: rgba(255,255,255,.42); --sn-w45: rgba(255,255,255,.45); --sn-w5: rgba(255,255,255,.5); --sn-w55: rgba(255,255,255,.55); --sn-w6: rgba(255,255,255,.6); --sn-w62: rgba(255,255,255,.62); --sn-w65: rgba(255,255,255,.65); --sn-w7: rgba(255,255,255,.7); --sn-w72: rgba(255,255,255,.72); --sn-w75: rgba(255,255,255,.75); --sn-w85: rgba(255,255,255,.85); --sn-w88: rgba(255,255,255,.88);
+}
+
+#sn-root[data-theme="light"] {
+  --sn-bg: #F3F4F6; --sn-side: #FFFFFF; --sn-panel: #FFFFFF; --sn-panel2: #EFF0F3;
+  --sn-inset: #E9EAEE; --sn-drawer: #FFFFFF; --sn-bubble: #EFF0F3; --sn-text: #121212;
+  --sn-topbar: rgba(243,244,246,.92); --sn-bnav: rgba(255,255,255,.96);
+  --sn-blue2: #0046DB; --sn-blue3: #0040C0; --sn-green: #0E8C46; --sn-amber: #9A6B00; --sn-red: #C53030;
+  --sn-w03: rgba(18,18,18,.06); --sn-w04: rgba(18,18,18,.07); --sn-w05: rgba(18,18,18,.08); --sn-w06: rgba(18,18,18,.09); --sn-w07: rgba(18,18,18,.1); --sn-w08: rgba(18,18,18,.11); --sn-w09: rgba(18,18,18,.12); --sn-w12: rgba(18,18,18,.15); --sn-w14: rgba(18,18,18,.17); --sn-w16: rgba(18,18,18,.19); --sn-w18: rgba(18,18,18,.21); --sn-w2: rgba(18,18,18,.23); --sn-w22: rgba(18,18,18,.25); --sn-w3: rgba(18,18,18,.42); --sn-w32: rgba(18,18,18,.44); --sn-w35: rgba(18,18,18,.47); --sn-w36: rgba(18,18,18,.48); --sn-w38: rgba(18,18,18,.5); --sn-w4: rgba(18,18,18,.52); --sn-w42: rgba(18,18,18,.54); --sn-w45: rgba(18,18,18,.57); --sn-w5: rgba(18,18,18,.62); --sn-w55: rgba(18,18,18,.67); --sn-w6: rgba(18,18,18,.72); --sn-w62: rgba(18,18,18,.74); --sn-w65: rgba(18,18,18,.77); --sn-w7: rgba(18,18,18,.82); --sn-w72: rgba(18,18,18,.84); --sn-w75: rgba(18,18,18,.87); --sn-w85: rgba(18,18,18,.95); --sn-w88: rgba(18,18,18,.95);
+}
+
+#sn-root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #C9CBD1;
+  border: 3px solid #F3F4F6;
+}
+
+/* Base custom resets */
+#sn-root ::selection {
+  background: #0052FF;
+  color: #fff;
+}
+#sn-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+#sn-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+#sn-root ::-webkit-scrollbar-thumb {
+  background: #28282d;
+  border-radius: 8px;
+  border: 3px solid #0B0B0C;
+}
+
+#sn-root input::placeholder,
+#sn-root textarea::placeholder {
+  color: var(--sn-w32);
+}
+
+/* Animations */
+@keyframes snFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes snPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(43,213,118,.55); }
+  70% { box-shadow: 0 0 0 7px rgba(43,213,118,0); }
+}
+@keyframes snPulseBlue {
+  0%, 100% { opacity: .9; r: 5; }
+  50% { opacity: .3; r: 8; }
+}
+@keyframes snEq {
+  0%, 100% { transform: scaleY(.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* Hover effects */
+.sn-hover-w05 { transition: background 0.15s ease; }
+.sn-hover-w05:hover { background: var(--sn-w05) !important; }
+
+.sn-hover-w03 { transition: background 0.15s ease; }
+.sn-hover-w03:hover { background: var(--sn-w03) !important; }
+
+.sn-hover-w04 { transition: background 0.15s ease, color 0.15s ease; }
+.sn-hover-w04:hover { background: var(--sn-w04) !important; color: var(--sn-text) !important; }
+
+.sn-hover-blue3 { transition: border-color 0.15s ease, color 0.15s ease; }
+.sn-hover-blue3:hover { border-color: #0052FF !important; color: var(--sn-blue3) !important; }
+
+.sn-hover-btn-primary { transition: background 0.15s ease; }
+.sn-hover-btn-primary:hover { background: #0046DB !important; }
+
+.sn-hover-ticket { transition: background 0.15s ease; }
+.sn-hover-ticket:hover { background: rgba(0,82,255,.07) !important; }
+
+.sn-hover-contacts-import { transition: background 0.15s ease; }
+.sn-hover-contacts-import:hover { background: rgba(0,82,255,.08) !important; }
+
+.sn-hover-active:hover { color: var(--sn-text) !important; }
+.sn-hover-text:hover { color: var(--sn-text) !important; }
+
+.sn-hover-border { transition: border-color 0.15s ease, color 0.15s ease; }
+.sn-hover-border:hover { border-color: var(--sn-w3) !important; color: var(--sn-text) !important; }
+
+.sn-hover-support-card { transition: border-color 0.15s ease; }
+.sn-hover-support-card:hover { border-color: rgba(0,82,255,.5) !important; }
+
+.sn-hover-support-faq:hover { color: var(--sn-blue3) !important; }
+
+/* Responsive adjustments */
+@media (max-width: 1080px) {
+  #sn-sidebar { position: fixed; left: 0; top: 0; bottom: 0; }
+  #sn-burger { display: flex !important; }
+  #sn-search { display: none !important; }
+  #sn-chartrow { grid-template-columns: 1fr !important; }
+  #sn-row2 { grid-template-columns: 1fr !important; }
+  #sn-camprow { grid-template-columns: 1fr !important; }
+  #sn-newrow { grid-template-columns: 1fr !important; }
+  #sn-setrow { grid-template-columns: 1fr !important; }
+  #sn-suprow { grid-template-columns: 1fr !important; }
+}
+@media (min-width: 1081px) {
+  #sn-sidebar { transform: none !important; }
+  #sn-scrim { display: none !important; }
+}
+@media (max-width: 720px) {
+  #sn-content { padding: 18px 14px 96px 14px !important; }
+  #sn-topbar { padding: 0 14px !important; }
+  #sn-drawer { width: 100vw !important; }
+  #sn-bottomnav { display: flex !important; }
+  #sn-livechip { display: none !important; }
+}
+
+#sn-root h1,
+#sn-root h2,
+#sn-root h3,
+#sn-root h4 {
+  color: var(--sn-text);
+}
+
