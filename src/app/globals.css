@@ -34,6 +34,29 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
 
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary, #121212);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong, rgba(255, 255, 255, 0.16));
+      border-radius: 99px;
+      border: 3px solid var(--bg-primary, #121212);
+      transition: background 0.3s ease;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--brand-accent, #0052FF);
+    }
+    /* For Firefox */
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-strong, rgba(255, 255, 255, 0.16)) var(--bg-primary, #121212);
+    }
+
     :root {
       /* Colors based on tokens.json */
       --bg-primary:     #0D0F14;
@@ -2308,4 +2331,173 @@
     .son-reveal.visible {
       opacity: 1;
       transform: translateY(0);
+    }
+
+    /* Testimonials Wall specific styles */
+    .son-tcol:hover .son-ttrack {
+      animation-play-state: paused !important;
+    }
+
+    .son-tcard {
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
+    }
+
+    .son-tcard:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border-color: rgba(0, 82, 255, 0.55) !important;
+    }
+
+    /* Secondary cards hover in Pricing Section */
+    .son-pricing-card-sec {
+      transition: border-color 0.3s ease, transform 0.3s ease, background-color 0.3s ease;
+    }
+    .son-pricing-card-sec:hover {
+      border-color: rgba(0, 82, 255, 0.55) !important;
+      transform: translateY(-4px);
+    }
+    .son-pricing-card-sec.enterprise:hover {
+      border-color: rgba(0, 82, 255, 0.80) !important;
+    }
+
+    @media (max-width: 1024px) {
+      .son-tcol-3 {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .son-tcol-2 {
+        display: none !important;
+      }
+    }
+
+    /* Autoplay Testimonials inside Business Card */
+    .son-testi-card-box {
+      transition: opacity 0.15s ease;
+    }
+    .son-testi-card-box.fade-out {
+      opacity: 0 !important;
+    }
+    .son-testi-card-box.fade-in {
+      opacity: 1 !important;
+    }
+
+    /* Pricing Hero Card Hover shadow */
+    .son-hero-pricing-card {
+      transition: box-shadow 0.4s ease;
+    }
+    .son-hero-pricing-card:hover {
+      box-shadow: 0 36px 100px rgba(0, 82, 255, 0.28) !important;
+    }
+
+    /* Custom styles for keyframe definitions to run animations inline */
+    @keyframes scWave {
+      0%, 100% { transform: scaleY(0.15); }
+      50% { transform: scaleY(1); }
+    }
+    @keyframes scPulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    @keyframes scMarquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @keyframes son-vscroll {
+      from { transform: translateY(0); }
+      to { transform: translateY(-50%); }
+    }
+
+    /* --- Footer custom styles & hovers --- */
+    .btn-footer-cta-primary:hover {
+      background: var(--text-primary, #FFFFFF) !important;
+      color: var(--bg-primary, #121212) !important;
+    }
+
+    .btn-footer-cta-secondary:hover {
+      border-color: var(--text-primary, #FFFFFF) !important;
+    }
+
+    .footer-link {
+      color: var(--text-primary, #FFFFFF) !important;
+      opacity: 0.72;
+      text-decoration: none;
+      font-size: 16px;
+      padding: 4px 0;
+      transition: opacity 0.25s ease, color 0.25s ease;
+    }
+
+    .footer-link:hover {
+      opacity: 1 !important;
+    }
+
+    .footer-email-link {
+      transition: color 0.25s ease;
+    }
+
+    .footer-email-link:hover {
+      color: #0052FF !important;
+    }
+
+    .footer-pill-social {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      color: var(--text-primary, rgba(255, 255, 255, 0.72));
+      opacity: 0.72;
+      text-decoration: none;
+      border: 1px solid var(--border, rgba(255, 255, 255, 0.18));
+      border-radius: 999px;
+      padding: 8px 16px;
+      transition: border-color 0.25s, color 0.25s, opacity 0.25s;
+    }
+
+    .footer-pill-social:hover {
+      border-color: #0052FF !important;
+      color: #0052FF !important;
+      opacity: 1 !important;
+    }
+
+    .footer-news-input:focus {
+      border-color: #0052FF !important;
+    }
+
+    .footer-news-submit:hover {
+      background: var(--text-primary, #FFFFFF) !important;
+      color: var(--bg-primary, #121212) !important;
+    }
+
+    .marquee-span {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-primary, rgba(255, 255, 255, 0.65));
+      opacity: 0.65;
+      white-space: nowrap;
+    }
+
+    .footer-legal-link {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--text-primary, rgba(255, 255, 255, 0.55));
+      opacity: 0.55;
+      text-decoration: none;
+      transition: color 0.25s, opacity 0.25s;
+    }
+
+    .footer-legal-link:hover {
+      opacity: 1 !important;
+      color: var(--text-primary, #FFFFFF) !important;
+    }
+
+    .footer-scroll-top-btn:hover {
+      border-color: #0052FF !important;
+      color: #0052FF !important;
+    }
+
+    .footer-wordmark-letter:hover {
+      color: #0052FF !important;
     }
