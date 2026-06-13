@@ -15,6 +15,7 @@ export default function Home() {
   // ─── STATE VARIABLES ──────────────────────────────────────────
   const [isLightMode, setIsLightMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ─── REFS ─────────────────────────────────────────────────────
   const bgVideoRef = useRef<HTMLVideoElement>(null);
@@ -178,7 +179,7 @@ export default function Home() {
   <div className="mouse-glow" id="mouseGlow"></div>
 
   {/* ═══════════════════════════════════════════════════════ NAV */}
-  <nav className={`nav-ai ${isScrolled ? "scrolled" : ""}`} aria-label="Navigation principale" id="navbar">
+  <nav className={`nav-ai ${isScrolled ? "scrolled" : ""} ${mobileMenuOpen ? "mobile-open" : ""}`} aria-label="Navigation principale" id="navbar">
     <div className="nav-ai-inner">
       <a href="#" className="nav-ai-logo logo">
         <img src="Branding bard sonara/Sonara_Logo_Variante_01.png" alt="Sonara" className="logo-img logo-dark-theme" />
@@ -193,7 +194,7 @@ export default function Home() {
         </li>
         <li><a href="#">Témoignages</a></li>
         <li><a href="#">Ressources</a></li>
-        <li><a href="#section-pricing">Tarifs</a></li>
+        <li><a href="#pricing">Tarifs</a></li>
       </ul>
       <div className="nav-ai-right">
         <a href="#demo" className="demo-link">Réserver une Démo</a>
@@ -203,9 +204,139 @@ export default function Home() {
           <svg className="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: isLightMode ? 'block' : 'none' }}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
         <a href="/signup" className="btn-get-started">Commencer</a>
+        
+        {/* Burger Button for Mobile viewports */}
+        <button
+          className={`mobile-burger-btn ${mobileMenuOpen ? "open" : ""}`}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Menu de navigation"
+          aria-expanded={mobileMenuOpen}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "8px",
+            display: "none",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            width: "30px",
+            height: "18px",
+            zIndex: 1100,
+            position: "relative",
+            color: "currentColor",
+          }}
+        >
+          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s" }} />
+          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s", marginTop: "6px" }} />
+          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s", marginTop: "6px" }} />
+        </button>
       </div>
     </div>
   </nav>
+
+  {/* Mobile Navigation Menu Dropdown/Overlay */}
+  <div
+    className={`mobile-menu-overlay ${mobileMenuOpen ? "open" : ""}`}
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(10, 12, 16, 0.98)",
+      backdropFilter: "blur(24px)",
+      WebkitBackdropFilter: "blur(24px)",
+      zIndex: 1050,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "40px",
+      transition: "opacity 0.4s ease, visibility 0.4s ease",
+      opacity: mobileMenuOpen ? 1 : 0,
+      visibility: mobileMenuOpen ? "visible" : "hidden",
+    }}
+  >
+    <ul
+      style={{
+        listStyle: "none",
+        padding: 0,
+        margin: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: "28px",
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      <li>
+        <a
+          href="#"
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            fontSize: "24px",
+            fontWeight: 600,
+            color: "rgba(255, 255, 255, 0.9)",
+            textDecoration: "none",
+            fontFamily: "var(--font-body), sans-serif",
+          }}
+        >
+          Accueil
+        </a>
+      </li>
+      {["Produits", "Témoignages", "Ressources", "Tarifs"].map((item, idx) => (
+        <li key={idx} style={{ opacity: mobileMenuOpen ? 1 : 0, transform: mobileMenuOpen ? "translateY(0)" : "translateY(16px)", transition: `transform 0.4s ease ${idx * 0.06}s, opacity 0.4s ease ${idx * 0.06}s` }}>
+          <a
+            href={item === "Tarifs" ? "#pricing" : "#"}
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontSize: "24px",
+              fontWeight: 600,
+              color: "rgba(255, 255, 255, 0.9)",
+              textDecoration: "none",
+              fontFamily: "var(--font-body), sans-serif",
+            }}
+          >
+            {item}
+          </a>
+        </li>
+      ))}
+      <li style={{ width: "80px", height: "1px", background: "rgba(255,255,255,0.15)", margin: "10px 0" }} />
+      <li style={{ opacity: mobileMenuOpen ? 1 : 0, transform: mobileMenuOpen ? "translateY(0)" : "translateY(16px)", transition: "transform 0.4s ease 0.3s, opacity 0.4s ease 0.3s" }}>
+        <a
+          href="/login"
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            fontSize: "20px",
+            fontWeight: 500,
+            color: "rgba(255, 255, 255, 0.7)",
+            textDecoration: "none",
+          }}
+        >
+          Se connecter
+        </a>
+      </li>
+      <li style={{ opacity: mobileMenuOpen ? 1 : 0, transform: mobileMenuOpen ? "translateY(0)" : "translateY(16px)", transition: "transform 0.4s ease 0.35s, opacity 0.4s ease 0.35s" }}>
+        <a
+          href="/signup"
+          onClick={() => setMobileMenuOpen(false)}
+          className="btn-get-started"
+          style={{
+            background: "#ffffff",
+            color: "#000000",
+            fontSize: "16px",
+            fontWeight: 600,
+            padding: "12px 32px",
+            borderRadius: "9999px",
+            textDecoration: "none",
+            display: "inline-block",
+          }}
+        >
+          Commencer
+        </a>
+      </li>
+    </ul>
+  </div>
 
   <main id="sonara-main" className="relative z-10 bg-[var(--bg-primary)] shadow-[0_40px_80px_rgba(0,0,0,0.45)] transition-colors duration-300">
     {/* ═══════════════════════════════════════════════════════ HERO */}
