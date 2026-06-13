@@ -223,12 +223,11 @@ export default function Home() {
             height: "18px",
             zIndex: 1100,
             position: "relative",
-            color: "currentColor",
           }}
         >
-          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s" }} />
-          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s", marginTop: "6px" }} />
-          <span className="burger-line" style={{ display: "block", height: "2px", width: "100%", background: "currentColor", transition: "transform 0.3s, opacity 0.3s", marginTop: "6px" }} />
+          <span className="burger-line" />
+          <span className="burger-line" />
+          <span className="burger-line" />
         </button>
       </div>
     </div>

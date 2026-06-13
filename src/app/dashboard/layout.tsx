@@ -398,16 +398,36 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           display: "flex",
           flexDirection: "column",
           zIndex: 50,
-          transform: menuOpen ? "translateX(0)" : undefined,
+          transform: menuOpen ? "translateX(0)" : "translateX(-100%)",
           transition: "transform .28s ease",
         }}
       >
-        <div style={{ padding: "22px 22px 18px 22px" }}>
+        <div style={{ padding: "22px 22px 18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {theme === "light" ? (
             <img src="/assets/logo-dark.png" alt="Sonara" style={{ height: "28px", display: "block" }} />
           ) : (
             <img src="/assets/logo-white.png" alt="Sonara" style={{ height: "28px", display: "block" }} />
           )}
+          <button
+            className="sn-sidebar-close"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Fermer le menu"
+            style={{
+              display: "none",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              background: "var(--sn-panel2)",
+              border: "1px solid var(--sn-w08)",
+              color: "var(--sn-text)",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+          </button>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "6px 12px", display: "flex", flexDirection: "column", gap: "22px" }}>

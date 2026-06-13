@@ -101,7 +101,16 @@
 
 /* Responsive adjustments */
 @media (max-width: 1080px) {
-  #sn-sidebar { position: fixed; left: 0; top: 0; bottom: 0; }
+  #sn-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+  }
+  .sn-sidebar-close {
+    display: flex !important;
+  }
   #sn-burger { display: flex !important; }
   #sn-search { display: none !important; }
   #sn-chartrow { grid-template-columns: 1fr !important; }

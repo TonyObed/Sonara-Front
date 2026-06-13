@@ -403,6 +403,22 @@
       }
     }
     
+    .burger-line {
+      display: block;
+      height: 2px;
+      width: 100%;
+      background-color: var(--text-primary);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .burger-line + .burger-line {
+      margin-top: 6px;
+    }
+    
+    .mobile-burger-btn.open .burger-line,
+    .nav-ai.mobile-open .mobile-burger-btn .burger-line {
+      background-color: #ffffff !important;
+    }
+    
     .mobile-burger-btn.open span:nth-child(1) {
       transform: translateY(8px) rotate(45deg);
     }
