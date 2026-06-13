@@ -186,14 +186,10 @@ export default function Home() {
         <img src="Branding bard sonara/Sonara_Logo_Variante_05.png" alt="Sonara" className="logo-img logo-light-theme" style={{ "display": "none" }} />
       </a>
       <ul className="nav-ai-links">
-        <li>
-          <a href="#">
-            Produits
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ "opacity": "0.6" }}><path d="m6 9 6 6 6-6"/></svg>
-          </a>
-        </li>
-        <li><a href="#">Témoignages</a></li>
-        <li><a href="#">Ressources</a></li>
+        <li><a href="#platform">Fonctionnalités</a></li>
+        <li><a href="#how-it-works">Fonctionnement</a></li>
+        <li><a href="#usecases">Cas d'usage</a></li>
+        <li><a href="#testimonials-wall">Témoignages</a></li>
         <li><a href="#pricing">Tarifs</a></li>
       </ul>
       <div className="nav-ai-right">
@@ -283,10 +279,16 @@ export default function Home() {
           Accueil
         </a>
       </li>
-      {["Produits", "Témoignages", "Ressources", "Tarifs"].map((item, idx) => (
+      {[
+        { label: "Fonctionnalités", href: "#platform" },
+        { label: "Fonctionnement", href: "#how-it-works" },
+        { label: "Cas d'usage", href: "#usecases" },
+        { label: "Témoignages", href: "#testimonials-wall" },
+        { label: "Tarifs", href: "#pricing" }
+      ].map((item, idx) => (
         <li key={idx} style={{ opacity: mobileMenuOpen ? 1 : 0, transform: mobileMenuOpen ? "translateY(0)" : "translateY(16px)", transition: `transform 0.4s ease ${idx * 0.06}s, opacity 0.4s ease ${idx * 0.06}s` }}>
           <a
-            href={item === "Tarifs" ? "#pricing" : "#"}
+            href={item.href}
             onClick={() => setMobileMenuOpen(false)}
             style={{
               fontSize: "24px",
@@ -296,7 +298,7 @@ export default function Home() {
               fontFamily: "var(--font-body), sans-serif",
             }}
           >
-            {item}
+            {item.label}
           </a>
         </li>
       ))}
@@ -379,8 +381,8 @@ export default function Home() {
       {/* CTA Buttons */}
       <div className="hero-ai-buttons">
         {/* Primary Button */}
-        <a href="#demo" className="hero-ai-btn-primary">
-          <span>Voir une Démo</span>
+        <a href="/signup" className="hero-ai-btn-primary">
+          <span>Commencer gratuitement</span>
           <div className="arrow-circle">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </div>
@@ -388,7 +390,7 @@ export default function Home() {
 
         {/* Secondary Button */}
         <a href="#demo" className="hero-ai-btn-secondary">
-          <span>Voir la Démo</span>
+          <span>Voir la démo</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
       </div>

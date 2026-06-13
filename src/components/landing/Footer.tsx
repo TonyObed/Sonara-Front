@@ -383,7 +383,7 @@ export function Footer() {
                 Demander une démo<span aria-hidden="true">→</span>
               </a>
               <a
-                href="#contact"
+                href={mailToUrl}
                 data-magnetic="true"
                 className="btn-footer-cta-secondary"
                 style={{
@@ -455,10 +455,10 @@ export function Footer() {
             >
               Produit
             </h3>
-            <a href="#" className="footer-link">Fonctionnalités</a>
+            <a href="#platform" className="footer-link">Fonctionnalités</a>
             <a href="#pricing" className="footer-link">Tarifs</a>
-            <a href="#" className="footer-link">Cas d'usage</a>
-            <a href="#" className="footer-link">Sécurité &amp; conformité</a>
+            <a href="#usecases" className="footer-link">Cas d'usage</a>
+            <a href="#platform" className="footer-link">Sécurité &amp; conformité</a>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <h3
@@ -474,10 +474,10 @@ export function Footer() {
             >
               Secteurs
             </h3>
-            <a href="#" className="footer-link">Banques &amp; finance</a>
-            <a href="#" className="footer-link">Télécoms</a>
-            <a href="#" className="footer-link">Assurances</a>
-            <a href="#" className="footer-link">Institutions publiques</a>
+            <a href="#usecases" className="footer-link">Banques &amp; finance</a>
+            <a href="#usecases" className="footer-link">Télécoms</a>
+            <a href="#usecases" className="footer-link">Assurances</a>
+            <a href="#usecases" className="footer-link">Institutions publiques</a>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <h3

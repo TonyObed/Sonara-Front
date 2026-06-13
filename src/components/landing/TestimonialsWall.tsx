@@ -191,21 +191,7 @@ export function TestimonialsWall() {
             margin: "0 auto",
           }}
         >
-          <div
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "12px",
-              letterSpacing: "2.5px",
-              color: "var(--brand-accent, #0052FF)",
-              fontWeight: 700,
-              border: "1px solid var(--border-accent, rgba(0,82,255,0.45))",
-              borderRadius: "999px",
-              padding: "8px 18px",
-              background: "var(--brand-accent-t, rgba(0,82,255,0.12))",
-            }}
-          >
-            07 — TÉMOIGNAGES
-          </div>
+
           <h2
             style={{
               margin: 0,

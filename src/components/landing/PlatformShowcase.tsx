@@ -35,6 +35,7 @@ export function PlatformShowcase() {
 
   return (
     <section
+      id="platform"
       data-screen-label="Plateforme"
       style={{
         background: "var(--bg-secondary)",
@@ -45,17 +46,7 @@ export function PlatformShowcase() {
     >
       <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
         <Reveal style={{ display: "flex", flexDirection: "column", gap: "14px", maxWidth: "760px" }}>
-          <div
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "11px",
-              letterSpacing: "2px",
-              color: "var(--brand-accent)",
-              fontWeight: 700,
-            }}
-          >
-            05 — LA PLATEFORME
-          </div>
+
           <h2
             style={{
               margin: 0,

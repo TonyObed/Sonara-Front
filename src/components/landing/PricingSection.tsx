@@ -798,7 +798,7 @@ export function PricingSection() {
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Support dédié à Abidjan + SLA</span></div>
             </div>
             <a
-              href="mailto:contact@sonara.ai"
+              href="mailto:contact@sonara.ci"
               className="btn btn-primary"
               style={{
                 marginTop: "auto",
@@ -1142,7 +1142,7 @@ export function PricingSection() {
               Une question spécifique sur les volumes, la conformité ARTCI ou l'intégration ? L'équipe est à Abidjan.
             </p>
             <a
-              href="mailto:contact@sonara.ai"
+              href="mailto:contact@sonara.ci"
               className="btn btn-secondary"
               style={{
                 height: "50px",
