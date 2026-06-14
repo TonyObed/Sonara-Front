@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import styles from "./AuthPage.module.css";
 import ParticleGrid from "./ParticleGrid";
 
@@ -127,6 +128,7 @@ function validateForm(
 /*  Main component                                       */
 /* ════════════════════════════════════════════════════ */
 export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [values, setValues] = useState({
     name: "",
@@ -184,6 +186,9 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
     setTimeout(() => {
       setLoading(false);
       setSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     }, 1300);
   };
 
