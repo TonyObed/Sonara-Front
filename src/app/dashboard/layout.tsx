@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import "./dashboard.css";
 import { DashboardProvider, useDashboard } from "./DashboardContext";
+import { api } from "@/lib/api-client";
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -335,6 +336,16 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       pushToast("Profil mis à jour", "ok");
     }
     setProfileModalOpen(false);
+  };
+
+  // Déconnexion réelle : vide les cookies de session côté API puis redirige.
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      /* ignore — on redirige quand même */
+    }
+    router.push("/login");
   };
 
   const handleCompanySave = () => {
@@ -756,7 +767,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                     </span>
                   </div>
                   <div style={{ height: "1px", background: "var(--sn-w06)", margin: "7px 4px" }}></div>
-                  <div onClick={() => router.push("/")} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "10px 11px", borderRadius: "9px", cursor: "pointer", fontSize: "13.5px", fontWeight: 500, color: "var(--sn-red)" }} className="sn-hover-w04">
+                  <div onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "10px 11px", borderRadius: "9px", cursor: "pointer", fontSize: "13.5px", fontWeight: 500, color: "var(--sn-red)" }} className="sn-hover-w04">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H9"></path><path d="M15 8l4 4-4 4M19 12H9"></path></svg>
                     Se déconnecter
                   </div>

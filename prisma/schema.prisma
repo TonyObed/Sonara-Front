@@ -1,0 +1,269 @@
+// Sonara — Schéma base de données PostgreSQL
+// CDC Technique Global v1.0 — Phase 1 MVP
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUM TYPES ───────────────────────────────────────────────────────────────
+
+enum Plan {
+  STARTER
+  BUSINESS
+  ENTERPRISE
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  VIEWER
+  SUPER_ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  STOPPED
+}
+
+enum ContactStatus {
+  PENDING
+  CALLING
+  COMPLETED
+  FAILED
+  UNREACHABLE
+  TRANSFERRED
+  VOICEMAIL
+  BLACKLISTED
+}
+
+enum CallStatus {
+  INITIATED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  VOICEMAIL
+  NO_ANSWER
+  TRANSFERRED
+  BUSY
+}
+
+// ─── COMPANIES ────────────────────────────────────────────────────────────────
+
+model Company {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  plan          Plan     @default(STARTER)
+  apiCredit     Int      @default(0) @map("api_credit") // nombre d'appels restants
+  isActive      Boolean  @default(true) @map("is_active")
+  // ── 2FA (TOTP — CDC A9) ──
+  twoFactorSecret      String?  @map("two_factor_secret")        // secret TOTP base32 (à chiffrer en P2)
+  twoFactorEnabled     Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorBackupCodes Json?    @map("two_factor_backup_codes")  // codes de secours hashés (bcrypt)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users         User[]
+  campaigns     Campaign[]
+  blacklist     Blacklist[]
+  refreshTokens RefreshToken[]
+
+  @@map("companies")
+}
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  email        String
+  passwordHash String?  @map("password_hash") // null si invite pas encore accepté
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  role         UserRole @default(MANAGER)
+  inviteToken  String?  @unique @map("invite_token")
+  inviteExpiry DateTime? @map("invite_expiry")
+  isActive     Boolean  @default(false) @map("is_active") // false jusqu'à invitation acceptée
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@unique([companyId, email])
+  @@map("users")
+}
+
+// ─── REFRESH TOKENS ───────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String?  @map("user_id")
+  companyId String   @map("company_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─── CAMPAIGNS ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id           String         @id @default(uuid())
+  companyId    String         @map("company_id")
+  name         String
+  sector       String?        // banque, telecom, assurance, etudes...
+  aiBrief      String         @map("ai_brief") @db.Text // system prompt GPT-4o
+  aiVoice      String         @default("awa_female_ci") @map("ai_voice")
+  aiTemperature Float         @default(0.5) @map("ai_temperature")
+  // ── Réglages voix ElevenLabs (configurables par campagne) ──
+  aiVoiceId       String?     @map("ai_voice_id")        // voiceId ElevenLabs explicite (voix clonée) — override de aiVoice
+  aiVoiceModel    String      @default("eleven_turbo_v2_5") @map("ai_voice_model")
+  aiStability     Float       @default(0.5)  @map("ai_stability")      // 0-1
+  aiSimilarity    Float       @default(0.75) @map("ai_similarity")     // 0-1
+  aiStyle         Float       @default(0.0)  @map("ai_style")          // 0-1
+  aiSpeed         Float       @default(1.0)  @map("ai_speed")          // 0.7-1.2
+  aiSpeakerBoost  Boolean     @default(true) @map("ai_speaker_boost")
+  status       CampaignStatus @default(DRAFT)
+  maxRetries   Int            @default(2) @map("max_retries") // 1-3
+  timeStart    String         @default("08:00") @map("time_start") // "08:00" heure Abidjan
+  timeEnd      String         @default("19:00") @map("time_end")   // "19:00"
+  maxDuration  Int            @default(480) @map("max_duration")   // secondes, défaut 8min
+  concurrency  Int            @default(10) // appels simultanés
+  scheduledAt  DateTime?      @map("scheduled_at")
+  startedAt    DateTime?      @map("started_at")
+  completedAt  DateTime?      @map("completed_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+  calls        Call[]
+
+  @@map("campaigns")
+}
+
+// ─── CONTACTS ────────────────────────────────────────────────────────────────
+
+model Contact {
+  id          String        @id @default(uuid())
+  campaignId  String        @map("campaign_id")
+  phone       String        // format normalisé +22507XXXXXXXX
+  firstName   String?       @map("first_name")
+  lastName    String?       @map("last_name")
+  city        String?
+  segment     String?       // tag libre : premium, prospect, etc.
+  notes       String?       // note libre
+  status      ContactStatus @default(PENDING)
+  attempts    Int           @default(0) // nombre de tentatives effectuées
+  lastCalledAt DateTime?    @map("last_called_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  calls       Call[]
+
+  @@index([campaignId, status])
+  @@map("contacts")
+}
+
+// ─── BLACKLIST ────────────────────────────────────────────────────────────────
+
+model Blacklist {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  phone     String   // format normalisé
+  reason    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, phone])
+  @@map("blacklist")
+}
+
+// ─── CALLS ───────────────────────────────────────────────────────────────────
+
+model Call {
+  id           String     @id @default(uuid())
+  contactId    String     @map("contact_id")
+  campaignId   String     @map("campaign_id")
+  vapiCallId   String?    @unique @map("vapi_call_id") // ID Vapi pour référence
+  atCallId     String?    @map("at_call_id")           // ID Africa's Talking
+  status       CallStatus @default(INITIATED)
+  durationSec  Int?       @map("duration_sec")
+  startedAt    DateTime?  @map("started_at")
+  endedAt      DateTime?  @map("ended_at")
+  transcript   Json?      // [{speaker, text, timestamp}]
+  summary      String?    @db.Text // résumé GPT-4o post-appel
+  recordingUrl String?    @map("recording_url")
+  costFcfa     Float?     @map("cost_fcfa") // coût calculé en FCFA
+  attemptNumber Int       @default(1) @map("attempt_number")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  events       CallEvent[]
+
+  @@index([campaignId, status])
+  @@index([contactId])
+  @@map("calls")
+}
+
+// ─── CALL EVENTS (webhooks Vapi log) ─────────────────────────────────────────
+
+model CallEvent {
+  id        String   @id @default(uuid())
+  callId    String   @map("call_id")
+  eventType String   @map("event_type") // call-started, transcript, call-ended, etc.
+  payload   Json     // payload brut Vapi
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@map("call_events")
+}
+
+// ─── LEADS (capture marketing « Demander une démo ») ─────────────────────────
+
+model Lead {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  company   String?
+  phone     String?
+  message   String?
+  source    String   @default("landing") // origine : landing, pricing, cta, etc.
+  status    String   @default("new")      // new, contacted, qualified, converted, lost
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}

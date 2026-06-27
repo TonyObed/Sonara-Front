@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import styles from "./AuthPage.module.css";
 import ParticleGrid from "./ParticleGrid";
+import { api, ApiError } from "@/lib/api-client";
 
 /* ─── Types ─────────────────────────────────────────── */
 type Mode = "login" | "signup";
@@ -116,7 +117,13 @@ function validateForm(
   const errors: Record<string, string> = {};
   if (!EMAIL_RE.test(values.email.trim()))
     errors.email = "Entrez une adresse email valide.";
-  if (values.password.length < 8) errors.password = "8 caractères minimum.";
+  if (values.password.length < 8) {
+    errors.password = "8 caractères minimum.";
+  } else if (mode === "signup" && !/[A-Z]/.test(values.password)) {
+    errors.password = "Au moins une majuscule requise.";
+  } else if (mode === "signup" && !/[0-9]/.test(values.password)) {
+    errors.password = "Au moins un chiffre requis.";
+  }
   if (mode === "signup") {
     if (!values.name.trim()) errors.name = "Indiquez votre nom.";
     if (!values.company.trim()) errors.company = "Indiquez votre entreprise.";
@@ -173,7 +180,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   };
 
   /* ── Submit ── */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess(false);
     setForgotSent(false);
@@ -183,13 +190,53 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      if (mode === "signup") {
+        await api.auth.register({
+          companyName: values.company.trim(),
+          email: values.email.trim(),
+          password: values.password,
+        });
+      } else {
+        const { data } = await api.auth.login({
+          email: values.email.trim(),
+          password: values.password,
+        });
+        // Interception 2FA : la connexion exige un second facteur (étape à finaliser)
+        if ((data as { twoFactorRequired?: boolean }).twoFactorRequired) {
+          setLoading(false);
+          setErrors({
+            form: "Authentification à deux facteurs requise — flux 2FA à finaliser.",
+          });
+          return;
+        }
+      }
       setLoading(false);
       setSuccess(true);
+      // Destination : ?redirect=… posé par le proxy, sinon /dashboard
+      const redirect =
+        new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
       setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
-    }, 1300);
+        router.push(redirect);
+      }, 1200);
+    } catch (err) {
+      setLoading(false);
+      if (err instanceof ApiError) {
+        // Erreurs de validation champ par champ renvoyées par le serveur
+        if (err.details?.length) {
+          const fieldErrs: Record<string, string> = {};
+          for (const d of err.details) {
+            const key = d.field === "companyName" ? "company" : d.field;
+            fieldErrs[key] = d.message;
+          }
+          setErrors(fieldErrs);
+        } else {
+          setErrors({ form: err.message });
+        }
+      } else {
+        setErrors({ form: "Une erreur est survenue. Réessayez." });
+      }
+    }
   };
 
   /* ── Forgot password ── */
@@ -387,6 +434,13 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
                 >
                   Mot de passe oublié ?
                 </a>
+              </div>
+            )}
+
+            {/* Erreur de formulaire (serveur) */}
+            {errors.form && (
+              <div className={styles.errMsg} role="alert">
+                {errors.form}
               </div>
             )}
 

@@ -531,7 +531,7 @@ export function PricingSection() {
                   fontWeight: 700,
                 }}
               >
-                Démarrer avec Business<span style={{ fontSize: "18px" }}>→</span>
+                Démarrer avec Business (Mode MVP)<span style={{ fontSize: "18px" }}>→</span>
               </a>
               <a
                 href="#demo"
@@ -714,7 +714,7 @@ export function PricingSection() {
                 fontWeight: 700,
               }}
             >
-              Commencer
+              Commencer (Mode MVP)
             </a>
           </div>
 
@@ -762,7 +762,7 @@ export function PricingSection() {
                 fontWeight: 700,
               }}
             >
-              Lancer une campagne
+              Lancer une campagne (Mode MVP)
             </a>
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useDashboard } from "../DashboardContext";
 import demoData from "@/lib/demo-data.json";
 
@@ -13,6 +13,8 @@ export default function BillingPage() {
     plans,
     pushToast,
   } = useDashboard();
+
+  const [credit, setCredit] = useState(12450);
 
   const plansRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +84,7 @@ export default function BillingPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "24px", display: "flex", flexDirection: "column" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>CRÉDIT RESTANT</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "10px" }}>
-            <span style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-.02em" }}>12 450</span>
+            <span style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-.02em" }}>{fmt(credit)}</span>
             <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ 20 000 appels</span>
           </div>
           <div style={{ height: "8px", background: "var(--sn-w08)", borderRadius: "5px", marginTop: "12px", overflow: "hidden" }}>
@@ -102,7 +104,13 @@ export default function BillingPage() {
             </span>
           </div>
           <div style={{ flex: 1 }}></div>
-          <button onClick={() => pushToast("Redirection vers Wave CI en cours...", "info")} style={{ marginTop: "16px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "13px 18px", fontFamily: "'Satoshi', sans-serif", fontSize: "14px", fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: "0 8px 24px rgba(0,82,255,.32)" }} className="sn-hover-btn-primary">
+          <button onClick={() => {
+            pushToast("Redirection vers Wave CI en cours...", "info");
+            setTimeout(() => {
+              setCredit((prev) => prev + 5000);
+              pushToast("Paiement simulé avec succès ! +5 000 crédits (Mode MVP).", "ok");
+            }, 1500);
+          }} style={{ marginTop: "16px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "13px 18px", fontFamily: "'Satoshi', sans-serif", fontSize: "14px", fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: "0 8px 24px rgba(0,82,255,.32)" }} className="sn-hover-btn-primary">
             Recharger via Wave CI
           </button>
         </div>
