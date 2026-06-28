@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import demoData from "@/lib/demo-data.json";
+import { api } from "@/lib/api-client";
+import { mapApiCampaignToFront } from "@/lib/dashboard-adapters";
 
 // Type definitions based on demo-data.json
 export interface UserProfile {
@@ -194,9 +196,13 @@ interface DashboardContextType {
   markAllRead: () => void;
   startTestCall: () => void;
   
+  isLoading: boolean;
+
   // Full static-dynamic records
   campaigns: Campaign[];
+  setCampaigns: React.Dispatch<React.SetStateAction<Campaign[]>>;
   calls: Call[];
+  setCalls: React.Dispatch<React.SetStateAction<Call[]>>;
   liveCalls: LiveCall[];
   directory: Contact[];
   reports: Report[];
@@ -217,19 +223,32 @@ export const useDashboard = () => {
 };
 
 export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Real dynamic states
+  const [isLoading, setIsLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  // Vues pas encore câblées à l'API : repli sur les données demo (MVP) pour éviter
+  // des pages vides. À remplacer par de vrais fetchs au fil de l'intégration.
+  const [calls, setCalls] = useState<Call[]>(
+    (demoData.calls as unknown[]).map((c) => ({ ...(c as Call), dur: (c as { duration: string }).duration })) as Call[]
+  );
+  const [liveCalls, setLiveCalls] = useState<LiveCall[]>(demoData.liveCalls as LiveCall[]);
+  const [directory, setDirectory] = useState<Contact[]>(demoData.directory as Contact[]);
+  const [reports, setReports] = useState<Report[]>(demoData.reports as Report[]);
+  const [team, setTeam] = useState<TeamMember[]>(demoData.team as TeamMember[]);
+
   // Load persistent states
   const [theme, setThemeState] = useState<"dark" | "light">("dark");
   const [profile, setProfileState] = useState<UserProfile>({
-    name: demoData.user.name,
-    email: demoData.user.email,
-    role: demoData.user.role,
+    name: "",
+    email: "",
+    role: "VIEWER",
     photo: null,
   });
   const [company, setCompanyState] = useState<CompanyInfo>({
-    name: demoData.company.name,
-    phone: demoData.company.phone,
-    tz: demoData.company.tz,
-    plan: demoData.company.plan,
+    name: "",
+    phone: "",
+    tz: "UTC",
+    plan: "Free",
   });
 
   const [view, setViewState] = useState<string>("home");
@@ -302,28 +321,79 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [theme]);
 
-  // Run KPI Count-Up Animation on mount
+  // Fetch real data from APIs on mount
   useEffect(() => {
-    const T = { ka: demoData.kpis.callsToday, kt: demoData.kpis.responseRate, kc: demoData.kpis.activeCampaigns, kcr: demoData.credit.remaining };
-    const t0 = performance.now();
-    const dur = 1400; // ms
-    let rFrame: number;
-
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur);
-      const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
-      setKa(Math.round(T.ka * e));
-      setKt(Math.round(T.kt * e));
-      setKc(Math.round(T.kc * e));
-      setKcr(Math.round(T.kcr * e));
-
-      if (p < 1) {
-        rFrame = requestAnimationFrame(step);
+    let isMounted = true;
+    
+    async function fetchDashboardData() {
+      try {
+        setIsLoading(true);
+        const [meRes, campaignsRes, usageRes] = await Promise.all([
+          api.auth.me().catch(() => null),
+          api.campaigns.list({ limit: 50 }).catch(() => null),
+          api.company.usage().catch(() => null)
+        ]);
+        
+        if (!isMounted) return;
+        
+        // Handle unauthorized or missing session
+        if (!meRes || !meRes.data) {
+          window.location.href = "/login";
+          return;
+        }
+        
+        const { user, company } = meRes.data;
+        setProfileState({
+          name: `${user.firstName} ${user.lastName}`.trim(),
+          email: user.email,
+          role: user.role,
+          photo: null,
+        });
+        setCompanyState({
+          name: company.name,
+          phone: "",
+          tz: "UTC",
+          plan: company.plan,
+        });
+        
+        if (campaignsRes && campaignsRes.data) {
+          setCampaigns(campaignsRes.data.map(mapApiCampaignToFront));
+        }
+        
+        if (usageRes && usageRes.data) {
+          const u = usageRes.data;
+          const T = { 
+            ka: u.calls.total, 
+            kt: 0, 
+            kc: Object.keys(u.campaigns).length, 
+            kcr: u.credit.remaining 
+          };
+          
+          // KPI Animation
+          const t0 = performance.now();
+          const dur = 1400;
+          let rFrame: number;
+          const step = (now: number) => {
+            const p = Math.min(1, (now - t0) / dur);
+            const e = 1 - Math.pow(1 - p, 3);
+            setKa(Math.round(T.ka * e));
+            setKt(Math.round(T.kt * e));
+            setKc(Math.round(T.kc * e));
+            setKcr(Math.round(T.kcr * e));
+            if (p < 1) rFrame = requestAnimationFrame(step);
+          };
+          rFrame = requestAnimationFrame(step);
+        }
+        
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    };
-
-    rFrame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rFrame);
+    }
+    
+    fetchDashboardData();
+    return () => { isMounted = false; };
   }, []);
 
   // Tick timer for live monitoring
@@ -491,16 +561,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markAllRead,
         startTestCall,
         
-        // Static data loaded from JSON
-        campaigns: demoData.campaigns as Campaign[],
-        calls: (demoData.calls as any[]).map((c: any) => ({
-          ...c,
-          dur: c.duration,
-        })) as Call[],
-        liveCalls: demoData.liveCalls as LiveCall[],
-        directory: demoData.directory as Contact[],
-        reports: demoData.reports as Report[],
-        team: demoData.team as TeamMember[],
+        isLoading,
+        
+        // Data populated from API / Empty states
+        campaigns,
+        setCampaigns,
+        calls,
+        setCalls,
+        liveCalls,
+        directory,
+        reports,
+        team,
         notifications: demoData.notifications,
         faq: demoData.faq,
         plans: demoData.plans,

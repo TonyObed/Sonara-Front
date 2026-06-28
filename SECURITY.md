@@ -1,156 +1,59 @@
-# Security Policy
+# Politique de sécurité — Sonara
 
-## Supported Versions
+> Principes adaptés depuis le repo de référence [affaan-m/ecc](https://github.com/affaan-m/ecc)
+> (gagnant d'un hackathon Claude), recentrés sur le périmètre Sonara.
 
-| Version | Supported |
+## Signaler une vulnérabilité
+
+N'ouvrez **pas** d'issue publique pour une faille. Contactez l'équipe Sonara en privé
+(canal interne / email du mainteneur du dépôt `Sonara-Front`). Incluez :
+
+- fichier / route / commit concernés et étapes de reproduction depuis un checkout propre ;
+- impact attendu et frontière de confiance franchie (utilisateur non authentifié, autre
+  entreprise/tenant, admin…) ;
+- logs de PoC avec **tokens, clés et données privées masqués**.
+
+## Mesures de sécurité déjà en place (Phase 1)
+
+| Domaine | Implémentation |
 | --- | --- |
-| 2.x / rc builds | :white_check_mark: |
-| 1.10.x | :white_check_mark: |
-| 1.9.x | Critical fixes only |
-| < 1.9 | :x: |
+| **Mots de passe** | `bcrypt` cost 12 (`src/app/api/auth/register/route.ts`) |
+| **Sessions** | JWT signés (`jose`), cookies `httpOnly` + `secure` (prod) + `sameSite:strict` (`src/lib/auth.ts`) |
+| **2FA** | TOTP (`otplib`) + interception au login (`src/app/api/auth/2fa/*`) |
+| **Protection des routes** | `src/proxy.ts` — pages `/dashboard` et API protégées exigent un access token valide ; injection `x-company-id`/`x-user-role` |
+| **Isolation multi-tenant** | chaque requête est scopée par `companyId` issu du token |
+| **Validation des entrées** | schémas `zod` à la frontière (`src/lib/validation.ts`) |
+| **Rate limiting** | par IP/entreprise sur login, register, appels test (`src/lib/rate-limit.ts`) |
+| **Webhooks Vapi** | vérification **HMAC-SHA256** à temps constant (`src/app/api/webhooks/vapi/route.ts`) |
+| **Jobs internes** | `/api/jobs/call-scheduler` protégé par `x-internal-key` = `INTERNAL_JOB_KEY` |
+| **En-têtes HTTP** | X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS (`next.config.ts`) |
+| **Anti-énumération** | messages d'erreur identiques email/mot de passe au login |
 
-Security fixes land on `main` first. Backports are best-effort and only for currently supported release lines.
+## Gestion des secrets — règles strictes
 
-## Reporting a Vulnerability
+- **Jamais** de secret en dur dans le code ni commité. Tout passe par `.env` (gitignoré).
+- `.env.example` est un **modèle** : toutes les valeurs réelles (Supabase, JWT, Vapi)
+  sont injectées au déploiement.
+- Si un secret est commité par accident : **le révoquer immédiatement** chez le fournisseur
+  (Supabase, Twilio, Vapi…) puis réécrire l'historique. Un simple revert ne suffit pas.
+- Audit rapide avant commit :
 
-Use GitHub private vulnerability reporting whenever possible — it reaches the maintainer directly:
+  ```bash
+  git diff --cached | grep -En '(SECRET|TOKEN|KEY|PASSWORD|postgres://|sk-)[^=]*=.+'
+  ```
 
-- <https://github.com/affaan-m/ECC/security/advisories/new>
+## Périmètre MVP — ce qui est volontairement bloqué/simulé
 
-You can also email **<affaan@ecc.tools>** (the `security@ecc.tools` alias is not monitored — use `affaan@ecc.tools`).
+Pour la phase de tests MVP, certaines parties sont **stubées** et NE doivent pas être
+considérées comme productives :
 
-Do **not** open a public GitHub issue for security vulnerabilities.
+- **Paiement / facturation** : la recharge « Wave CI » (`src/app/dashboard/billing/page.tsx`)
+  est **simulée** (Mode MVP) — aucun encaissement réel. CTAs tarifaires étiquetés « (Mode MVP) ».
+- À brancher en Phase 2 : intégration paiement réelle (Wave/Orange Money), avant toute mise en prod.
 
-Include:
+## À durcir en Phase 2
 
-- affected file, package, version, commit, and install path
-- steps to reproduce from a clean checkout
-- expected impact and affected trust boundary
-- whether exploitation requires local shell access, a malicious repo, a malicious package, a remote unauthenticated actor, or maintainer credentials
-- any PoC logs with tokens, keys, local paths, and private data redacted
-
-Expected response:
-
-- **Acknowledgment:** within 48 hours
-- **Initial assessment:** within 7 days
-- **Critical fix or mitigation target:** within 14 days when the report affects a supported release and crosses a real trust boundary
-- **Coordinated disclosure:** before public advisory publication
-
-If a report is declined, we will explain whether it is not reproducible, out of scope, already fixed, or needs a stronger attack path.
-
-## Scope
-
-This policy covers:
-
-- the `affaan-m/ECC` repository
-- the `ecc-universal` npm package
-- ECC plugin, install, repair, dashboard, hook, rule, skill, MCP, and command surfaces shipped from this repository
-- GitHub Actions workflows and release automation in this repository
-- the ECC Tools GitHub App integration points documented by this repository
-- AgentShield usage docs when they are embedded here. AgentShield code issues belong in <https://github.com/affaan-m/agentshield>
-
-## Official Distribution Surfaces
-
-Official ECC surfaces are:
-
-- GitHub repo: <https://github.com/affaan-m/ECC>
-- npm package: `ecc-universal`
-- GitHub App: <https://github.com/apps/ecc-tools>
-- marketplace/plugin slug: `ecc@ecc`
-- website: <https://ecc.tools>
-
-Official AgentShield surface:
-
-- npm package: `ecc-agentshield`
-- GitHub repo: <https://github.com/affaan-m/agentshield>
-
-The following packages have been observed using ECC repository metadata but are **not maintained by ECC**:
-
-- `@chil_ntl/ecc-cli`
-- `ecc-100xprompt-plugin`
-
-Treat any package not listed under official surfaces as unofficial until verified. Do not install packages named `opencode-ecc`, `everything-claude-code`, or other ECC-like aliases unless this repository explicitly documents them as official.
-
-GitHub dependency graph may also show Go module aliases such as `github.com/affaan-m/ecc` or historical repository paths. ECC is not currently distributed as a supported Go module.
-
-## Out of Scope
-
-Reports are usually out of scope when they only show:
-
-- local command execution where the user already controls the local shell and no higher-privilege trust boundary is crossed
-- screenshots, stale line numbers, or reports against `affaan-m/everything-claude-code` that do not reproduce on current `affaan-m/ECC`
-- self-XSS or social engineering with no repository-controlled exploit path
-- dependency graph/package metadata confusion without an install path to an official ECC package
-- vulnerabilities in third-party packages unless ECC pins, installs, or executes them in a way that creates extra impact
-
-Local developer tools can still be valid security issues when untrusted repository content, package installation, generated hooks, or CI automation can trigger execution without clear user intent. Show that trust boundary in the report.
-
-## Supply-Chain Rules
-
-ECC treats supply-chain exposure as a first-class security surface.
-
-- GitHub Actions must use pinned commit SHAs for third-party actions.
-- Workflows must avoid shelling untrusted GitHub context directly into `run:` blocks.
-- Release and install docs must point only to official packages.
-- Package metadata should point at `affaan-m/ECC`, not historical repo paths.
-- Private vulnerability reports are triaged privately before public disclosure.
-- Security advisories are published only when a supported release is affected and coordinated disclosure is appropriate.
-
-## Operational Guidance
-
-### Secrets Handling
-
-`mcp-configs/mcp-servers.json` is a **template**. All `YOUR_*_HERE` values must be replaced at install time from env-vars or a secrets manager. Never commit real credentials. If a secret is accidentally committed, rotate it immediately and rewrite history. Do not rely on a plain revert.
-
-The same rule applies to user-scope Claude Code config (`~/.claude/settings.json` or `%USERPROFILE%\.claude\settings.json`). That file is outside this repository, but it is commonly shared through `claude doctor` output, screenshots, and bug reports. Do not hardcode PATs, API keys, or OAuth tokens into `mcpServers[*].env` blocks. Resolve them at spawn time from the OS keychain or env-vars your MCP server already supports.
-
-Quick audit:
-
-```bash
-# macOS / Linux
-grep -EnH '(TOKEN|SECRET|KEY|PASSWORD)\s*"\s*:\s*"[A-Za-z0-9_-]{16,}"' ~/.claude/settings.json
-
-# Windows PowerShell
-Select-String -Path "$env:USERPROFILE\.claude\settings.json" -Pattern '(TOKEN|SECRET|KEY|PASSWORD)"\s*:\s*"[A-Za-z0-9_-]{16,}"'
-```
-
-If the audit matches, rotate the secret at the issuing provider, then move it out of the file.
-
-### Local MCP Ports
-
-Some bundled MCP servers connect over plain HTTP to a localhost port. Before first use, verify the listening process:
-
-```bash
-# Windows
-netstat -ano | findstr :18801
-
-# macOS / Linux
-lsof -iTCP:18801 -sTCP:LISTEN
-```
-
-Compare the PID against the expected binary. Any other process on that port can intercept MCP traffic.
-
-## Triage: suspicious `<system-reminder>` blocks
-
-ECC runs inside agent harnesses that may inject ephemeral client-side system reminders into the model input on every turn. These blocks are not automatically repository-carried payloads.
-
-Before treating one as an attack, verify:
-
-1. Is the block actually in a file under this repo?
-
-   ```bash
-   grep -rEn "system-reminder|NEVER mention|DO NOT mention" .
-   ```
-
-2. Is the block stored in the session transcript as part of a tool result?
-3. Is it consistent with known client reminders such as TodoWrite nudges, date notices, or file-modified notices?
-
-Escalate upstream only when the block is present inside a tool result or repository file and is not attributable to the file, URL, or command that was actually read.
-
-## Security Resources
-
-- **AgentShield:** `npx ecc-agentshield scan`
-- **Security Guide:** [The Shorthand Guide to Everything Agentic Security](./the-security-guide.md)
-- **Supply-chain incident response:** [npm/GitHub Actions package-registry playbook](./docs/security/supply-chain-incident-response.md)
-- **OWASP MCP Top 10:** <https://owasp.org/www-project-mcp-top-10/>
-- **OWASP Agentic Applications Top 10:** <https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/>
+- **CSP** : politique Content-Security-Policy testée (omise en P1 pour ne pas casser Next/Mux).
+- **JWT secrets** : refuser le démarrage en production si `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`
+  sont absents (actuellement fallback dev non sécurisé dans `src/lib/auth.ts`).
+- **Rate limiting** : backend distribué (Redis) au lieu de l'in-memory actuel (mono-instance).
