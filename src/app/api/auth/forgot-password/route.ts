@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Générer un token signé expirant en 1h (CDC A3)
     const resetToken = await generateResetToken(company.id, company.email);
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
 
     // TODO Phase 2 : envoyer l'email via SMTP
     // await sendResetEmail({ to: company.email, resetUrl });

@@ -110,6 +110,17 @@ const SLIDES = [
 /* ─── Validation helpers ────────────────────────────── */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* ─── Messages d'erreur OAuth (?error= renvoyé par le callback) ─────── */
+const OAUTH_ERRORS: Record<string, string> = {
+  oauth_non_configure:
+    "Connexion via ce fournisseur non configurée (identifiants OAuth manquants).",
+  provider_inconnu: "Fournisseur de connexion inconnu.",
+  oauth_invalide: "Session de connexion invalide. Réessayez.",
+  oauth_echec: "La connexion via le fournisseur a échoué. Réessayez.",
+  oauth_email_absent: "Impossible de récupérer votre email auprès du fournisseur.",
+  compte_desactive: "Ce compte est désactivé. Contactez le support.",
+};
+
 function validateForm(
   mode: Mode,
   values: { name: string; company: string; email: string; password: string }
@@ -148,6 +159,12 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+  // Étape 2FA : déclenchée quand le login renvoie twoFactorRequired.
+  const [twoFA, setTwoFA] = useState<{ required: boolean; preAuthToken: string; code: string }>({
+    required: false,
+    preAuthToken: "",
+    code: "",
+  });
 
   /* ── Carousel autoplay ── */
   const [slideIdx, setSlideIdx] = useState(0);
@@ -166,6 +183,26 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [restart]);
+
+  // Affiche l'erreur éventuelle renvoyée par le callback OAuth (?error=…).
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get("error");
+    if (err) {
+      setErrors({ form: OAUTH_ERRORS[err] ?? "La connexion a échoué. Réessayez." });
+    }
+  }, []);
+
+  // Redirection après succès (login direct, 2FA, ou inscription).
+  const goAfterAuth = useCallback(() => {
+    const redirect =
+      new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
+    setTimeout(() => router.push(redirect), 1100);
+  }, [router]);
+
+  // Démarre un flux OAuth (redirection pleine page vers le provider).
+  const handleOAuth = (provider: "google" | "microsoft") => {
+    window.location.href = `/api/auth/oauth/${provider}`;
+  };
 
 
   /* ── Field change ── */
@@ -202,23 +239,16 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
           email: values.email.trim(),
           password: values.password,
         });
-        // Interception 2FA : la connexion exige un second facteur (étape à finaliser)
-        if ((data as { twoFactorRequired?: boolean }).twoFactorRequired) {
+        // Interception 2FA : la connexion exige un second facteur.
+        if (data.twoFactorRequired && data.preAuthToken) {
           setLoading(false);
-          setErrors({
-            form: "Authentification à deux facteurs requise — flux 2FA à finaliser.",
-          });
+          setTwoFA({ required: true, preAuthToken: data.preAuthToken, code: "" });
           return;
         }
       }
       setLoading(false);
       setSuccess(true);
-      // Destination : ?redirect=… posé par le proxy, sinon /dashboard
-      const redirect =
-        new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
-      setTimeout(() => {
-        router.push(redirect);
-      }, 1200);
+      goAfterAuth();
     } catch (err) {
       setLoading(false);
       if (err instanceof ApiError) {
@@ -239,11 +269,41 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
     }
   };
 
-  /* ── Forgot password ── */
-  const handleForgot = (e: React.MouseEvent) => {
+  /* ── Vérification du code 2FA ── */
+  const handle2FA = async (e: React.FormEvent) => {
     e.preventDefault();
-    setForgotSent(true);
+    setErrors({});
+    const code = twoFA.code.trim();
+    if (code.length < 6) {
+      setErrors({ form: "Entrez le code à 6 chiffres (ou un code de secours)." });
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.auth.verify2FA({ preAuthToken: twoFA.preAuthToken, code });
+      setLoading(false);
+      setSuccess(true);
+      goAfterAuth();
+    } catch (err) {
+      setLoading(false);
+      setErrors({ form: err instanceof ApiError ? err.message : "Code incorrect. Réessayez." });
+    }
+  };
+
+  /* ── Forgot password (appel API réel + anti-énumération) ── */
+  const handleForgot = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setSuccess(false);
+    if (!EMAIL_RE.test(values.email.trim())) {
+      setErrors({ email: "Saisissez votre email pour recevoir le lien de réinitialisation." });
+      return;
+    }
+    try {
+      await api.auth.forgotPassword({ email: values.email.trim() });
+    } catch {
+      /* Réponse identique quoi qu'il arrive (anti-énumération). */
+    }
+    setForgotSent(true);
   };
 
   const copy = COPY[mode];
@@ -255,6 +315,74 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
       <section className={styles.paneForm}>
         {/* Form centré — pas de header logo en haut */}
         <div className={styles.formWrap}>
+          {twoFA.required ? (
+            <form className={styles.card} onSubmit={handle2FA} noValidate>
+              <div className={styles.head}>
+                <div className={styles.formLogo}>
+                  <Image
+                    src="/Branding bard sonara/Sonara_Logo_Variante_01.png"
+                    alt="Sonara"
+                    width={130}
+                    height={32}
+                    priority
+                  />
+                </div>
+                <h1 className={styles.h1}>Vérification en deux étapes</h1>
+                <p className={styles.sub}>
+                  Saisissez le code à 6 chiffres de votre application d&apos;authentification
+                  (ou un code de secours).
+                </p>
+              </div>
+              <div className={`${styles.field} ${errors.form ? styles.invalid : ""}`}>
+                <label htmlFor="twofa">Code de vérification</label>
+                <div className={styles.inputShell}>
+                  <input
+                    type="text"
+                    id="twofa"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    value={twoFA.code}
+                    onChange={(e) => setTwoFA((p) => ({ ...p, code: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              {errors.form && (
+                <div className={styles.errMsg} role="alert">
+                  {errors.form}
+                </div>
+              )}
+              <button
+                type="submit"
+                className={`${styles.cta} ${loading ? styles.loading : ""}`}
+              >
+                <span className={styles.spin} />
+                <span className={styles.ctaLabel}>Vérifier</span>
+              </button>
+              {success && (
+                <div className={`${styles.okBanner} ${styles.show}`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  <span>Connexion réussie. Redirection…</span>
+                </div>
+              )}
+              <p className={styles.switchText}>
+                <a
+                  href="#"
+                  className={styles.link}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setTwoFA({ required: false, preAuthToken: "", code: "" });
+                    setErrors({});
+                  }}
+                >
+                  ← Revenir à la connexion
+                </a>
+              </p>
+            </form>
+          ) : (
           <form
             className={styles.card}
             id="authForm"
@@ -282,6 +410,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
                 type="button"
                 className={styles.sbtn}
                 data-provider="Google"
+                onClick={() => handleOAuth("google")}
               >
                 <svg viewBox="0 0 24 24" className={styles.socialIcon}>
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -295,6 +424,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
                 type="button"
                 className={styles.sbtn}
                 data-provider="Microsoft"
+                onClick={() => handleOAuth("microsoft")}
               >
                 <svg viewBox="0 0 24 24" className={styles.socialIcon}>
                   <path fill="#F25022" d="M3 3h8.5v8.5H3z" />
@@ -492,6 +622,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
               </Link>
             </p>
           </form>
+          )}
         </div>
 
         {/* Footer */}

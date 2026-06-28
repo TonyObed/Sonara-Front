@@ -184,7 +184,9 @@ export const api = {
     register: (body: { companyName: string; email: string; password: string }) =>
       post<{ company: Company; user: User; accessToken: string }>("/auth/register", body),
     login: (body: { email: string; password: string }) =>
-      post<{ company: Company; user: User; accessToken: string }>("/auth/login", body),
+      post<{ company: Company; user: User; accessToken: string; twoFactorRequired?: boolean; preAuthToken?: string }>("/auth/login", body),
+    verify2FA: (body: { preAuthToken: string; code: string }) =>
+      post<{ company: Company; user: User; accessToken: string }>("/auth/2fa/verify", body),
     logout: () => post<{ message: string }>("/auth/logout"),
     me: () => get<{ company: Company; user: User }>("/auth/me"),
     forgotPassword: (body: { email: string }) =>

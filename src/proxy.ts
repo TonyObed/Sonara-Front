@@ -15,6 +15,8 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/reset-password",
   "/api/auth/invite",
   "/api/auth/accept-invite",
+  "/api/auth/2fa/verify",
+  "/api/auth/oauth",
   "/api/webhooks/vapi",
   "/api/jobs/call-scheduler",
 ];
