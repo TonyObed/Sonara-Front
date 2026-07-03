@@ -132,7 +132,11 @@ export async function GET(
 </html>`;
     const res = new NextResponse(interstitial, {
       status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        // Réponse d'authentification (pose les cookies de session) : jamais en cache.
+        "Cache-Control": "no-store",
+      },
     });
     res.cookies.set("sonara_access", at, {
       httpOnly: true,
