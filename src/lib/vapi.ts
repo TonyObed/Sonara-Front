@@ -120,7 +120,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       style: params.style ?? 0.0,
       useSpeakerBoost: params.speakerBoost ?? true,
       speed: params.speed ?? 1.0,
-      optimizeStreamingLatency: 3,
+      optimizeStreamingLatency: 4, // max (0-4) : réduit la latence de génération voix
     },
 
     // ── STT : Deepgram Nova-2 (fr + vocabulaire local CI — CDC D6/E2) ──
@@ -136,6 +136,10 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     maxDurationSeconds: params.maxDuration,
     silenceTimeoutSeconds: 30,
     backchannelingEnabled: true,
+
+    // ── Latence : l'IA attend moins longtemps avant de prendre la parole ──
+    // (défaut Vapi : 0.4s ; en dessous de 0.3s elle risque de couper l'utilisateur)
+    startSpeakingPlan: { waitSeconds: 0.3 },
 
     // ── Analyse post-appel : résumé automatique (CDC F2) ──
     analysisPlan: {
