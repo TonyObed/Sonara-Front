@@ -4,6 +4,8 @@ import React, { useState, use } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboard } from "../../DashboardContext";
+import { useCampaignCalls } from "@/hooks/useSonara";
+import { mapApiCallToRow } from "@/lib/dashboard-adapters";
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -13,7 +15,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   
   const {
     campaigns,
-    calls,
     directory,
     stOver,
     setStOver,
@@ -21,6 +22,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     pushToast,
     setConfirm,
   } = useDashboard();
+
+  // Appels réels de la campagne (transcription accessible via le drawer / useCall).
+  const { data: apiCalls } = useCampaignCalls(id);
+  const callRows = (apiCalls ?? []).map(mapApiCallToRow);
 
   // Load initial tab from query string or default to 'overview'
   const initialTab = (searchParams.get("tab") as any) || "overview";
@@ -77,8 +82,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const campProgress = fmt(campaign.done) + " / " + fmt(campaign.total);
   const campSentiment = campaign.sentiment !== null ? campaign.sentiment.toFixed(1) : "—";
   const campSentimentColor = sentColor(campaign.sentiment);
-
-  const hasCalls = currentStatus === "live" || currentStatus === "paused" || currentStatus === "done";
 
   // Tab Header Styling helper
   const tabHeaderStyle = (tabName: typeof activeTab) => {
@@ -371,7 +374,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       {/* 3. Calls List */}
       {activeTab === "calls" && (
         <>
-          {hasCalls ? (
+          {callRows.length > 0 ? (
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", overflowX: "auto" }}>
               <div style={{ minWidth: "760px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 90px 90px 110px 130px 36px", gap: "12px", alignItems: "center", padding: "14px 20px", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".12em", color: "var(--sn-w38)", borderBottom: "1px solid var(--sn-w06)" }}>
@@ -382,7 +385,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   <span>STATUT</span>
                   <span></span>
                 </div>
-                {calls.map((a) => {
+                {callRows.map((a) => {
                   const cst = CALL_STATUS_DICT[a.status] || CALL_STATUS_DICT.completed;
                   const canOpen = !!a.summary;
                   return (

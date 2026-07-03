@@ -6,6 +6,11 @@ import Link from "next/link";
 import "./dashboard.css";
 import { DashboardProvider, useDashboard } from "./DashboardContext";
 import { api } from "@/lib/api-client";
+import { useCall } from "@/hooks/useSonara";
+
+// Heuristique : un tour de parole côté "assistant" (IA) selon le speaker Vapi.
+const isAiSpeaker = (speaker: string | undefined): boolean =>
+  /assist|bot|awa|^ia$|^ai$/i.test(speaker ?? "");
 
 function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -75,7 +80,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     startTestCall,
     
     campaigns,
-    calls,
     liveCalls,
     directory,
     reports,
@@ -135,7 +139,35 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const mmss = (s: number) =>
     Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 
-  const activeCall = calls.find((a) => a.id === callId);
+  // Détail d'appel réel (transcription + résumé) via l'API ; null si aucun appel ouvert.
+  const { data: apiCall } = useCall(callId);
+  const activeCall = apiCall
+    ? {
+        id: apiCall.id,
+        name:
+          [apiCall.contact.firstName, apiCall.contact.lastName].filter(Boolean).join(" ").trim() ||
+          apiCall.contact.phone,
+        phone: apiCall.contact.phone,
+        city: apiCall.contact.city ?? "",
+        time: apiCall.startedAt
+          ? new Date(apiCall.startedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+          : "—",
+        dur:
+          apiCall.durationSec !== null && apiCall.durationSec !== undefined
+            ? `${Math.floor(apiCall.durationSec / 60)}:${String(apiCall.durationSec % 60).padStart(2, "0")}`
+            : null,
+        // Sentiment / humeur / action recommandée ne sont pas exposés par l'API (Phase 2).
+        sentiment: null as number | null,
+        mood: null as string | null,
+        summary: apiCall.summary ?? "",
+        action: null as { label: string; kind: "ok" | "warn" | "alert" } | null,
+        transcript: (apiCall.transcript ?? []).map((t) => ({
+          ai: isAiSpeaker(t.speaker),
+          time: t.timestamp ?? "",
+          text: t.text,
+        })),
+      }
+    : null;
   const durS = activeCall ? parseDuration(activeCall.dur) : 0;
   const playFrac = durS ? Math.min(1, playT / durS) : 0;
 
@@ -272,8 +304,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       ]
     : [];
 
+  // Transcription réelle si disponible ; sinon repli court (appel sans transcript stocké).
   const rawTranscript = activeCall
-    ? activeCall.id === 1 && activeCall.transcript
+    ? activeCall.transcript && activeCall.transcript.length > 0
       ? activeCall.transcript
       : shortTranscript
     : [];
@@ -838,12 +871,16 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w65)", background: "var(--sn-panel2)", border: "1px solid var(--sn-w08)", padding: "6px 11px", borderRadius: "16px" }}>
                   ⏱ {activeCall.dur || "—"}
                 </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-green)", background: "rgba(43,213,118,.09)", border: "1px solid rgba(43,213,118,.25)", padding: "6px 11px", borderRadius: "16px" }}>
-                  SENTIMENT {activeCall.sentiment !== null ? activeCall.sentiment.toFixed(1) : "—"}/10
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w65)", background: "var(--sn-panel2)", border: "1px solid var(--sn-w08)", padding: "6px 11px", borderRadius: "16px" }}>
-                  HUMEUR : {activeCall.mood || "—"}
-                </span>
+                {activeCall.sentiment !== null && (
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-green)", background: "rgba(43,213,118,.09)", border: "1px solid rgba(43,213,118,.25)", padding: "6px 11px", borderRadius: "16px" }}>
+                    SENTIMENT {activeCall.sentiment.toFixed(1)}/10
+                  </span>
+                )}
+                {activeCall.mood && (
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w65)", background: "var(--sn-panel2)", border: "1px solid var(--sn-w08)", padding: "6px 11px", borderRadius: "16px" }}>
+                    HUMEUR : {activeCall.mood}
+                  </span>
+                )}
               </div>
 
               <div style={{ background: "var(--sn-panel2)", border: "1px solid var(--sn-w07)", borderRadius: "14px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "14px" }}>
@@ -864,19 +901,23 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
 
-              <div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w42)" }}>RÉSUMÉ IA</div>
-                <div style={{ marginTop: "9px", background: "rgba(0,82,255,.07)", border: "1px solid rgba(0,82,255,.22)", borderRadius: "13px", padding: "15px 17px", fontSize: "13.5px", lineHeight: "1.6", color: "var(--sn-w85)" }}>
-                  {activeCall.summary}
+              {activeCall.summary && (
+                <div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w42)" }}>RÉSUMÉ IA</div>
+                  <div style={{ marginTop: "9px", background: "rgba(0,82,255,.07)", border: "1px solid rgba(0,82,255,.22)", borderRadius: "13px", padding: "15px 17px", fontSize: "13.5px", lineHeight: "1.6", color: "var(--sn-w85)" }}>
+                    {activeCall.summary}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w42)" }}>ACTION RECOMMANDÉE</div>
-                <div style={{ marginTop: "9px", display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 600, color: as.c, background: as.bg, border: `1px solid ${as.bd}`, padding: "9px 14px", borderRadius: "11px" }}>
-                  {activeCall.action?.label}
+              {activeCall.action && (
+                <div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w42)" }}>ACTION RECOMMANDÉE</div>
+                  <div style={{ marginTop: "9px", display: "inline-flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 600, color: as.c, background: as.bg, border: `1px solid ${as.bd}`, padding: "9px 14px", borderRadius: "11px" }}>
+                    {activeCall.action.label}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w42)", marginBottom: "12px" }}>TRANSCRIPTION</div>

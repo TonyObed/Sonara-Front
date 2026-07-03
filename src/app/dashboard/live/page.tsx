@@ -1,11 +1,20 @@
 "use client";
 
 import { useDashboard } from "../DashboardContext";
+import { useLiveCalls } from "@/hooks/useSonara";
 import { WaveformCanvas } from "@/components/dashboard/WaveformCanvas";
 import demoData from "@/lib/demo-data.json";
 
+const LIVE_SLOTS = 10; // capacité d'appels simultanés (Phase 1 MVP)
+
 export default function LiveMonitoringPage() {
-  const { tick, liveCalls } = useDashboard();
+  const { tick, liveCalls: demoLiveCalls } = useDashboard();
+  // Appels en cours réels (rafraîchis toutes les 5 s) ; repli démo si non auth / erreur.
+  const { data, error } = useLiveCalls(5000);
+  const liveCalls = data && !error ? data : demoLiveCalls;
+
+  const inProgress = liveCalls.length;
+  const slotsPct = Math.min(100, Math.round((inProgress / LIVE_SLOTS) * 100));
 
   const mmss = (s: number) => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -78,11 +87,11 @@ export default function LiveMonitoringPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>APPELS EN COURS</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginTop: "8px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700 }}>4</span>
-            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ 10 slots</span>
+            <span style={{ fontSize: "28px", fontWeight: 700 }}>{inProgress}</span>
+            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ {LIVE_SLOTS} slots</span>
           </div>
           <div style={{ height: "5px", background: "var(--sn-w08)", borderRadius: "4px", marginTop: "10px", overflow: "hidden" }}>
-            <div style={{ width: "40%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "4px" }}></div>
+            <div style={{ width: `${slotsPct}%`, height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "4px" }}></div>
           </div>
         </div>
 

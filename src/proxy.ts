@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/auth";
 
 // Routes qui nécessitent une authentification
-const PROTECTED_PREFIXES = ["/dashboard", "/api/campaigns", "/api/calls", "/api/company"];
+const PROTECTED_PREFIXES = ["/dashboard", "/api/campaigns", "/api/calls", "/api/company", "/api/contacts"];
 
 // Routes API publiques (pas d'auth)
 const PUBLIC_API_ROUTES = [
@@ -100,6 +100,7 @@ export const config = {
     "/api/campaigns/:path*",
     "/api/calls/:path*",
     "/api/company/:path*",
+    "/api/contacts/:path*",
     // Auth routes (public mais on les laisse passer)
     "/api/auth/:path*",
     // Webhooks

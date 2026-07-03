@@ -2,10 +2,18 @@
 
 import { useState } from "react";
 import { useDashboard } from "../DashboardContext";
+import { useContacts } from "@/hooks/useSonara";
 
 export default function ContactsPage() {
-  const { directory } = useDashboard();
+  // Données réelles via l'API ; repli sur l'annuaire démo si non authentifié / erreur.
+  const { directory: demoDirectory } = useDashboard();
+  const { data, error, loading } = useContacts();
+  const directory = data && !error ? data : demoDirectory;
+
   const [filter, setFilter] = useState<"all" | "Particulier" | "PME" | "Premium" | "opt-out">("all");
+
+  const totalContacts = directory.length;
+  const totalOptout = directory.filter((d) => d.optout).length;
 
   const counts = {
     all: directory.length,
@@ -68,7 +76,9 @@ export default function ContactsPage() {
             Contacts
           </h1>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "7px" }}>
-            8 432 CONTACTS — 312 OPT-OUT — DÉDUPLIQUÉS SUR NUMÉRO
+            {loading
+              ? "CHARGEMENT…"
+              : `${totalContacts.toLocaleString("fr-FR")} CONTACTS — ${totalOptout.toLocaleString("fr-FR")} OPT-OUT — DÉDUPLIQUÉS SUR NUMÉRO`}
           </div>
         </div>
         <div style={{ display: "flex", gap: "9px" }}>

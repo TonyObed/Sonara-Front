@@ -120,8 +120,8 @@ interface DashboardContextType {
   setTab: (t: string) => void;
   campaignId: string;
   setCampaignId: (id: string) => void;
-  callId: number | null;
-  setCallId: (id: number | null) => void;
+  callId: string | null;
+  setCallId: (id: string | null) => void;
   menuOpen: boolean;
   setMenuOpen: (o: boolean) => void;
   
@@ -254,7 +254,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [view, setViewState] = useState<string>("home");
   const [tab, setTab] = useState<string>("overview");
   const [campaignId, setCampaignId] = useState<string>("c1");
-  const [callId, setCallId] = useState<number | null>(null);
+  const [callId, setCallId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
   
   // KPI Count Up animations

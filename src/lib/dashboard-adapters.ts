@@ -6,7 +6,7 @@
 // pont, vue par vue, pendant l'intégration progressive du backend.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Campaign as ApiCampaign, CampaignStatus } from "@/lib/api-client";
+import type { Campaign as ApiCampaign, CampaignStatus, Call as ApiCall } from "@/lib/api-client";
 import type { Campaign as FrontCampaign } from "@/app/dashboard/DashboardContext";
 
 // ─── STATUTS ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,57 @@ function frShortDate(iso: string | null): string | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" });
+}
+
+// ─── APPELS ───────────────────────────────────────────────────────────────────
+// Statut API (MAJUSCULES) → statut visuel du tableau d'appels.
+type FrontCallStatus = "completed" | "transferred" | "unreachable" | "voicemail" | "failed";
+const CALL_STATUS_MAP: Record<string, FrontCallStatus> = {
+  COMPLETED: "completed",
+  TRANSFERRED: "transferred",
+  NO_ANSWER: "unreachable",
+  BUSY: "unreachable",
+  FAILED: "failed",
+  VOICEMAIL: "voicemail",
+};
+
+/** Forme d'une ligne du tableau « Appels » (onglet détail campagne). */
+export interface CampaignCallRow {
+  id: string;
+  name: string;
+  city: string;
+  time: string;
+  dur: string | null;
+  sentiment: number | null; // non exposé par l'API → toujours null (Phase 2)
+  status: FrontCallStatus;
+  summary: string | null;
+}
+
+// secondes → "m:ss" ; null → null
+function durLabel(sec: number | null): string | null {
+  if (sec === null || sec === undefined) return null;
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
+function callerName(c: ApiCall): string {
+  const name = [c.contact.firstName, c.contact.lastName].filter(Boolean).join(" ").trim();
+  return name || c.contact.phone;
+}
+
+/** Convertit un appel API en ligne du tableau « Appels ». */
+export function mapApiCallToRow(c: ApiCall): CampaignCallRow {
+  return {
+    id: c.id,
+    name: callerName(c),
+    city: c.contact.city ?? "—",
+    time: c.startedAt
+      ? new Date(c.startedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : "—",
+    dur: durLabel(c.durationSec),
+    sentiment: null,
+    status: CALL_STATUS_MAP[c.status] ?? "completed",
+    summary: c.summary,
+  };
 }
 
 /** Convertit une campagne API en la forme consommée par la page liste. */

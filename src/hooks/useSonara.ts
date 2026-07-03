@@ -20,6 +20,8 @@ import {
   type User,
   type CampaignStatus,
   type ApiMeta,
+  type DirectoryContact,
+  type LiveCall,
 } from "@/lib/api-client";
 
 // ─── HOOK GÉNÉRIQUE ───────────────────────────────────────────────────────────
@@ -110,6 +112,23 @@ export function useCampaignCalls(campaignId: string | null | undefined) {
 /** Détail d'un appel (transcription + résumé). */
 export function useCall(id: string | null | undefined) {
   return useAsync<Call>(() => api.calls.get(id as string), [id], Boolean(id));
+}
+
+/** Annuaire global de l'entreprise (toutes campagnes, dédupliqué par numéro). */
+export function useContacts() {
+  return useAsync<DirectoryContact[]>(() => api.contacts.list(), []);
+}
+
+/** Appels en cours (monitoring live). `pollMs` rafraîchit périodiquement. */
+export function useLiveCalls(pollMs = 0) {
+  const state = useAsync<LiveCall[]>(() => api.calls.live(), []);
+  const { refetch } = state;
+  useEffect(() => {
+    if (!pollMs) return;
+    const timer = setInterval(refetch, pollMs);
+    return () => clearInterval(timer);
+  }, [pollMs, refetch]);
+  return state;
 }
 
 /** Crédit + consommation de l'entreprise (KPIs page d'accueil). */

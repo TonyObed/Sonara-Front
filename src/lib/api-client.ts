@@ -137,6 +137,24 @@ export interface Call {
   contact: { firstName: string | null; lastName: string | null; phone: string; city?: string | null };
 }
 
+/** Entrée de l'annuaire global (agrégée par numéro, toutes campagnes). */
+export interface DirectoryContact {
+  name: string;
+  phone: string;
+  city: string;
+  segment: string;
+  campaigns: number;
+  lastCall: string;
+  optout: boolean;
+}
+
+/** Appel en cours (monitoring temps réel). */
+export interface LiveCall {
+  name: string;
+  campaign: string;
+  startedSecondsAgo: number;
+}
+
 // ─── FETCH WRAPPER ────────────────────────────────────────────────────────────
 
 async function request<T>(
@@ -236,9 +254,16 @@ export const api = {
 
   calls: {
     get: (id: string) => get<Call>(`/calls/${id}`),
+    /** Appels en cours de l'entreprise (monitoring live). */
+    live: () => get<LiveCall[]>("/calls/live"),
     /** Déclenche un appel de test (ADMIN/MANAGER) — fait sonner un vrai téléphone. */
     test: (body: { phone: string; aiVoice?: string; aiTemperature?: number; firstName?: string }) =>
       post<{ message: string; vapiCallId: string; phone: string }>("/calls/test", body),
+  },
+
+  contacts: {
+    /** Annuaire global de l'entreprise (toutes campagnes, dédupliqué par numéro). */
+    list: () => get<DirectoryContact[]>("/contacts"),
   },
 
   company: {
