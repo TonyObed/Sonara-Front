@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
+import { api, ApiError } from "@/lib/api-client";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -12,6 +13,8 @@ if (typeof window !== "undefined") {
 export function Footer() {
   const [subscribed, setSubscribed] = useState(false);
   const [email, setEmail] = useState("");
+  const [newsSubmitting, setNewsSubmitting] = useState(false);
+  const [newsError, setNewsError] = useState<string | null>(null);
 
   const footerRef = useRef<HTMLElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -276,11 +279,28 @@ export function Footer() {
     };
   }, []);
 
-  const handleNewsSubmit = (e: React.FormEvent) => {
+  const handleNewsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
+    const value = email.trim();
+    if (!value || newsSubmitting) return;
+
+    setNewsSubmitting(true);
+    setNewsError(null);
+    try {
+      // Capture réelle du prospect (POST /api/leads, rate-limité par IP côté serveur).
+      await api.leads.create({
+        name: value.split("@")[0] || "Prospect",
+        email: value,
+        message: "Inscription newsletter depuis le footer de la landing.",
+      });
       setSubscribed(true);
       setEmail("");
+    } catch (err) {
+      setNewsError(
+        err instanceof ApiError ? err.message : "Erreur réseau. Réessayez dans un instant."
+      );
+    } finally {
+      setNewsSubmitting(false);
     }
   };
 
@@ -622,6 +642,7 @@ export function Footer() {
               />
               <button
                 type="submit"
+                disabled={newsSubmitting}
                 data-magnetic="true"
                 style={{
                   fontFamily: "var(--font-body), sans-serif",
@@ -639,7 +660,7 @@ export function Footer() {
                 }}
                 className="footer-news-submit"
               >
-                S'abonner
+                {newsSubmitting ? "Envoi…" : "S'abonner"}
               </button>
             </form>
           ) : (
@@ -655,6 +676,19 @@ export function Footer() {
               }}
             >
               <span style={{ color: "#0052FF" }}>◆</span>Merci — vous êtes sur la liste.
+            </p>
+          )}
+          {newsError && (
+            <p
+              role="alert"
+              style={{
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "12px",
+                color: "#FF5C5C",
+                margin: "10px 0 0",
+              }}
+            >
+              {newsError}
             </p>
           )}
         </section>
