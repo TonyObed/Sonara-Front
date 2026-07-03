@@ -123,13 +123,14 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       optimizeStreamingLatency: 4, // max (0-4) : réduit la latence de génération voix
     },
 
-    // ── STT : Deepgram Nova-2 (fr + vocabulaire local CI — CDC D6/E2) ──
+    // ── STT : Deepgram (fr + vocabulaire local CI — CDC D6/E2) ──
     transcriber: {
       provider: "deepgram",
       model: process.env.DEEPGRAM_MODEL ?? "nova-2",
       language: "fr",
       smartFormat: true,
       keywords: CI_KEYWORDS,
+      endpointing: 150, // ms de silence avant de clore la transcription (défaut ~300)
     },
 
     firstMessage: `Bonjour ${firstName} ! `,
@@ -137,9 +138,17 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     silenceTimeoutSeconds: 30,
     backchannelingEnabled: true,
 
-    // ── Latence : l'IA attend moins longtemps avant de prendre la parole ──
-    // (défaut Vapi : 0.4s ; en dessous de 0.3s elle risque de couper l'utilisateur)
-    startSpeakingPlan: { waitSeconds: 0.3 },
+    // ── Latence : quand l'IA décide que l'utilisateur a fini de parler ──
+    // Le défaut Vapi attend 1.5s sans ponctuation (réponses courtes type "oui",
+    // "trois") : c'est la principale source de latence perçue. On resserre tout.
+    startSpeakingPlan: {
+      waitSeconds: 0.2,
+      transcriptionEndpointingPlan: {
+        onPunctuationSeconds: 0.1, // phrase finie ("...merci.") → réponse quasi immédiate
+        onNoPunctuationSeconds: 0.8, // réponse courte sans ponctuation (défaut 1.5s)
+        onNumberSeconds: 0.4, // l'utilisateur dicte un nombre (défaut 0.5s)
+      },
+    },
 
     // ── Analyse post-appel : résumé automatique (CDC F2) ──
     analysisPlan: {
