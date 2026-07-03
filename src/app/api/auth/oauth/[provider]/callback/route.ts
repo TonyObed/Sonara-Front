@@ -113,8 +113,27 @@ export async function GET(
       await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     }
 
-    // Poser les cookies de session directement sur la réponse de redirection.
-    const res = NextResponse.redirect(new URL("/dashboard", request.url));
+    // Poser les cookies puis rediriger via une page interstitielle côté client.
+    // Une redirection HTTP directe ne marche pas ici : la navigation vient d'un
+    // site tiers (Google) et les cookies SameSite=Strict ne seraient pas envoyés
+    // sur le GET /dashboard qui suit. Une fois cette page chargée sur notre
+    // origine, la navigation devient same-site → les cookies Strict passent.
+    const interstitial = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=/dashboard">
+  <title>Connexion…</title>
+</head>
+<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0A0A0F;color:#fff">
+  <p>Connexion réussie, redirection…&nbsp;<a href="/dashboard" style="color:#4D8AFF">Continuer</a></p>
+  <script>window.location.replace("/dashboard");</script>
+</body>
+</html>`;
+    const res = new NextResponse(interstitial, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
     res.cookies.set("sonara_access", at, {
       httpOnly: true,
       secure: isProd,
