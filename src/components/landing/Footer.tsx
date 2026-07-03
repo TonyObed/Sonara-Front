@@ -29,8 +29,12 @@ export function Footer() {
   useEffect(() => {
     const parts = ["hello", "sonara.ci"];
     const addr = parts.join("@");
+    /* eslint-disable react-hooks/set-state-in-effect -- assemblage volontaire de
+       l'email au montage uniquement (anti-scraping : l'adresse ne doit pas figurer
+       dans le HTML rendu côté serveur) */
     setDisplayedEmail(addr);
     setMailToUrl(`mailto:${addr}`);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // GSAP animations for the footer (curtain, marquee, wordmark, status, and magnetic buttons)
@@ -307,7 +311,7 @@ export function Footer() {
   const scrollToTop = () => {
     try {
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) {
+    } catch {
       window.scrollTo(0, 0);
     }
   };
@@ -366,7 +370,7 @@ export function Footer() {
                 textWrap: "balance",
               }}
             >
-              L'oreille que vous<br />
+              L&apos;oreille que vous<br />
               <em
                 style={{
                   fontFamily: "'Space Mono', monospace",
@@ -376,7 +380,7 @@ export function Footer() {
                   letterSpacing: "-0.06em",
                 }}
               >
-                n'aviez pas.
+                n&apos;aviez pas.
               </em>
             </h2>
           </div>
@@ -419,7 +423,7 @@ export function Footer() {
                   transition: "border-color 0.3s, color 0.3s, transform 0.1s",
                 }}
               >
-                Parler à l'équipe
+                Parler à l&apos;équipe
               </a>
             </div>
             <p
@@ -477,7 +481,7 @@ export function Footer() {
             </h3>
             <a href="#platform" className="footer-link">Fonctionnalités</a>
             <a href="#pricing" className="footer-link">Tarifs</a>
-            <a href="#usecases" className="footer-link">Cas d'usage</a>
+            <a href="#usecases" className="footer-link">Cas d&apos;usage</a>
             <a href="#platform" className="footer-link">Sécurité &amp; conformité</a>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -556,7 +560,7 @@ export function Footer() {
               }}
             >
               Abidjan — Plateau<br />
-              Côte d'Ivoire
+              Côte d&apos;Ivoire
             </p>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <a href="#" className="footer-pill-social">LinkedIn</a>
@@ -591,7 +595,7 @@ export function Footer() {
                 fontWeight: 400,
               }}
             >
-              Restez à l'écoute
+              Restez à l&apos;écoute
             </h3>
             <p
               id="sonara-news-p"
@@ -718,7 +722,7 @@ export function Footer() {
             }}
           >
             <span style={{ color: "#0052FF", fontSize: "9px" }}>◆</span>
-            Données hébergées en Côte d'Ivoire — ST Digital
+            Données hébergées en Côte d&apos;Ivoire — ST Digital
           </span>
           <span
             style={{

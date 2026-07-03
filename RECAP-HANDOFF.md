@@ -1,74 +1,61 @@
-# RECAP HANDOFF — Sonara (état au passage à une nouvelle discussion)
+# RECAP HANDOFF — Sonara (état au 3 juillet 2026)
 
 ## Où on travaille
-- **Projet combiné** : `C:\Users\Administrator\Desktop\Sonara-Full`
-  - Clone frais du frontend `github.com/TonyObed/Sonara-Front` (origin = Sonara-Front).
-  - Le **backend** y a été intégré progressivement depuis `C:\Users\Administrator\Desktop\Gem 2 Sonara`
-    (origin = `Gem-2-Sonara`), qui sert de **source du backend**.
+- **Projet combiné** : `C:\Users\Administrator\Desktop\Sonara-Full` (origin = Sonara-Front).
 - **Branche de travail** : `implementation` (PAS poussée sur GitHub — décision en attente).
-  - Commits : `bd46d81` (Gemini : backend + setup tests + payment stub MVP) →
-    `4730e8f` (docs ECC recentrées Sonara + tests validation + données dashboard) →
-    `ca3e316` (OAuth + mot de passe oublié/reset + 2FA).
+- **Document budget de référence** : `C:\Users\Administrator\Downloads\Sonara_Budget_Stack_MVP_v1.0.docx`
+  (v1.1) — décisions actées : Africa's Talking abandonné au profit d'**Orange Business en direct**,
+  Twilio payé (pay-as-you-go), gpt-4o-mini, Deepgram nova-3, ElevenLabs flash_v2_5.
 
 ## Ce qui est FAIT et vérifié (build ✓, 14 tests ✓)
-- **Backend complet** intégré et commité : `src/app/api/**` (27 routes), `src/lib/*`
-  (auth, db, vapi, validation, response, rate-limit, api-client, oauth, dashboard-adapters),
-  `prisma/`, `src/proxy.ts`, `src/hooks/useSonara.ts`, `scripts/`.
-- **Auth complète** :
-  - Email/mot de passe (login/register) branchés sur l'API réelle (`AuthPage.tsx`).
-  - **OAuth Google + Microsoft** : `src/lib/oauth.ts` + `/api/auth/oauth/[provider](/callback)`,
-    branché sur les cookies JWT custom, state CSRF, crée/retrouve Company+User par email
-    (hash aléatoire pour comptes OAuth, **pas de migration DB**). Boutons câblés.
-  - **Mot de passe oublié** → API réelle + page `/reset-password` (route-group `(auth)`).
-  - **2FA login** → étape code 6 chiffres → `/api/auth/2fa/verify`.
-  - Logout → `api.auth.logout()`.
-- **Dashboard** : profil/entreprise/campagnes/KPIs câblés sur l'API (`DashboardContext`),
-  repli demo conservé pour vues non câblées (contacts/rapports/live).
-- **Création de campagne** (`campaigns/new`) câblée de bout en bout : `api.campaigns.create`
-  + import CSV réel (`/api/campaigns/[id]/contacts`, fichier ou CSV démo) + `api.campaigns.launch`.
-  Testé OK contre Supabase (create 201 → 2 contacts → launch RUNNING → visible dans la liste).
-- **Sécurité** (déjà solide côté backend) : HMAC webhook, JWT/bcrypt cost 12, cookies
-  httpOnly+secure+sameSite:strict, rate-limit, zod, headers, anti-énumération.
-  Docs `SECURITY.md`/`AGENTS.md`/`RULES.md` recentrées sur Sonara (avant : copies verbatim d'ECC).
-- **Paiement = stub MVP** : recharge « Wave CI » simulée dans `billing/page.tsx`, CTAs « (Mode MVP) ».
-- **Tests** : vitest (`tests/validation.test.ts` = 13 tests numéros CI + auth) + playwright (e2e landing).
+- **Backend complet** : 29 routes API (`src/app/api/**`), libs (`auth, db, vapi, validation,
+  response, rate-limit, api-client, oauth, dashboard-adapters`), Prisma, proxy, hooks.
+- **Auth complète** : email/mdp, **Google OAuth TESTÉ OK** (fix page interstitielle SameSite=Strict
+  au callback), mot de passe oublié/reset, 2FA TOTP, logout. Microsoft OAuth : code prêt, clés vides.
+- **Dashboard câblé sur l'API réelle** :
+  - Accueil (KPIs `useUsage`), Campagnes (liste + création bout en bout + launch),
+  - **Contacts** (`GET /api/contacts` — annuaire global dédupliqué par numéro, opt-out blacklist),
+  - **Live** (`GET /api/calls/live` — appels en cours, polling 5 s),
+  - **Détail campagne onglet Appels** (`useCampaignCalls`) + **drawer d'appel** (`useCall`,
+    vraie transcription + résumé IA ; refactor `callId` number→string).
+  - Restent en démo (pas de source API — Phase 2) : analytics (NPS/verbatims/villes), Rapports.
+- **Landing** : formulaire newsletter du footer → `POST /api/leads` réel (capture prospects).
+- **APPELS RÉELS VALIDÉS** 🎉 : 2 appels de test réussis vers de vrais numéros CI via
+  `npm run test-call -- <numéro>`. Pipeline Twilio (payé) → Vapi → nova-3 + gpt-4o-mini +
+  ElevenLabs. Coût constaté : ~0,07-0,12 $ côté Vapi par appel de 1-2 min.
+- **Latence optimisée (2 passes)** : flash_v2_5, optimizeStreamingLatency 4,
+  startSpeakingPlan waitSeconds 0,2 + transcriptionEndpointingPlan (0,1/0,8/0,4),
+  Deepgram endpointing 150 ms. Config validée contre l'API Vapi. À réévaluer à l'usage.
+- **Skills ECC** : 12 installés (`.claude/skills/`), doublons nettoyés.
 
 ## État des identifiants (.env, gitignoré)
-- **Supabase** : ✅ live (DATABASE_URL/DIRECT_URL, mot de passe `@`→`%40`). Données seedées :
-  1 entreprise, 2 users, 3 campagnes, 10 contacts.
-- **JWT secrets** : ✅ générés.
-- **Vapi** : ✅ configuré (clé valide, numéro `+15722316719` importé, id `ca49aabf-…`).
-- **Twilio** : ⚠️ compte `…beac` en **mode TRIAL** → erreur **21219** (ne peut appeler que des
-  numéros vérifiés). **Bloquant pour les appels réels** → upgrade payant requis (CI déjà activée géographiquement, solde 14,35 $).
-- **OAuth Google/Microsoft** : ❌ **vides** → boutons affichent « non configuré ».
+- **Supabase** : ✅ live + seedé. **JWT** : ✅. **Vapi** : ✅ (crédit ~9,7 $ — suffisant pour la démo).
+- **Twilio** : ✅ **PAYÉ** — appels vers n'importe quel numéro CI OK. Numéro affiché = +1 US.
+- **Google OAuth** : ✅ configuré et testé. **Microsoft** : ❌ vide (optionnel).
+- **Modèles** : OPENAI_MODEL=gpt-4o-mini, DEEPGRAM_MODEL=nova-3, ELEVENLABS_MODEL=eleven_flash_v2_5.
 
 ## Identifiants de test
-- Login : `admin@banquexyz.ci` / `Sonara2026!`
+- Login : `admin@banquexyz.ci` / `Sonara2026!` (ou Google avec tonyobed360@gmail.com)
 
-## Problème signalé : « Jest worker … child process exceptions »
-- C'est un **crash du worker de compile du serveur dev Next.js**, pas l'OAuth (avec creds Google
-  vides, le flux redirige vers `/login?error=oauth_non_configure`, il n'atteint pas Google).
-- Correctifs à essayer :
-  1. Arrêter le dev, **supprimer `.next`** : `Remove-Item -Recurse -Force .next` puis `npm run dev`.
-  2. Vérifier la version Node (Next 16 = Node ≥ 18.18 ; éviter une version trop récente instable).
-  3. Tester un `npm run build` (prod) pour isoler une vraie erreur de compilation éventuelle.
+## Stratégie téléphonie (décidée)
+- **Cible : SIP trunk Orange Business CI** (numéros +225) branché sur Vapi en BYO SIP.
+  Document de consultation prêt : `Downloads\Sonara_Exigences_SIP_Trunk_v1.0.docx`.
+  MTN/Moov Business en concurrence. Africa's Talking = plan B écarté pour l'instant.
+- En attendant : Twilio payé (+1 affiché), acceptable pour la démo.
 
-## RESTE À FAIRE (prochaine session)
-1. **Activer Google OAuth** : créer un client OAuth (Google Cloud Console), redirect URI
-   `http://localhost:3000/api/auth/oauth/google/callback`, mettre `GOOGLE_CLIENT_ID/SECRET` dans `.env`.
-   (Idem Microsoft via Azure si besoin.)
-2. **Diagnostiquer/corriger** le crash jest-worker du dev server (cf. ci-dessus).
-3. **Twilio** : passer le compte en payant pour débloquer les vrais appels (erreur 21219).
-4. **Câbler les vues dashboard restantes** : détail campagne (`campaigns/[id]` → `useCampaign`
-   + `useCampaignCalls`), drawer appel (`useCall`). Contacts/Rapports/Live restent en demo
-   (pas d'endpoint global — données par-campagne). Landing « Demande de démo » → `api.leads.create`.
-5. **Durcissement Phase 2** : refuser démarrage prod sans secrets JWT, CSP testée, rate-limit Redis.
-6. **Décider** : pousser la branche `implementation` sur GitHub ou non.
+## RESTE À FAIRE
+1. **Démo clients** : ElevenLabs Starter (6 $) avant la démo ; RDV Orange Business (doc prêt).
+2. **Couverture tests** : e2e flux auth→campagne ; tests unitaires adaptateurs/endpoints récents.
+3. **Durcissement Phase 2** : CSP, rate-limit Redis, migrations Prisma versionnées (`db push` actuel).
+4. **Phase 2 produit** : analytics IA (insights/breakdown API), Rapports, paiement réel Wave/OM.
+5. **Décider** : pousser `implementation` sur GitHub ou non.
+6. **Déploiement** (plus tard) : Render (backend) + Netlify/Cloudflare Pages — **Vercel Hobby
+   interdit en usage commercial**. Supabase Pro (25 $) dès le pilote client.
 
 ## Lancer le projet
 ```
-cd C:\Users\Administrator\Desktop\Sonara-Full
 npm run dev            # http://localhost:3000
 npm run build          # build prod
-npm test               # vitest
+npm test               # vitest (14 tests)
+npm run test-call -- 07XXXXXXXX   # appel réel de démo
 ```

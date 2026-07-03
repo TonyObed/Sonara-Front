@@ -5,6 +5,41 @@
 
 ---
 
+## [v1.2] — 2026-07-03 · Appels réels validés + optimisation latence
+**Commits :** `b565e43` → `08962be` (branche `implementation`)
+
+### Jalons
+- **Premiers appels réels réussis** vers des numéros CI (Twilio payé → Vapi →
+  Deepgram nova-3 + GPT-4o-mini + ElevenLabs flash_v2_5). ~0,08 $/appel côté Vapi.
+- **Latence** : 2 passes d'optimisation (flash_v2_5, streaming 4, endpointing resserré).
+- **Landing** : formulaire newsletter branché sur la capture de leads réelle (`/api/leads`).
+- **Alignement budget** (doc `Sonara_Budget_Stack_MVP` v1.1) : gpt-4o-mini, nova-3,
+  Orange Business en direct pour le +225 (doc de consultation SIP généré), Twilio payé.
+
+## [v1.1] — 2026-07-03 · Google OAuth fonctionnel + dashboard câblé
+**Commits :** `4f2cee1` → `fdf4de6`
+
+### Changements
+- **Google OAuth testé de bout en bout** — fix cookies SameSite=Strict au callback
+  (page interstitielle) ; création auto Company+User au premier login.
+- **Dashboard sur l'API réelle** : Contacts (nouvel endpoint `/api/contacts`),
+  Live (`/api/calls/live`, polling), détail campagne (appels réels) et drawer de
+  transcription (`useCall`) ; refactor `callId` number→string.
+- **Skills ECC** : nettoyage doublons + 8 skills backend/infra ajoutés.
+
+## [v1.0] — 2026-06-28 · Backend intégré, auth complète, campagne bout en bout
+**Commits :** `bd46d81` → `1101369`
+
+### Changements
+- Backend complet intégré (29 routes API, Prisma/Supabase, proxy Next 16, hooks).
+- Auth : email/mdp, OAuth (code), reset mdp, 2FA TOTP. Sécurité durcie (HMAC
+  webhook, rate-limit, zod, anti-énumération, refus prod sans secrets JWT).
+- Création de campagne câblée de bout en bout (create → import CSV → launch),
+  vérifiée contre Supabase. Paiement = stub MVP (« Wave CI » simulé).
+- Tests : vitest (13 validation + 1 landing) + playwright e2e landing.
+
+---
+
 ## [v0.4] — 2026-06-11 · Corrections navigation auth
 **Commit :** `e7174f0` + modifications non commitées
 

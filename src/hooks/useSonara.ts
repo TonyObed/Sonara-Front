@@ -50,8 +50,12 @@ function useAsync<T>(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    /* eslint-disable react-hooks/set-state-in-effect -- reset volontaire du cycle
+       loading/error au changement de deps (pattern fetch-in-effect assumé pour le
+       MVP ; migration SWR/TanStack Query prévue en P2) */
     setLoading(true);
     setError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     fetcher()
       .then((res) => {
