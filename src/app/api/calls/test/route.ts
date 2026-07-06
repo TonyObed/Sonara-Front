@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // VULN-007 : limiter les appels de test par entreprise (anti-abus de coûts).
     // 10 appels / minute / entreprise — suffisant pour une démo, bloque le spam.
-    const rl = rateLimit(`testcall:${auth.companyId}`, 10, 60);
+    const rl = await rateLimit(`testcall:${auth.companyId}`, 10, 60);
     if (!rl.allowed) {
       return tooManyRequests(
         `Trop d'appels de test. Réessayez dans ${rl.retryAfterSec} secondes.`

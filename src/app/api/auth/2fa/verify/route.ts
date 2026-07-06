@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Protection brute-force par IP
     const ip = getClientIp(request);
-    const rl = rateLimit(`2fa-verify:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
+    const rl = await rateLimit(`2fa-verify:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
     if (!rl.allowed) {
       return tooManyRequests(
         `Trop de tentatives. Réessayez dans ${rl.retryAfterSec} secondes.`

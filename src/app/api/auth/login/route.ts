@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     // VULN-003 : protection brute-force par IP
     const ip = getClientIp(request);
-    const rl = rateLimit(`login:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
+    const rl = await rateLimit(`login:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
     if (!rl.allowed) {
       return tooManyRequests(
         `Trop de tentatives de connexion. Réessayez dans ${rl.retryAfterSec} secondes.`

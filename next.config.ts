@@ -1,9 +1,22 @@
 import type { NextConfig } from "next";
 
+const cspHeader = `
+  default-src 'self';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' blob: data:;
+  font-src 'self' data:;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+  frame-ancestors 'none';
+  upgrade-insecure-requests;
+`.replace(/\s{2,}/g, ' ').trim();
+
 // En-têtes de sécurité appliqués à toutes les réponses (VULN-009).
-// CSP omise volontairement en P1 (risque de casser les scripts Next/vidéo Mux) —
-// à durcir en Phase 2 avec une politique testée.
+// CSP désormais stricte pour la Phase 2.
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: cspHeader },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },                    // anti-clickjacking
   { key: "X-Content-Type-Options", value: "nosniff" },                // anti MIME-sniffing
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

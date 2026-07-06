@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     // VULN-003 : limiter la création de comptes par IP
     const ip = getClientIp(request);
-    const rl = rateLimit(`register:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
+    const rl = await rateLimit(`register:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
     if (!rl.allowed) {
       return tooManyRequests(
         `Trop de tentatives. Réessayez dans ${rl.retryAfterSec} secondes.`

@@ -2,22 +2,13 @@
 // Implémentation in-memory (token bucket) pour le MVP P1.
 // ⚠️ P2 : migrer vers Redis (Upstash) pour le multi-instance / scale horizontal.
 
-interface Bucket {
-  count: number;
-  resetAt: number;
-}
+import { Redis } from "@upstash/redis";
 
-const buckets = new Map<string, Bucket>();
-
-// Nettoyage périodique des buckets expirés (évite la fuite mémoire)
-let lastCleanup = Date.now();
-function cleanup(now: number) {
-  if (now - lastCleanup < 60_000) return; // au plus 1x/min
-  lastCleanup = now;
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt < now) buckets.delete(key);
-  }
-}
+// Utilise les variables d'environnement standard de Upstash ou fallback vide pour la démo
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL || "https://fake-url-for-build.upstash.io",
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || "fake-token",
+});
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -27,40 +18,52 @@ export interface RateLimitResult {
 }
 
 /**
- * Vérifie et incrémente le compteur pour une clé donnée.
+ * Vérifie et incrémente le compteur pour une clé donnée via Redis.
  * @param key    identifiant unique (ex: "login:1.2.3.4" ou "jwt:companyId")
  * @param limit  nombre de requêtes autorisées dans la fenêtre
  * @param windowSec  durée de la fenêtre en secondes
  */
-export function rateLimit(key: string, limit: number, windowSec: number): RateLimitResult {
+export async function rateLimit(key: string, limit: number, windowSec: number): Promise<RateLimitResult> {
   const now = Date.now();
-  cleanup(now);
+  // Fenêtre fixe temporelle
+  const currentWindow = Math.floor(now / (windowSec * 1000));
+  const redisKey = `ratelimit:${key}:${currentWindow}`;
 
-  const bucket = buckets.get(key);
+  try {
+    const pipeline = redis.pipeline();
+    pipeline.incr(redisKey);
+    pipeline.expire(redisKey, windowSec);
+    
+    const results = await pipeline.exec();
+    const count = results[0] as number;
 
-  if (!bucket || bucket.resetAt < now) {
-    // Nouvelle fenêtre
-    const resetAt = now + windowSec * 1000;
-    buckets.set(key, { count: 1, resetAt });
-    return { allowed: true, remaining: limit - 1, resetAt, retryAfterSec: 0 };
-  }
+    const resetAt = (currentWindow + 1) * windowSec * 1000;
 
-  if (bucket.count >= limit) {
+    if (count > limit) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt,
+        retryAfterSec: Math.ceil((resetAt - now) / 1000),
+      };
+    }
+
     return {
-      allowed: false,
-      remaining: 0,
-      resetAt: bucket.resetAt,
-      retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000),
+      allowed: true,
+      remaining: limit - count,
+      resetAt,
+      retryAfterSec: 0,
+    };
+  } catch (err) {
+    // Fail-open : si Redis tombe, on laisse passer pour ne pas bloquer l'app (choix MVP)
+    console.warn("Redis rate-limit failed:", err);
+    return {
+      allowed: true,
+      remaining: 1,
+      resetAt: now + windowSec * 1000,
+      retryAfterSec: 0,
     };
   }
-
-  bucket.count += 1;
-  return {
-    allowed: true,
-    remaining: limit - bucket.count,
-    resetAt: bucket.resetAt,
-    retryAfterSec: 0,
-  };
 }
 
 /**

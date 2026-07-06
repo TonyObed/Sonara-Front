@@ -129,6 +129,24 @@ export default function ReportsPage() {
         ))}
       </div>
 
+      {/* Analytics IA Card */}
+      <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
+        <div style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px" }}>Aperçu Analytics IA (Insights)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+            <div style={{ padding: "20px", background: "rgba(43,213,118,.05)", border: "1px solid rgba(43,213,118,.2)", borderRadius: "12px" }}>
+                <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Sentiment Majoritaire</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-green)" }}>Positif (68%)</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Les clients apprécient le service client de l'entreprise.</div>
+            </div>
+            
+            <div style={{ padding: "20px", background: "rgba(255,176,46,.05)", border: "1px solid rgba(255,176,46,.2)", borderRadius: "12px" }}>
+                <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Mot-clé récurrent</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-amber)" }}>"Lenteur"</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Mentionné dans 32% des appels.</div>
+            </div>
+        </div>
+      </div>
+
       {/* Scheduled Reports Card */}
       <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     // Anti-spam : limiter par IP
     const ip = getClientIp(request);
-    const rl = rateLimit(`lead:${ip}`, RATE_LIMITS.PUBLIC.limit, RATE_LIMITS.PUBLIC.windowSec);
+    const rl = await rateLimit(`lead:${ip}`, RATE_LIMITS.PUBLIC.limit, RATE_LIMITS.PUBLIC.windowSec);
     if (!rl.allowed) {
       return tooManyRequests(`Trop de demandes. Réessayez dans ${rl.retryAfterSec} secondes.`);
     }

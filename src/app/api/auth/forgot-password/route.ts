@@ -10,7 +10,7 @@ import { ZodError } from "zod";
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const rl = rateLimit(`forgot:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
+    const rl = await rateLimit(`forgot:${ip}`, RATE_LIMITS.AUTH.limit, RATE_LIMITS.AUTH.windowSec);
     if (!rl.allowed) {
       return tooManyRequests(`Trop de demandes. Réessayez dans ${rl.retryAfterSec} secondes.`);
     }
