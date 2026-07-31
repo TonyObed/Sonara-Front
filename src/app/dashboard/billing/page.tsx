@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import { useDashboard } from "../DashboardContext";
-import demoData from "@/lib/demo-data.json";
+
+const usageThisMonth: Array<{ campaign: string; calls: number; costFcfa: number; pct: number }> = [];
+const invoices: Array<{ ref: string; date: string; amountFcfa: number; status: "paid" | "pending" }> = [];
 
 export default function BillingPage() {
   const {
@@ -12,9 +14,8 @@ export default function BillingPage() {
     toggleAutoRecharge,
     plans,
     pushToast,
+    kcr: credit,
   } = useDashboard();
-
-  const [credit, setCredit] = useState(12450);
 
   const plansRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +43,7 @@ export default function BillingPage() {
       <div>
         <h1 style={{ margin: 0, fontSize: "27px", fontWeight: 700, letterSpacing: "-.015em" }}>Facturation &amp; crédit</h1>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "7px" }}>
-          CYCLE EN COURS : 1ᵉʳ — 30 JUIN 2026 · PAIEMENT WAVE CI / VIREMENT
+          PAIEMENT ET ABONNEMENT — CONFIGURATION À VENIR
         </div>
       </div>
 
@@ -73,7 +74,7 @@ export default function BillingPage() {
           </div>
           <div style={{ flex: 1 }}></div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginTop: "20px", paddingTop: "16px", borderTop: "1px solid var(--sn-w06)", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>RENOUVELLEMENT : 1ᵉʳ JUILLET 2026</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>RENOUVELLEMENT : NON CONFIGURÉ</span>
             <button onClick={scrollToPlans} style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "transparent", color: "var(--sn-blue2)", border: "1px solid rgba(0,82,255,.4)", borderRadius: "10px", padding: "9px 15px", fontFamily: "'Satoshi', sans-serif", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
               Changer de plan ↓
             </button>
@@ -85,19 +86,19 @@ export default function BillingPage() {
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>CRÉDIT RESTANT</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "10px" }}>
             <span style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-.02em" }}>{fmt(credit)}</span>
-            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ 20 000 appels</span>
+            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>appels</span>
           </div>
           <div style={{ height: "8px", background: "var(--sn-w08)", borderRadius: "5px", marginTop: "12px", overflow: "hidden" }}>
-            <div style={{ width: "62%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
+            <div style={{ width: "0%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)", marginTop: "8px" }}>
-            <span>7 550 UTILISÉS CE MOIS</span>
-            <span>≈ 9 JOURS D'AUTONOMIE</span>
+            <span>HISTORIQUE EN COURS DE MISE EN PLACE</span>
+            <span>—</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", padding: "12px 14px", background: "var(--sn-inset)", border: "1px solid var(--sn-w06)", borderRadius: "11px", fontSize: "13px" }}>
             <span style={{ color: "var(--sn-w55)" }}>Recharge automatique</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "9px" }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w5)" }}>SOUS 2 000</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w5)" }}>BIENTÔT</span>
               <span onClick={toggleAutoRecharge} style={{ width: "38px", height: "21px", borderRadius: "12px", background: autoRecharge ? "#0052FF" : "var(--sn-w14)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
                 <span style={{ position: "absolute", top: "2px", left: autoRecharge ? "19px" : "2px", width: "17px", height: "17px", borderRadius: "50%", background: "#fff", transition: "left .2s" }}></span>
               </span>
@@ -105,13 +106,9 @@ export default function BillingPage() {
           </div>
           <div style={{ flex: 1 }}></div>
           <button onClick={() => {
-            pushToast("Redirection vers Wave CI en cours...", "info");
-            setTimeout(() => {
-              setCredit((prev) => prev + 5000);
-              pushToast("Paiement simulé avec succès ! +5 000 crédits (Mode MVP).", "ok");
-            }, 1500);
+            pushToast("La recharge sera disponible après l’intégration du paiement.", "info");
           }} style={{ marginTop: "16px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "9px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "13px 18px", fontFamily: "'Satoshi', sans-serif", fontSize: "14px", fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: "0 8px 24px rgba(0,82,255,.32)" }} className="sn-hover-btn-primary">
-            Recharger via Wave CI
+            Recharge bientôt disponible
           </button>
         </div>
       </div>
@@ -121,11 +118,11 @@ export default function BillingPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Consommation ce mois</div>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>
-            JUIN 2026 — 7 550 APPELS · 453 000 FCFA
+            DONNÉES RÉELLES DE CONSOMMATION UNIQUEMENT
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "18px" }}>
-          {demoData.usageThisMonth.map((u, idx) => (
+          {usageThisMonth.map((u, idx) => (
             <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "10px" }}>
                 <span style={{ fontSize: "13.5px", fontWeight: 500 }}>{u.campaign}</span>
@@ -213,8 +210,8 @@ export default function BillingPage() {
       <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "24px" }}>
         <div style={{ fontSize: "16px", fontWeight: 700 }}>Historique de facturation</div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
-          {demoData.invoices.map((inv, idx) => (
-            <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "13px 0", borderBottom: idx < demoData.invoices.length - 1 ? "1px solid var(--sn-w05)" : "none", fontSize: "13px", flexWrap: "wrap" }}>
+          {invoices.map((inv, idx) => (
+            <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "13px 0", borderBottom: idx < invoices.length - 1 ? "1px solid var(--sn-w05)" : "none", fontSize: "13px", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", color: "var(--sn-w5)" }}>
                 {inv.ref} · {inv.date}
               </span>

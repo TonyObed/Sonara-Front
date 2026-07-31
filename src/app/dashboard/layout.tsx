@@ -81,6 +81,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     
     campaigns,
     liveCalls,
+    dashboard,
     directory,
     reports,
     team,
@@ -578,7 +579,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 12h3l2.5-6 4 12 2.5-6h7"></path></svg>
               <span style={{ flex: 1 }}>Live monitoring</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-green)", background: "rgba(43,213,118,.1)", padding: "2px 8px", borderRadius: "20px" }}>
-                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "var(--sn-green)", animation: "snPulse 1.8s infinite" }}></span>4
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "var(--sn-green)", animation: "snPulse 1.8s infinite" }}></span>{liveCalls.length}
               </span>
             </Link>
           </div>
@@ -657,9 +658,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                 <span style={{ fontSize: "12px", color: "var(--sn-w45)" }}>appels</span>
               </div>
               <div style={{ height: "5px", background: "var(--sn-w08)", borderRadius: "4px", marginTop: "12px", overflow: "hidden" }}>
-                <div style={{ width: "62%", height: "100%", borderRadius: "4px", background: "linear-gradient(90deg, #0052FF, #00D4A6)" }}></div>
+                <div style={{ width: "0%", height: "100%", borderRadius: "4px", background: "linear-gradient(90deg, #0052FF, #00D4A6)" }}></div>
               </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "8px" }}>≈ 9 jours d'autonomie</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "8px" }}>{dashboard ? "Solde synchronisé" : "Synchronisation…"}</div>
             </div>
           </Link>
         </div>
@@ -710,7 +711,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           >
             <div id="sn-livechip" style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-green)", background: "rgba(43,213,118,.08)", border: "1px solid rgba(43,213,118,.22)", padding: "7px 13px", borderRadius: "20px", cursor: "pointer" }}>
               <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--sn-green)", animation: "snPulse 1.8s infinite" }}></span>
-              <span>4 appels en cours</span>
+              <span>{liveCalls.length} appel{liveCalls.length > 1 ? "s" : ""} en cours</span>
             </div>
           </Link>
           

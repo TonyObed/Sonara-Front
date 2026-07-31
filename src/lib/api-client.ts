@@ -155,6 +155,16 @@ export interface LiveCall {
   startedSecondsAgo: number;
 }
 
+export interface DashboardData {
+  credit: number;
+  live: { active: number; capacity: number; queued: number };
+  responseRate: number;
+  calls: { launched: number; answered: number };
+  outcomes: { completed: number; unreachable: number; voicemail: number; failed: number };
+  daily: Array<{ date: string; started: number; answered: number }>;
+  events: Array<{ type: string; at: string }>;
+}
+
 // ─── FETCH WRAPPER ────────────────────────────────────────────────────────────
 
 async function request<T>(
@@ -257,7 +267,7 @@ export const api = {
     /** Appels en cours de l'entreprise (monitoring live). */
     live: () => get<LiveCall[]>("/calls/live"),
     /** Déclenche un appel de test (ADMIN/MANAGER) — fait sonner un vrai téléphone. */
-    test: (body: { phone: string; aiVoice?: string; aiTemperature?: number; firstName?: string }) =>
+    test: (body: { phone: string; aiVoice?: string; aiTemperature?: number; aiBrief?: string; firstName?: string }) =>
       post<{ message: string; vapiCallId: string; phone: string }>("/calls/test", body),
   },
 
@@ -267,6 +277,7 @@ export const api = {
   },
 
   company: {
+    dashboard: () => get<DashboardData>("/company/dashboard"),
     usage: () =>
       get<{
         credit: { remaining: number; estimatedMinutesRemaining: number };

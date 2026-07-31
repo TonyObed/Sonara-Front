@@ -31,13 +31,14 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       where: { id, companyId: auth.companyId },
       include: {
         _count: { select: { contacts: true, calls: true } },
+        questions: { orderBy: { position: "asc" } },
       },
     });
 
     if (!campaign) return notFound("Campagne");
 
     // KPIs détaillés
-    const [callStats, sentimentStats, avgDuration] = await Promise.all([
+    const [callStats, sentimentStats, insights, avgDuration] = await Promise.all([
       db.call.groupBy({
         by: ["status"],
         where: { campaignId: id },
@@ -47,6 +48,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         where: { campaignId: id, status: "COMPLETED" },
         _avg: { durationSec: true },
         _sum: { costFcfa: true },
+      }),
+      db.callInsight.findMany({
+        where: { call: { campaignId: id } },
+        select: { callId: true, sentimentScore: true, answers: true, topics: true, call: { select: { contact: { select: { city: true } } } } },
       }),
       db.call.aggregate({
         where: { campaignId: id, status: "COMPLETED" },
@@ -64,6 +69,37 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const voicemail = statMap["VOICEMAIL"] ?? 0;
     const transferred = statMap["TRANSFERRED"] ?? 0;
     const inProgress = (statMap["IN_PROGRESS"] ?? 0) + (statMap["RINGING"] ?? 0);
+    const answerRows = insights.flatMap((insight) => {
+      if (!insight.answers || typeof insight.answers !== "object" || Array.isArray(insight.answers)) return [];
+      return [insight.answers as Record<string, unknown>];
+    });
+    const questionAnalytics = campaign.questions.map((question) => {
+      const counts = new Map<string, number>();
+      for (const answers of answerRows) {
+        const answer = answers[question.key];
+        if (answer === undefined || answer === null || answer === "") continue;
+        const label = Array.isArray(answer) ? answer.map(String).join(", ") : String(answer);
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+      const responseCount = Array.from(counts.values()).reduce((total, value) => total + value, 0);
+      return {
+        id: question.id,
+        key: question.key,
+        label: question.label,
+        kind: question.kind,
+        responseCount,
+        distribution: Array.from(counts, ([label, count]) => ({ label, count, percentage: responseCount ? Math.round((count / responseCount) * 1000) / 10 : 0 })).sort((a, b) => b.count - a.count),
+      };
+    });
+    const cities = new Map<string, { calls: number; sentimentTotal: number; sentimentCount: number }>();
+    for (const insight of insights) {
+      const city = insight.call.contact.city?.trim();
+      if (!city) continue;
+      const current = cities.get(city) ?? { calls: 0, sentimentTotal: 0, sentimentCount: 0 };
+      current.calls += 1;
+      if (insight.sentimentScore !== null) { current.sentimentTotal += insight.sentimentScore; current.sentimentCount += 1; }
+      cities.set(city, current);
+    }
 
     return ok({
       id: campaign.id,
@@ -81,6 +117,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         style: campaign.aiStyle,
         speed: campaign.aiSpeed,
         speakerBoost: campaign.aiSpeakerBoost,
+      },
+      questions: campaign.questions,
+      insights: insights.map((insight) => ({
+        callId: insight.callId,
+        sentimentScore: insight.sentimentScore,
+        answers: insight.answers,
+        topics: insight.topics,
+        city: insight.call.contact.city,
+      })),
+      analytics: {
+        questions: questionAnalytics,
+        cities: Array.from(cities, ([name, value]) => ({ name, calls: value.calls, sentiment: value.sentimentCount ? Math.round((value.sentimentTotal / value.sentimentCount) * 10) / 10 : null })).sort((a, b) => b.calls - a.calls),
       },
       status: campaign.status,
       maxRetries: campaign.maxRetries,

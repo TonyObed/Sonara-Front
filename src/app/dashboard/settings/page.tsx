@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useDashboard } from "../DashboardContext";
 
 export default function SettingsPage() {
@@ -12,7 +12,6 @@ export default function SettingsPage() {
     companyDraft,
     setCompanyDraft,
     profile,
-    team,
     plan,
     plans,
     persistAccount,
@@ -21,6 +20,30 @@ export default function SettingsPage() {
 
   const curPlan = plans.find((p) => p.id === plan) || plans[1];
   const planBadge = curPlan.contactSales ? "SUR DEVIS" : `${curPlan.price} FCFA / APPEL`;
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string; avatarUrl: string | null }>>([]);
+  const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  useEffect(() => { fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCompany({ ...company, phone: payload.data.displayPhone ?? "", tz: payload.data.timezone }); }).catch(() => {}); }, []);
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([fetch("/api/company/members", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/api-keys", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json())]).then(([members, keys, settings]) => {
+      if (!mounted) return;
+      if (members.success) setTeamMembers(members.data.map((user: { id: string; firstName: string; lastName: string; email: string; role: string; avatarUrl: string | null }) => ({ id: user.id, name: `${user.firstName} ${user.lastName}`.trim(), email: user.email, role: user.role.toLowerCase(), avatarUrl: user.avatarUrl })));
+      if (keys.success) setApiKeyPrefix(keys.data.find((key: { revokedAt: string | null }) => !key.revokedAt)?.prefix ?? null);
+      if (settings.success) setWebhookUrl(settings.data.webhookUrl ?? null);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const saveCompanyToDatabase = async () => {
+    if (!companyDraft) return;
+    const [profileResult, settingsResult] = await Promise.all([
+      fetch("/api/company/profile", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: companyDraft.name }) }),
+      fetch("/api/company/settings", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayPhone: companyDraft.phone, timezone: companyDraft.tz }) }),
+    ]);
+    if (profileResult.ok && settingsResult.ok) saveCompany();
+    else pushToast("Impossible d’enregistrer.", "warn");
+  };
 
   const startCompanyEdit = () => {
     setCompanyDraft({ ...company });
@@ -39,11 +62,6 @@ export default function SettingsPage() {
       pushToast("Informations entreprise enregistrées", "ok");
     }
     setCompanyEdit(false);
-  };
-
-  const handleCopyApiKey = () => {
-    navigator.clipboard.writeText("sk_live_234897f238947f2a");
-    pushToast("Clé API copiée !", "ok");
   };
 
   // Helper to format initials
@@ -160,7 +178,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-                  <button onClick={saveCompany} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "11px 18px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">
+                  <button onClick={() => { void saveCompanyToDatabase(); }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "11px 18px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">
                     Enregistrer
                   </button>
                   <button onClick={cancelCompanyEdit} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", color: "var(--sn-w7)", border: "1px solid var(--sn-w14)", borderRadius: "10px", padding: "11px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
@@ -180,16 +198,13 @@ export default function SettingsPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", padding: "13px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Clé API</span>
                 <span style={{ display: "inline-flex", gap: "9px", alignItems: "center" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>sk_live_••••••••7f2a</span>
-                  <span onClick={handleCopyApiKey} className="sn-hover-support-faq" style={{ fontSize: "12px", fontWeight: 600, color: "var(--sn-blue2)", cursor: "pointer" }}>
-                    Copier
-                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-w45)" }}>{apiKeyPrefix ? `${apiKeyPrefix}••••` : "Non configurée"}</span>
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", padding: "13px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Webhook sortant</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w7)" }}>
-                  https://crm.banquehorizon.ci/hooks
+                  {webhookUrl ?? "Non configuré"}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
@@ -218,11 +233,11 @@ export default function SettingsPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
             <div style={{ fontSize: "16px", fontWeight: 700 }}>Équipe</div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>3 / 5 SIÈGES</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>{teamMembers.length} MEMBRE(S)</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {team.map((u, index) => {
+              {teamMembers.map((u, index) => {
                 // Highlight active profile settings locally
                 const isSelf = index === 0;
                 const displayName = isSelf ? profile.name : u.name;

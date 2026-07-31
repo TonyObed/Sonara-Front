@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         passwordHash,
         plan: "STARTER",
         apiCredit: 0,
+        settings: { create: {} },
       },
     });
 

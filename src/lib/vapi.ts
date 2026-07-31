@@ -47,7 +47,13 @@ Règles impératives (non négociables) :
 3. Si le client demande à parler à un humain, utilise l'outil de transfert si disponible, sinon indique que tu transmets la demande et termine poliment.
 4. Ne révèle pas que tu es une IA, sauf si le client le demande explicitement.
 5. Adapte-toi : réponse vague → relance ; contradiction → recoupe ; client irrité → apaise ; hors-sujet → reviens au fil.
-6. Heure et fuseau : Abidjan, Côte d'Ivoire.`;
+6. Heure et fuseau : Abidjan, Côte d'Ivoire.
+7. Pose une seule question à la fois. Après chaque question, attends explicitement la réponse complète du client avant de passer à la suivante.
+8. Ne réponds jamais à la place du client, ne résume pas toutes les questions dans un seul message et ne conclus pas l'appel tant que le client n'a pas répondu ou demandé à terminer.
+9. Si le client dit seulement « allô », « oui » ou te salue, réponds brièvement puis pose la première question et attends sa réponse.
+10. Règle de tour de parole : après une question, ton prochain message est interdit tant que le client n'a pas parlé. Son silence ne vaut pas une réponse.
+11. Tes réponses font 1 ou 2 phrases courtes (25 mots maximum), sauf si le client demande une explication. Ne récite jamais un script, une liste ou un questionnaire.
+12. Le brief décrit un objectif et une progression ; il ne t'autorise jamais à annoncer ou conclure les étapes avant les réponses du client.`;
 }
 
 // ─── CONSTRUCTION DE L'ASSISTANT VAPI ─────────────────────────────────────────
@@ -99,15 +105,30 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       ]
     : undefined;
 
+  // Gemini est appelé par Vapi via son endpoint compatible OpenAI.
+  const model = process.env.GEMINI_API_KEY
+    ? {
+        provider: "custom-llm",
+        url:
+          process.env.GEMINI_OPENAI_BASE_URL ??
+          "https://generativelanguage.googleapis.com/v1beta/openai/",
+        model: process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite",
+        temperature: params.aiTemperature,
+        messages: [{ role: "system", content: systemPrompt }],
+        metadataSendMode: "off",
+        ...(tools ? { tools } : {}),
+      }
+    : {
+        provider: "openai",
+        model: process.env.OPENAI_MODEL ?? "gpt-4o",
+        temperature: params.aiTemperature,
+        messages: [{ role: "system", content: systemPrompt }],
+        ...(tools ? { tools } : {}),
+      };
+
   const assistant: Record<string, unknown> = {
     // ── LLM : intelligence conversationnelle (CDC E1) ──
-    model: {
-      provider: "openai",
-      model: process.env.OPENAI_MODEL ?? "gpt-4o",
-      temperature: params.aiTemperature,
-      messages: [{ role: "system", content: systemPrompt }],
-      ...(tools ? { tools } : {}),
-    },
+    model,
 
     // ── TTS : ElevenLabs Turbo (voix naturelle FR, latence < 300ms — CDC) ──
     // Provider configurable via env (Vapi accepte "11labs" ; certaines docs "elevenlabs").
@@ -130,24 +151,38 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       language: "fr",
       smartFormat: true,
       keywords: CI_KEYWORDS,
-      endpointing: 150, // ms de silence avant de clore la transcription (défaut ~300)
+      // 150 ms coupait le client dès une micro-pause. 500 ms est la limite Vapi
+      // tout en laissant une personne formuler une réponse naturelle.
+      endpointing: 500,
     },
 
-    firstMessage: `Bonjour ${firstName} ! `,
+    // Ouverture courte : le client peut répondre ou interrompre immédiatement.
+    firstMessage: `Bonjour ${firstName}, ici Awa. Est-ce que vous avez une minute ?`,
+    firstMessageInterruptionsEnabled: true,
     maxDurationSeconds: params.maxDuration,
     silenceTimeoutSeconds: 30,
-    backchannelingEnabled: true,
+    // Les acquiescements automatiques peuvent être perçus comme une interruption.
+    backchannelingEnabled: false,
 
     // ── Latence : quand l'IA décide que l'utilisateur a fini de parler ──
     // Le défaut Vapi attend 1.5s sans ponctuation (réponses courtes type "oui",
     // "trois") : c'est la principale source de latence perçue. On resserre tout.
     startSpeakingPlan: {
-      waitSeconds: 0.2,
+      waitSeconds: 0.4,
       transcriptionEndpointingPlan: {
-        onPunctuationSeconds: 0.1, // phrase finie ("...merci.") → réponse quasi immédiate
-        onNoPunctuationSeconds: 0.8, // réponse courte sans ponctuation (défaut 1.5s)
-        onNumberSeconds: 0.4, // l'utilisateur dicte un nombre (défaut 0.5s)
+        // Réglage Vapi recommandé pour les langues autres que l'anglais.
+        onPunctuationSeconds: 0.2,
+        onNoPunctuationSeconds: 1.5,
+        onNumberSeconds: 0.5,
       },
+    },
+
+    // Permet au client de prendre la parole à tout instant, y compris pendant
+    // une phrase de l'IA, comme dans une conversation vocale naturelle.
+    stopSpeakingPlan: {
+      numWords: 0,
+      voiceSeconds: 0.2,
+      backoffSeconds: 1.0,
     },
 
     // ── Analyse post-appel : résumé automatique (CDC F2) ──

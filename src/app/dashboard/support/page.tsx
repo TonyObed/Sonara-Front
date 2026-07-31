@@ -1,17 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useDashboard } from "../DashboardContext";
 
 export default function SupportPage() {
   const { faq, faqOpen, setFaqOpen, pushToast } = useDashboard();
+  const [services, setServices] = useState<Array<{ serviceKey: string; label: string; status: string }>>([]);
+  const [latestIncident, setLatestIncident] = useState<{ title: string; status: string; startedAt: string; resolvedAt: string | null } | null>(null);
+  useEffect(() => { fetch("/api/support", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setServices(payload.data.services); setLatestIncident(payload.data.latestIncident); } }).catch(() => {}); }, []);
+  const service = (key: string) => services.find((item) => item.serviceKey === key);
+  const serviceLabel = (key: string) => service(key)?.status === "OPERATIONAL" ? "Opérationnel" : service(key)?.status ?? "Non renseigné";
 
   const toggleFaq = (index: number) => {
     setFaqOpen(faqOpen === index ? null : index);
   };
 
-  const handleTicketOpen = () => {
-    pushToast("Ouverture d'un nouveau ticket support...", "info");
+  const handleTicketOpen = async () => {
+    const subject = window.prompt("Sujet du ticket");
+    const message = subject ? window.prompt("Décrivez votre demande") : null;
+    if (!subject || !message) return;
+    const response = await fetch("/api/support", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject, message }) });
+    pushToast(response.ok ? "Ticket support créé." : "Impossible de créer le ticket.", response.ok ? "ok" : "warn");
   };
 
   return (
@@ -209,31 +218,31 @@ export default function SupportPage() {
               <div style={{ fontSize: "16px", fontWeight: 700 }}>État des services</div>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-green)" }}>
                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--sn-green)", animation: "snPulse 1.8s infinite" }}></span>
-                TOUS OPÉRATIONNELS
+                {services.length ? "ÉTAT SYNCHRONISÉ" : "ÉTAT NON RENSEIGNÉ"}
               </span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13px", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Téléphonie — Africa&apos;s Talking</span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--sn-green)", fontWeight: 600, fontSize: "12px" }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>Opérationnel
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>{serviceLabel("telephony")}
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13px", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--sn-w55)" }}>IA vocale — STT / LLM / TTS</span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--sn-green)", fontWeight: 600, fontSize: "12px" }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>Opérationnel
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>{serviceLabel("voice-ai")}
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", padding: "11px 0", fontSize: "13px", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Dashboard &amp; API</span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "7px", color: "var(--sn-green)", fontWeight: 600, fontSize: "12px" }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>Opérationnel
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "var(--sn-green)" }}></span>{serviceLabel("dashboard-api")}
                 </span>
               </div>
             </div>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)", marginTop: "12px" }}>
-              DERNIER INCIDENT : 14 MAI — LATENCE TTS · RÉSOLU EN 22 MIN
+              {latestIncident ? `DERNIER INCIDENT : ${latestIncident.title}` : "AUCUN INCIDENT ENREGISTRÉ"}
             </div>
           </div>
         </div>

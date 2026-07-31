@@ -3,18 +3,18 @@
 import { useDashboard } from "../DashboardContext";
 import { useLiveCalls } from "@/hooks/useSonara";
 import { WaveformCanvas } from "@/components/dashboard/WaveformCanvas";
-import demoData from "@/lib/demo-data.json";
 
-const LIVE_SLOTS = 10; // capacité d'appels simultanés (Phase 1 MVP)
+const liveEvents: Array<{ time: string; kind: "ok" | "info" | "warn" | "alert"; text: string }> = [];
 
 export default function LiveMonitoringPage() {
-  const { tick, liveCalls: demoLiveCalls } = useDashboard();
+  const { tick, liveCalls: demoLiveCalls, dashboard } = useDashboard();
   // Appels en cours réels (rafraîchis toutes les 5 s) ; repli démo si non auth / erreur.
   const { data, error } = useLiveCalls(5000);
   const liveCalls = data && !error ? data : demoLiveCalls;
 
   const inProgress = liveCalls.length;
-  const slotsPct = Math.min(100, Math.round((inProgress / LIVE_SLOTS) * 100));
+  const liveSlots = dashboard?.live.capacity ?? 10;
+  const slotsPct = Math.min(100, Math.round((inProgress / liveSlots) * 100));
 
   const mmss = (s: number) => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -88,7 +88,7 @@ export default function LiveMonitoringPage() {
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>APPELS EN COURS</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginTop: "8px" }}>
             <span style={{ fontSize: "28px", fontWeight: 700 }}>{inProgress}</span>
-            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ {LIVE_SLOTS} slots</span>
+            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>/ {liveSlots} slots</span>
           </div>
           <div style={{ height: "5px", background: "var(--sn-w08)", borderRadius: "4px", marginTop: "10px", overflow: "hidden" }}>
             <div style={{ width: `${slotsPct}%`, height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "4px" }}></div>
@@ -98,7 +98,7 @@ export default function LiveMonitoringPage() {
         {/* KPI 2: File d'attente */}
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>FILE D&apos;ATTENTE</div>
-          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>36</div>
+          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{dashboard?.live.queued ?? 0}</div>
           <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>contacts à appeler</div>
         </div>
 
@@ -106,7 +106,7 @@ export default function LiveMonitoringPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>LATENCE MOYENNE</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "5px", marginTop: "8px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700, color: "var(--sn-green)" }}>472</span>
+            <span style={{ fontSize: "28px", fontWeight: 700, color: "var(--sn-green)" }}>—</span>
             <span style={{ fontSize: "14px", color: "var(--sn-w45)" }}>ms</span>
           </div>
           <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>objectif &lt; 800 ms</div>
@@ -115,8 +115,8 @@ export default function LiveMonitoringPage() {
         {/* KPI 4: Taux décroché */}
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>TAUX DÉCROCHÉ — 1H</div>
-          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>72%</div>
-          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>118 appels lancés</div>
+          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{dashboard?.responseRate ?? 0}%</div>
+          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>{dashboard?.calls.launched ?? 0} appels lancés</div>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export default function LiveMonitoringPage() {
       <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Flux audio agrégé</div>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>4 CANAUX MIXÉS</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>{inProgress} CANAL(AUX) ACTIF(S)</span>
         </div>
         <div style={{ marginTop: "14px", borderRadius: "12px", background: "var(--sn-inset)", border: "1px solid var(--sn-w05)", padding: "12px 14px" }}>
           <WaveformCanvas id="sn-wave-live" height="150px" />
@@ -177,7 +177,7 @@ export default function LiveMonitoringPage() {
       <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
         <div style={{ fontSize: "16px", fontWeight: 700 }}>Journal des événements</div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: "10px", fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>
-          {demoData.liveEvents.map((ev, index) => (
+          {liveEvents.map((ev, index) => (
             <div
               key={index}
               style={{

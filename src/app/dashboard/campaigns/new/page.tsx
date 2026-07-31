@@ -11,13 +11,6 @@ function mapVoice(label: string): string {
   return label.toLowerCase().startsWith("koffi") ? "koffi_male_ci" : "awa_female_ci";
 }
 
-// CSV de démonstration (utilisé si aucun fichier n'est importé) — numéros CI factices.
-const DEMO_CSV =
-  "phone,first_name,last_name,city\n" +
-  "0708000001,Awa,Koné,Abidjan\n" +
-  "0508000002,Yann,Aka,Bouaké\n" +
-  "0108000003,Fatou,Diabaté,Yamoussoukro\n";
-
 // Upload d'un CSV de contacts vers une campagne (multipart/form-data).
 async function uploadContacts(campaignId: string, csv: Blob, filename: string) {
   const form = new FormData();
@@ -41,6 +34,7 @@ export default function NewCampaignPage() {
     setTestNum,
     startTestCall,
     pushToast,
+    kcr,
   } = useDashboard();
 
   const [name, setName] = useState("");
@@ -112,9 +106,11 @@ export default function NewCampaignPage() {
       const id = await createCampaign();
       if (!id) return;
       // Import des contacts : fichier choisi, sinon CSV de démonstration.
-      const blob = csvFile ?? new Blob([DEMO_CSV], { type: "text/csv" });
-      const filename = csvFile?.name ?? "contacts-demo.csv";
-      await uploadContacts(id, blob, filename);
+      if (!csvFile) {
+        pushToast("Importez votre fichier CSV avant de lancer la campagne.", "warn");
+        return;
+      }
+      await uploadContacts(id, csvFile, csvFile.name);
       await api.campaigns.launch(id);
       pushToast(`Campagne "${name.trim()}" lancée avec succès !`, "ok");
       router.push("/dashboard/campaigns");
@@ -340,7 +336,7 @@ export default function NewCampaignPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
               <span style={{ color: "var(--sn-w55)" }}>Crédit disponible</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>12 450 appels</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{kcr.toLocaleString("fr-FR")} appels</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", fontSize: "13.5px" }}>
               <span style={{ color: "var(--sn-w55)" }}>Lancement</span>
@@ -369,7 +365,10 @@ export default function NewCampaignPage() {
               }}
             />
             <button
-              onClick={startTestCall}
+              onClick={() => startTestCall({
+                aiBrief: brief.trim() || undefined,
+                aiVoice: mapVoice(selectedVoice),
+              })}
               style={{
                 marginTop: "9px",
                 display: "inline-flex",

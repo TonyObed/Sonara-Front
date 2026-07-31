@@ -6,9 +6,9 @@ import { useContacts } from "@/hooks/useSonara";
 
 export default function ContactsPage() {
   // Données réelles via l'API ; repli sur l'annuaire démo si non authentifié / erreur.
-  const { directory: demoDirectory } = useDashboard();
+  const { directory: contextDirectory } = useDashboard();
   const { data, error, loading } = useContacts();
-  const directory = data && !error ? data : demoDirectory;
+  const directory = data && !error ? data : contextDirectory;
 
   const [filter, setFilter] = useState<"all" | "Particulier" | "PME" | "Premium" | "opt-out">("all");
 

@@ -1,23 +1,24 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../DashboardContext";
 
 export default function NotificationsPage() {
   const router = useRouter();
   const {
-    notifications,
-    notifUnread,
-    setNotifUnread,
     notifFilter,
     setNotifFilter,
-    markAllRead,
   } = useDashboard();
+  const [notifications, setNotifications] = useState<Array<{ id: string; group: string; kind: "ok" | "warn" | "alert" | "info"; title: string; desc: string; time: string; target: string | null }>>([]);
+  const [notifUnread, setNotifUnread] = useState<string[]>([]);
+  const markRead = (ids: string[]) => fetch("/api/notifications", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) }).catch(() => {});
+  useEffect(() => { let mounted = true; fetch("/api/notifications", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (!mounted || !payload.success) return; const rows = payload.data.map((item: { id: string; type: string; title: string; message: string; readAt: string | null; createdAt: string }) => ({ id: item.id, group: new Date(item.createdAt).toLocaleDateString("fr-FR"), kind: item.type === "CREDIT" ? "warn" : item.type === "SECURITY" ? "alert" : item.type === "CALL" ? "ok" : "info", title: item.title, desc: item.message, time: new Date(item.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }), target: null })); setNotifications(rows); setNotifUnread(payload.data.filter((item: { readAt: string | null }) => !item.readAt).map((item: { id: string }) => item.id)); }).catch(() => {}); return () => { mounted = false; }; }, []);
 
   const handleNotifClick = (id: string, target: string | null) => {
     // Mark as read
     setNotifUnread((prev) => prev.filter((unreadId) => unreadId !== id));
+    markRead([id]);
 
     // Route to target page/tab
     if (target === "campaign:c1:calls") {
@@ -101,7 +102,7 @@ export default function NotificationsPage() {
             {headerSubText}
           </div>
         </div>
-        <button onClick={markAllRead} style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
+        <button onClick={() => { markRead(notifUnread); setNotifUnread([]); }} style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 7 8.5 17 4 12.5"></path><path d="M21.5 10.5 13 19.5"></path></svg>
           Tout marquer lu
         </button>

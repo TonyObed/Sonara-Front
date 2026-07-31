@@ -57,6 +57,21 @@ enum CallStatus {
   BUSY
 }
 
+enum CreditTransactionType {
+  GRANT
+  CALL_DEBIT
+  ADJUSTMENT
+  REFUND
+}
+
+enum NotificationType {
+  INFO
+  CAMPAIGN
+  CALL
+  CREDIT
+  SECURITY
+}
+
 // ─── COMPANIES ────────────────────────────────────────────────────────────────
 
 model Company {
@@ -79,6 +94,13 @@ model Company {
   campaigns     Campaign[]
   blacklist     Blacklist[]
   refreshTokens RefreshToken[]
+  creditTransactions CreditTransaction[]
+  notifications Notification[]
+  settings      CompanySetting?
+  reports       Report[]
+  reportSchedules ReportSchedule[]
+  apiKeys       CompanyApiKey[]
+  supportTickets SupportTicket[]
 
   @@map("companies")
 }
@@ -92,6 +114,7 @@ model User {
   passwordHash String?  @map("password_hash") // null si invite pas encore accepté
   firstName    String?  @map("first_name")
   lastName     String?  @map("last_name")
+  avatarUrl    String?  @map("avatar_url")
   role         UserRole @default(MANAGER)
   inviteToken  String?  @unique @map("invite_token")
   inviteExpiry DateTime? @map("invite_expiry")
@@ -103,8 +126,10 @@ model User {
   // Relations
   company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
+  notifications Notification[]
 
   @@unique([companyId, email])
+  @@index([companyId, isActive])
   @@map("users")
 }
 
@@ -159,6 +184,9 @@ model Campaign {
   company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contacts     Contact[]
   calls        Call[]
+  reports      Report[]
+  reportSchedules ReportSchedule[]
+  questions    CampaignQuestion[]
 
   @@map("campaigns")
 }
@@ -228,6 +256,7 @@ model Call {
   contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
   campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   events       CallEvent[]
+  insight      CallInsight?
 
   @@index([campaignId, status])
   @@index([contactId])
@@ -248,6 +277,210 @@ model CallEvent {
 
   @@index([callId])
   @@map("call_events")
+}
+
+// Historique immuable de chaque variation de crédits. Le solde courant reste
+// dans Company.apiCredit ; balanceAfter permet de l'auditer sans calcul ambigu.
+model CreditTransaction {
+  id           String                @id @default(uuid())
+  companyId    String                @map("company_id")
+  type         CreditTransactionType
+  amount       Int
+  balanceAfter Int                   @map("balance_after")
+  reason       String?
+  callId       String?               @map("call_id")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([callId])
+  @@map("credit_transactions")
+}
+
+// Notifications affichables dans le dashboard ; userId null signifie que la
+// notification concerne toute l'entreprise.
+model Notification {
+  id        String           @id @default(uuid())
+  companyId String           @map("company_id")
+  userId    String?          @map("user_id")
+  type      NotificationType @default(INFO)
+  title     String
+  message   String           @db.Text
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// Réglages réellement sauvegardés par entreprise. Les secrets restent hors de
+// cette table et doivent être chiffrés avant toute future persistance.
+model CompanySetting {
+  id                  String   @id @default(uuid())
+  companyId           String   @unique @map("company_id")
+  timezone            String   @default("UTC")
+  displayPhone        String?  @map("display_phone")
+  transferAgentNumber String?  @map("transfer_agent_number")
+  webhookUrl          String?  @map("webhook_url")
+  maxConcurrentCalls  Int      @default(10) @map("max_concurrent_calls")
+  autoRechargeEnabled Boolean  @default(false) @map("auto_recharge_enabled")
+  autoRechargeThreshold Int?   @map("auto_recharge_threshold")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_settings")
+}
+
+// Les questions configurées par campagne déterminent les graphiques de résultat.
+// Elles évitent d'imposer les exemples Q1/Q2 à chaque client.
+model CampaignQuestion {
+  id          String   @id @default(uuid())
+  campaignId  String   @map("campaign_id")
+  key         String
+  label       String
+  kind        String   @default("TEXT")
+  choices     Json?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, key])
+  @@index([campaignId, position])
+  @@map("campaign_questions")
+}
+
+// Une clé ne peut jamais être relue : seul son préfixe d'affichage et son hash
+// sont stockés. Elle est propre à une entreprise.
+model CompanyApiKey {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  name        String
+  prefix      String
+  secretHash  String   @unique @map("secret_hash")
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, revokedAt])
+  @@map("company_api_keys")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  userId      String?  @map("user_id")
+  subject     String
+  message     String   @db.Text
+  status      String   @default("OPEN")
+  priority    String   @default("NORMAL")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status, createdAt])
+  @@map("support_tickets")
+}
+
+// État global des dépendances affiché dans le support. Il est administré par
+// Sonara et non inventé dans le navigateur.
+model ServiceStatus {
+  id          String   @id @default(uuid())
+  serviceKey  String   @unique @map("service_key")
+  label       String
+  status      String   @default("UNKNOWN")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("service_statuses")
+}
+
+model ServiceIncident {
+  id          String   @id @default(uuid())
+  serviceKey  String   @map("service_key")
+  title       String
+  status      String   @default("OPEN")
+  startedAt   DateTime @default(now()) @map("started_at")
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([serviceKey, startedAt])
+  @@map("service_incidents")
+}
+
+// Résultat structuré produit après un appel. Les questions sont propres à chaque
+// campagne : elles sont donc conservées en JSON au lieu d'imposer des Q1/Q2
+// fictives à tous les clients.
+model CallInsight {
+  id             String   @id @default(uuid())
+  callId         String   @unique @map("call_id")
+  sentimentScore Float?   @map("sentiment_score")
+  answers        Json?
+  topics         Json?
+  providerMeta   Json?    @map("provider_meta")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  call           Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("call_insights")
+}
+
+// Rapport réellement généré et téléchargeable. Aucun rapport n'est créé tant
+// qu'une campagne n'a pas produit de données.
+model Report {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  campaignId     String?  @map("campaign_id")
+  name           String
+  format         String   @default("PDF")
+  status         String   @default("PENDING")
+  fileUrl        String?  @map("file_url")
+  fileSizeBytes  Int?     @map("file_size_bytes")
+  summary        Json?
+  generatedAt    DateTime? @map("generated_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([campaignId])
+  @@map("reports")
+}
+
+// Planification persistante des envois de rapports. Elle reste vide sur les
+// nouveaux comptes et ne dépend d'aucun exemple de démonstration.
+model ReportSchedule {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  campaignId     String?  @map("campaign_id")
+  name           String
+  frequency      String
+  sendAt         String   @map("send_at")
+  recipients     Json
+  isActive       Boolean  @default(true) @map("is_active")
+  lastSentAt     DateTime? @map("last_sent_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, isActive])
+  @@index([campaignId])
+  @@map("report_schedules")
 }
 
 // ─── LEADS (capture marketing « Demander une démo ») ─────────────────────────

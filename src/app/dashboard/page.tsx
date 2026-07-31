@@ -17,6 +17,7 @@ export default function DashboardHome() {
     kcr: kCredit,
     liveCalls,
     campaigns,
+    dashboard,
     chartRange,
     setChartRange,
     go,
@@ -24,8 +25,12 @@ export default function DashboardHome() {
     tick,
   } = useDashboard();
 
-  const helloFirst = profile.name.split(" ")[0];
+  const helloFirst = profile.name.split(" ")[0] || "";
   const recentCampaigns = campaigns.slice(0, 3);
+  const outcomes = dashboard?.outcomes ?? { completed: 0, unreachable: 0, voicemail: 0, failed: 0 };
+  const outcomeTotal = Object.values(outcomes).reduce((sum, value) => sum + value, 0);
+  const outcomePct = (value: number) => outcomeTotal ? Math.round((value / outcomeTotal) * 100) : 0;
+  const completedPct = outcomePct(outcomes.completed);
 
   // Waveform canvas animation on mount (runs at ~25fps / 40ms)
   useEffect(() => {
@@ -99,37 +104,13 @@ export default function DashboardHome() {
   const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
 
   // Chart paths generation based on active range
-  const CHARTS = {
-    7: {
-      sub: "7 DERNIERS JOURS — 7 612 APPELS",
-      labels: ["6 JUIN", "8 JUIN", "AUJ."],
-      done: [880, 1010, 955, 1120, 1042, 1180, 1284],
-      tent: [1240, 1395, 1330, 1520, 1448, 1610, 1730],
-    },
-    14: {
-      sub: "14 DERNIERS JOURS — 14 902 APPELS",
-      labels: ["28 MAI", "2 JUIN", "6 JUIN", "AUJ."],
-      done: [620, 700, 660, 840, 890, 570, 540, 870, 980, 940, 1070, 1030, 1190, 1284],
-      tent: [880, 960, 930, 1130, 1180, 820, 790, 1160, 1290, 1260, 1410, 1380, 1560, 1730],
-    },
-    30: {
-      sub: "30 DERNIERS JOURS — 31 480 APPELS",
-      labels: ["12 MAI", "22 MAI", "1 JUIN", "AUJ."],
-      done: [
-        720, 810, 770, 905, 860, 930, 480, 1010, 940, 1080, 620, 700, 660, 840, 890, 570, 540, 870,
-        980, 940, 1070, 1030, 1190, 1284,
-      ],
-      tent: [
-        990, 1110, 1050, 1230, 1170, 1260, 700, 1360, 1280, 1450, 880, 960, 930, 1130, 1180, 820,
-        790, 1160, 1290, 1260, 1410, 1380, 1560, 1730,
-      ],
-    },
-  };
-
   const getChartPaths = (range: 7 | 14 | 30) => {
-    const C = CHARTS[range];
-    const all = C.done.concat(C.tent);
-    const max = Math.max(...all);
+    const points = (dashboard?.daily ?? []).slice(-range);
+    const done = points.map((point) => point.answered);
+    const tent = points.map((point) => point.started);
+    const fallback = { done: [0, 0], tent: [0, 0] };
+    const all = (done.length ? done : fallback.done).concat(tent.length ? tent : fallback.tent);
+    const max = Math.max(1, ...all);
     const x0 = 8;
     const x1 = 580;
     const yTop = 42;
@@ -140,20 +121,21 @@ export default function DashboardHome() {
         Math.round(yBot - (v / max) * (yBot - yTop)),
       ]);
     const path = (p: number[][]) => p.map((pt, i) => (i ? "L" : "M") + pt[0] + " " + pt[1]).join(" ");
-    const dPts = pts(C.done);
-    const tPts = pts(C.tent);
+    const dPts = pts(done.length ? done : fallback.done);
+    const tPts = pts(tent.length ? tent : fallback.tent);
     const last = dPts[dPts.length - 1];
-    const L = C.labels.length;
+    const labels = points.length ? [points[0], points[Math.floor((points.length - 1) / 2)], points[points.length - 1]] : [];
+    const L = labels.length;
     return {
       lineD: path(dPts),
       tentD: path(tPts),
       areaD: path(dPts) + " L" + x1 + " 178 L" + x0 + " 178 Z",
       lastX: last[0],
       lastY: last[1],
-      chartSub: C.sub,
-      chartLabels: C.labels.map((t, i) => ({
-        t,
-        x: Math.round(x0 + (i * (x1 - x0)) / (L - 1)),
+      chartSub: `${range} DERNIERS JOURS — ${fmt(tent.reduce((sum, value) => sum + value, 0))} APPEL(S)`,
+      chartLabels: labels.map((point, i) => ({
+        t: new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(point.date)).toUpperCase(),
+        x: L > 1 ? Math.round(x0 + (i * (x1 - x0)) / (L - 1)) : x0,
         anchor: i === 0 ? ("start" as const) : i === L - 1 ? ("end" as const) : ("middle" as const),
       })),
     };
@@ -175,9 +157,9 @@ export default function DashboardHome() {
       {/* Greeting Header */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "27px", fontWeight: 700, letterSpacing: "-.015em" }}>Bonjour, {helloFirst}</h1>
+          <h1 style={{ margin: 0, fontSize: "27px", fontWeight: 700, letterSpacing: "-.015em" }}>Bonjour{helloFirst ? `, ${helloFirst}` : ""}</h1>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "7px" }}>
-            MER. 10 JUIN 2026 — 09:47 GMT · ABIDJAN
+            {new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(new Date()).toUpperCase()}
           </div>
         </div>
         <Link href="/dashboard/campaigns/new" style={{ textDecoration: "none" }}>
@@ -198,7 +180,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <div style={{ fontSize: "33px", fontWeight: 700, letterSpacing: "-.02em", marginTop: "10px" }}>{kAppels}</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-green)", background: "rgba(43,213,118,.1)", padding: "3px 9px", borderRadius: "14px" }}>▲ +12% vs hier</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-w55)", background: "var(--sn-w06)", padding: "3px 9px", borderRadius: "14px" }}>Données en cours de collecte</div>
         </div>
 
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "20px", animation: "snFadeUp .55s ease both" }}>
@@ -209,7 +191,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <div style={{ fontSize: "33px", fontWeight: 700, letterSpacing: "-.02em", marginTop: "10px" }}>{kTaux}</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-green)", background: "rgba(43,213,118,.1)", padding: "3px 9px", borderRadius: "14px" }}>▲ +3 pts cette semaine</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-w55)", background: "var(--sn-w06)", padding: "3px 9px", borderRadius: "14px" }}>Pas encore de tendance</div>
         </div>
 
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "20px", animation: "snFadeUp .6s ease both" }}>
@@ -220,7 +202,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <div style={{ fontSize: "33px", fontWeight: 700, letterSpacing: "-.02em", marginTop: "10px" }}>{kCamp}</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-w55)", background: "var(--sn-w06)", padding: "3px 9px", borderRadius: "14px" }}>2 en cours · 1 en pause</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-w55)", background: "var(--sn-w06)", padding: "3px 9px", borderRadius: "14px" }}>{campaigns.length ? "Synchronisé avec vos campagnes" : "Aucune campagne active"}</div>
         </div>
 
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "20px", animation: "snFadeUp .65s ease both" }}>
@@ -231,7 +213,7 @@ export default function DashboardHome() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "7px", marginTop: "10px" }}><span style={{ fontSize: "33px", fontWeight: 700, letterSpacing: "-.02em" }}>{kCredit}</span><span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>appels</span></div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-amber)", background: "rgba(255,176,46,.1)", padding: "3px 9px", borderRadius: "14px" }}>≈ 9 jours d'autonomie</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", marginTop: "9px", fontSize: "12px", fontWeight: 500, color: "var(--sn-w55)", background: "var(--sn-w06)", padding: "3px 9px", borderRadius: "14px" }}>Solde actuel</div>
         </div>
       </div>
 
@@ -355,22 +337,18 @@ export default function DashboardHome() {
             <svg viewBox="0 0 160 160" style={{ width: "158px", height: "158px" }}>
               <g transform="rotate(-90 80 80)" fill="none" strokeWidth="15">
                 <circle cx="80" cy="80" r="58" style={{ stroke: "var(--sn-w06)" }}></circle>
-                <circle cx="80" cy="80" r="58" stroke="#0052FF" strokeDasharray="258.7 105.7" strokeDashoffset="0"></circle>
-                <circle cx="80" cy="80" r="58" stroke="#5E5E68" strokeDasharray="51 313.4" strokeDashoffset="-258.7"></circle>
-                <circle cx="80" cy="80" r="58" stroke="var(--sn-amber)" strokeDasharray="32.8 331.6" strokeDashoffset="-309.7"></circle>
-                <circle cx="80" cy="80" r="58" stroke="var(--sn-red)" strokeDasharray="21.9 342.5" strokeDashoffset="-342.5"></circle>
               </g>
             </svg>
             <div style={{ position: "absolute", textAlign: "center" }}>
-              <div style={{ fontSize: "26px", fontWeight: 700 }}>71%</div>
+              <div style={{ fontSize: "26px", fontWeight: 700 }}>{completedPct}%</div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "9.5px", letterSpacing: ".1em", color: "var(--sn-w42)" }}>COMPLÉTÉS</div>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "9px", marginTop: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "#0052FF" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Enquêtes complétées</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>71%</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "#5E5E68" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Non joignables</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>14%</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "var(--sn-amber)" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Messagerie vocale</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>9%</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "var(--sn-red)" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Refus / échecs</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>6%</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "#0052FF" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Enquêtes complétées</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{completedPct}%</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "#5E5E68" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Non joignables</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{outcomePct(outcomes.unreachable)}%</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "var(--sn-amber)" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Messagerie vocale</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{outcomePct(outcomes.voicemail)}%</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px", fontSize: "13px" }}><span style={{ width: "9px", height: "9px", borderRadius: "3px", background: "var(--sn-red)" }}></span><span style={{ flex: 1, color: "var(--sn-w7)" }}>Refus / échecs</span><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{outcomePct(outcomes.failed)}%</span></div>
           </div>
         </div>
       </div>

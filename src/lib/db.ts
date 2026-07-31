@@ -2,13 +2,47 @@
 // Prisma 7 avec driver adapter @prisma/adapter-pg
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
+/**
+ * La connexion directe Supabase (`db.<ref>.supabase.co`) résout en IPv6 sur
+ * certains réseaux Windows, où elle est bloquée. Le Session Pooler utilise une
+ * route IPv4 et convient à Prisma pour l'application web.
+ *
+ * SUPABASE_POOLER_HOST permet de surcharger la région si nécessaire.
+ */
+function resolveDatabaseUrl(connectionString: string): string {
+  const url = new URL(connectionString);
+  const directMatch = /^db\.([a-z0-9]+)\.supabase\.co$/i.exec(url.hostname);
+
+  if (!directMatch || process.env.SUPABASE_USE_DIRECT_CONNECTION === "true") {
+    return connectionString;
+  }
+
+  const projectRef = directMatch[1];
+  url.hostname =
+    process.env.SUPABASE_POOLER_HOST ?? "aws-1-eu-central-1.pooler.supabase.com";
+  url.username = `postgres.${projectRef}`;
+  url.port = "5432";
+  return url.toString();
+}
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL manquante. Vérifiez votre fichier .env");
   }
-  const adapter = new PrismaPg({ connectionString });
+  const resolvedConnectionString = resolveDatabaseUrl(connectionString);
+  // Certains réseaux de développement injectent leur propre certificat TLS.
+  // On ne désactive sa vérification que localement ; la production reste stricte.
+  const acceptLocalProxyCertificate =
+    process.env.NODE_ENV !== "production" &&
+    process.env.PG_SSL_REJECT_UNAUTHORIZED !== "true";
+  const pool = new Pool({
+    connectionString: resolvedConnectionString,
+    ssl: { rejectUnauthorized: !acceptLocalProxyCertificate },
+  });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
     log:

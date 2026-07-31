@@ -9,11 +9,11 @@ import { mapApiCampaignToFront } from "@/lib/dashboard-adapters";
 
 export default function CampaignsPage() {
   const router = useRouter();
-  const { campaigns: demoCampaigns, stOver } = useDashboard();
+  const { campaigns: contextCampaigns, stOver } = useDashboard();
   // Données live (API) avec repli sur les données demo si non authentifié / erreur.
   const { data: apiCampaigns } = useCampaigns();
   const campaigns =
-    apiCampaigns !== null ? apiCampaigns.map(mapApiCampaignToFront) : demoCampaigns;
+    apiCampaigns !== null ? apiCampaigns.map(mapApiCampaignToFront) : contextCampaigns;
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "done">("all");
 
   const STATUS_DICT = {

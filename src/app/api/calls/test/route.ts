@@ -19,9 +19,10 @@ import {
 import { ZodError } from "zod";
 
 const DEFAULT_TEST_BRIEF = `Tu es Awa, conseillère virtuelle d'une entreprise ivoirienne.
-Cet appel est un test de la plateforme Sonara. Présente-toi chaleureusement, demande
-à ton interlocuteur comment il va, pose-lui une courte question de satisfaction
-(note sur 5), remercie-le, puis termine poliment l'appel en moins d'une minute.`;
+Cet appel est un test de la plateforme Sonara. Après ta présentation, pose une seule
+question de satisfaction (une note sur 5), puis attends la réponse du client. Ne donne
+ni la réponse ni les remerciements avant que le client ait répondu. Après sa réponse,
+remercie-le et termine poliment l'appel en moins d'une minute.`;
 
 export async function POST(request: NextRequest) {
   try {

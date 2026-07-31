@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboard } from "../../DashboardContext";
 import { useCampaignCalls } from "@/hooks/useSonara";
 import { mapApiCallToRow } from "@/lib/dashboard-adapters";
+
+type CampaignAnalytics = {
+  questions: Array<{ id: string; label: string; responseCount: number; distribution: Array<{ label: string; count: number; percentage: number }> }>;
+  cities: Array<{ name: string; calls: number; sentiment: number | null }>;
+};
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -26,6 +31,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   // Appels réels de la campagne (transcription accessible via le drawer / useCall).
   const { data: apiCalls } = useCampaignCalls(id);
   const callRows = (apiCalls ?? []).map(mapApiCallToRow);
+  const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    fetch(`/api/campaigns/${id}`, { credentials: "include" })
+      .then((response) => response.json())
+      .then((payload) => { if (mounted && payload.success) setAnalytics(payload.data.analytics); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [id]);
 
   // Load initial tab from query string or default to 'overview'
   const initialTab = (searchParams.get("tab") as any) || "overview";
@@ -100,14 +114,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   };
 
   // Q1 note bars data
-  const Q1_DATA = [1, 1, 2, 2, 3, 5, 8, 14, 24, 26, 14];
-  const q1Max = Math.max(...Q1_DATA);
-  const q1Bars = Q1_DATA.map((pctValue, note) => ({
-    note: String(note),
-    pct: pctValue + "%",
-    h: Math.round(6 + (pctValue / q1Max) * 78) + "px",
-    color: note >= 9 ? "var(--sn-green)" : note >= 7 ? "#0052FF" : note >= 5 ? "var(--sn-amber)" : "var(--sn-red)",
+  const q1 = analytics?.questions[0];
+  const q2 = analytics?.questions[1];
+  const q1Max = Math.max(...(q1?.distribution.map((item) => item.percentage) ?? [1]));
+  const q1Bars = (q1?.distribution ?? []).map((item, index) => ({
+    note: item.label,
+    pct: `${item.percentage}%`,
+    h: `${Math.round(6 + (item.percentage / q1Max) * 78)}px`,
+    color: index === 0 ? "var(--sn-green)" : index === 1 ? "#0052FF" : index === 2 ? "var(--sn-amber)" : "var(--sn-red)",
   }));
+  const q2Rows = (q2?.distribution ?? []).map((item, index) => ({ label: item.label, pct: `${item.percentage}%`, color: index === 0 ? "var(--sn-green)" : index === 1 ? "#0052FF" : index === 2 ? "var(--sn-amber)" : "var(--sn-red)" }));
+  const cities = analytics?.cities ?? [];
+  const cityMax = Math.max(...(cities.map((city) => city.calls)), 1);
 
   // Q2 wait percipient data
   const Q2_DATA = [
@@ -313,8 +331,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
             {/* Histogram Notes Q1 */}
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-              <div style={{ fontSize: "16px", fontWeight: 700 }}>Q1 — Note d'accueil en agence</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>MOYENNE 7.8 / 10 — 1 312 RÉPONSES</div>
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q1 ? `Q1 — ${q1.label}` : "Question structurée"}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>{q1 ? `${q1.responseCount} RÉPONSES ENREGISTRÉES` : "AUCUNE QUESTION CONFIGURÉE"}</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", marginTop: "18px" }}>
                 {q1Bars.map((b, idx) => (
                   <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
@@ -331,9 +349,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             
             {/* Q2 wait time percipient */}
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-              <div style={{ fontSize: "16px", fontWeight: 700 }}>Q2 — Temps d'attente perçu</div>
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q2 ? `Q2 — ${q2.label}` : "Question structurée"}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "13px", marginTop: "18px" }}>
-                {Q2_DATA.map((r, idx) => (
+                {q2Rows.map((r, idx) => (
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
                       <span style={{ color: "var(--sn-w7)" }}>{r.label}</span>
@@ -345,24 +363,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "16px", lineHeight: "1.55" }}>
-                ⚠ 37 % des répondants jugent l'attente supérieure à 30 min — corrélé aux agences de Cocody et Abobo.
-              </div>
+              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "16px", lineHeight: "1.55" }}>{q2 ? `${q2.responseCount} réponses structurées enregistrées pour cette question.` : "Aucune deuxième question structurée n'est configurée."}</div>
             </div>
 
             {/* Cities sentiment */}
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
               <div style={{ fontSize: "16px", fontWeight: 700 }}>Sentiment par ville</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>1 847 APPELS GÉOLOCALISÉS</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>{cities.reduce((total, city) => total + city.calls, 0)} APPELS GÉOLOCALISÉS</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "11px", marginTop: "16px" }}>
-                {CITIES_DATA.map((c, idx) => (
+                {cities.map((c, idx) => (
                   <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <span style={{ width: "124px", minWidth: "124px", fontSize: "13px", color: "var(--sn-w7)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
                     <div style={{ flex: 1, height: "7px", background: "var(--sn-w08)", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ width: c.w, height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "4px" }}></div>
+                      <div style={{ width: `${Math.round((c.calls / cityMax) * 100)}%`, height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "4px" }}></div>
                     </div>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w45)", width: "56px", textAlign: "right" }}>{c.calls}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", fontWeight: 700, color: c.sentColor, width: "32px", textAlign: "right" }}>{c.sent}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", fontWeight: 700, color: sentColor(c.sentiment), width: "32px", textAlign: "right" }}>{c.sentiment ?? "â€”"}</span>
                   </div>
                 ))}
               </div>

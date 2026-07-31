@@ -253,6 +253,21 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Les réponses structurées Vapi deviennent la source de vérité des
+      // graphiques de campagne. Aucun graphique ne dépend de valeurs front.
+      await db.callInsight.upsert({
+        where: { callId: call.id },
+        create: {
+          callId: call.id,
+          answers: (callPayload.analysis?.structuredData ?? undefined) as never,
+          providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never,
+        },
+        update: {
+          answers: (callPayload.analysis?.structuredData ?? undefined) as never,
+          providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never,
+        },
+      });
+
       // Mise à jour du contact
       const contactUpdate: {
         status: "COMPLETED" | "FAILED" | "UNREACHABLE" | "VOICEMAIL";
@@ -295,12 +310,31 @@ export async function POST(request: NextRequest) {
       // VULN-002 corrigée : déduire le crédit de la BONNE entreprise
       // (companyId récupéré via la relation campaign, pas un campaignId)
       if (call.campaign?.companyId) {
-        await db.company
-          .update({
+        await db.$transaction(async (tx) => {
+          const company = await tx.company.update({
             where: { id: call.campaign.companyId },
             data: { apiCredit: { decrement: 1 } },
-          })
-          .catch((e) => console.error("[Vapi Webhook] Échec décrément crédit:", e));
+            select: { apiCredit: true },
+          });
+          await tx.creditTransaction.create({
+            data: {
+              companyId: call.campaign.companyId,
+              callId: call.id,
+              type: "CALL_DEBIT",
+              amount: -1,
+              balanceAfter: company.apiCredit,
+              reason: `Appel ${call.id} terminé`,
+            },
+          });
+          await tx.notification.create({
+            data: {
+              companyId: call.campaign.companyId,
+              type: "CALL",
+              title: "Appel terminé",
+              message: "Un appel de campagne a été enregistré.",
+            },
+          });
+        });
       }
 
       // Vérifier si la campagne est terminée (tous les contacts traités)

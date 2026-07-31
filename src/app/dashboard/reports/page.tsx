@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useDashboard } from "../DashboardContext";
+import { useEffect, useState } from "react";
+
+type DbReport = { id: string; name: string; fileUrl: string | null; fileSizeBytes: number | null; generatedAt: string | null; createdAt: string; campaign: { name: string } | null; summary: { responseRate?: number; sentiment?: number } | null };
+type DbSchedule = { id: string; name: string; frequency: string; sendAt: string; recipients: unknown; isActive: boolean; campaign: { name: string } | null };
 
 export default function ReportsPage() {
-  const { reports } = useDashboard();
-  const [scheduled, setScheduled] = useState([
-    { id: 1, name: "Satisfaction Service Client — Q2", meta: "HEBDOMADAIRE · LUNDI 08:00 → direction@banquehorizon.ci", active: true },
-    { id: 2, name: "Relance crédit conso — J+15", meta: "QUOTIDIEN · 18:00 → recouvrement@banquehorizon.ci", active: false },
-  ]);
-
-  const toggleScheduled = (id: number) => {
-    setScheduled((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s))
-    );
+  const [reports, setReports] = useState<DbReport[]>([]);
+  const [scheduled, setScheduled] = useState<DbSchedule[]>([]);
+  useEffect(() => { let mounted = true; fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (mounted && payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); } }).catch(() => {}); return () => { mounted = false; }; }, []);
+  const downloadReport = (report: DbReport) => { if (report.fileUrl) window.open(report.fileUrl, "_blank", "noopener,noreferrer"); };
+  const toggleSchedule = async (schedule: DbSchedule) => {
+    const next = !schedule.isActive;
+    const response = await fetch(`/api/reports/${schedule.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: next }) });
+    if (response.ok) setScheduled((current) => current.map((item) => item.id === schedule.id ? { ...item, isActive: next } : item));
   };
 
   const handleDownload = (name: string) => {
@@ -41,9 +41,9 @@ export default function ReportsPage() {
 
       {/* Reports Cards Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: "14px" }}>
-        {reports.map((r, index) => (
+        {reports.map((r) => (
           <div
-            key={index}
+            key={r.id}
             className="sn-hover-border"
             style={{
               background: "var(--sn-panel)",
@@ -75,31 +75,31 @@ export default function ReportsPage() {
                   <path d="M9 13h6M9 17h4"></path>
                 </svg>
               </div>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>{r.size}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>{r.fileSizeBytes ? `${Math.round(r.fileSizeBytes / 1024)} KB` : "—"}</span>
             </div>
             <div>
               <div style={{ fontSize: "15px", fontWeight: 600, lineHeight: 1.35 }}>{r.name}</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "6px" }}>{r.meta}</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "6px" }}>{r.campaign?.name ?? "Toutes campagnes"} · {new Date(r.generatedAt ?? r.createdAt).toLocaleDateString("fr-FR")}</div>
             </div>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w65)", background: "var(--sn-w05)", padding: "4px 9px", borderRadius: "12px" }}>
-                RÉP. {r.responseRate}
+                RÉP. {r.summary?.responseRate !== undefined ? `${r.summary.responseRate}%` : "—"}
               </span>
               <span
                 style={{
                   fontFamily: "'JetBrains Mono', monospace",
                   fontSize: "10.5px",
-                  color: sentColor(r.sentiment),
+                  color: sentColor(r.summary?.sentiment ?? null),
                   background: "rgba(43,213,118,.09)",
                   padding: "4px 9px",
                   borderRadius: "12px",
                 }}
               >
-                SENT. {r.sentiment !== null ? r.sentiment.toFixed(1) : "—"}
+                SENT. {r.summary?.sentiment !== undefined ? r.summary.sentiment.toFixed(1) : "—"}
               </span>
             </div>
             <button
-              onClick={() => handleDownload(r.name)}
+              onClick={() => downloadReport(r)}
               className="sn-hover-blue3"
               style={{
                 display: "inline-flex",
@@ -134,15 +134,15 @@ export default function ReportsPage() {
         <div style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px" }}>Aperçu Analytics IA (Insights)</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
             <div style={{ padding: "20px", background: "rgba(43,213,118,.05)", border: "1px solid rgba(43,213,118,.2)", borderRadius: "12px" }}>
-                <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Sentiment Majoritaire</div>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-green)" }}>Positif (68%)</div>
-                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Les clients apprécient le service client de l'entreprise.</div>
+                <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Sentiment majoritaire</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-w45)" }}>—</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Disponible après les premiers appels analysés.</div>
             </div>
             
             <div style={{ padding: "20px", background: "rgba(255,176,46,.05)", border: "1px solid rgba(255,176,46,.2)", borderRadius: "12px" }}>
                 <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Mot-clé récurrent</div>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-amber)" }}>"Lenteur"</div>
-                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Mentionné dans 32% des appels.</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-w45)" }}>—</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Disponible après les premiers appels analysés.</div>
             </div>
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function ReportsPage() {
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
-          {scheduled.map((s) => (
+          {scheduled.map((s, index) => (
             <div
               key={s.id}
               style={{
@@ -164,23 +164,28 @@ export default function ReportsPage() {
                 alignItems: "center",
                 gap: "14px",
                 padding: "14px 4px",
-                borderBottom: s.id === 1 ? "1px solid var(--sn-w05)" : "none",
+                borderBottom: index < scheduled.length - 1 ? "1px solid var(--sn-w05)" : "none",
                 flexWrap: "wrap",
               }}
             >
               <div style={{ flex: 1, minWidth: "200px" }}>
                 <div style={{ fontSize: "14px", fontWeight: 500 }}>{s.name}</div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "3px" }}>
-                  {s.meta}
+                  {`${s.frequency} · ${s.sendAt} → ${Array.isArray(s.recipients) ? s.recipients.join(", ") : "—"}`}
                 </div>
               </div>
               <div
-                onClick={() => toggleScheduled(s.id)}
+                aria-label={`Activer ou désactiver ${s.name}`}
+                role="switch"
+                aria-checked={s.isActive}
+                tabIndex={0}
+                onClick={() => { void toggleSchedule(s); }}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void toggleSchedule(s); } }}
                 style={{
                   width: "40px",
                   height: "22px",
                   borderRadius: "12px",
-                  background: s.active ? "#0052FF" : "var(--sn-w12)",
+                  background: s.isActive ? "#0052FF" : "var(--sn-w12)",
                   position: "relative",
                   cursor: "pointer",
                   transition: "background 0.2s ease",
@@ -190,17 +195,18 @@ export default function ReportsPage() {
                   style={{
                     position: "absolute",
                     top: "2px",
-                    left: s.active ? "20px" : "2px",
+                    left: s.isActive ? "20px" : "2px",
                     width: "18px",
                     height: "18px",
                     borderRadius: "50%",
-                    background: s.active ? "#fff" : "var(--sn-w6)",
+                    background: s.isActive ? "#fff" : "var(--sn-w6)",
                     transition: "left 0.2s ease, background 0.2s ease",
                   }}
                 ></span>
               </div>
             </div>
           ))}
+          {scheduled.length === 0 && <div style={{ padding: "14px 4px", color: "var(--sn-w45)", fontSize: "13px" }}>Aucun rapport programmé pour cette entreprise.</div>}
         </div>
       </div>
     </div>
