@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
         where: { vapiCallId },
         include: {
           contact: true,
-          campaign: { select: { companyId: true, maxRetries: true } },
+          campaign: { select: { companyId: true, maxRetries: true, company: { select: { isSandbox: true } } } },
         },
       });
 
@@ -347,6 +347,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (!call.campaign?.companyId) return;
+          if (!call.campaign.company.isSandbox) {
           const company = await tx.company.update({
             where: { id: call.campaign.companyId },
             data: { apiCredit: { decrement: 1 } },
@@ -362,6 +363,7 @@ export async function POST(request: NextRequest) {
               reason: `Appel ${call.id} terminé`,
             },
           });
+          }
           await tx.notification.create({
             data: {
               companyId: call.campaign.companyId,

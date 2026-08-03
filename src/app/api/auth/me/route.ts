@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         email: true,
         plan: true,
         apiCredit: true,
+        isSandbox: true,
         twoFactorEnabled: true,
         createdAt: true,
         users: {
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
         email: company.email,
         plan: company.plan,
         apiCredit: company.apiCredit,
+        isSandbox: company.isSandbox,
         memberSince: company.createdAt,
         totalCampaigns: company._count.campaigns,
         teamSize: company.users.length,

@@ -44,6 +44,7 @@ async function main() {
       passwordHash,
       plan: "BUSINESS",
       apiCredit: 5000,
+      isSandbox: true,
     },
   });
 

@@ -81,6 +81,7 @@ model Company {
   passwordHash         String   @map("password_hash")
   plan                 Plan     @default(STARTER)
   apiCredit            Int      @default(0) @map("api_credit") // nombre d'appels restants
+  isSandbox            Boolean  @default(false) @map("is_sandbox") // crédits non bloquants pendant les tests
   isActive             Boolean  @default(true) @map("is_active")
   // ── 2FA (TOTP — CDC A9) ──
   twoFactorSecret      String?  @map("two_factor_secret") // secret TOTP base32 (à chiffrer en P2)

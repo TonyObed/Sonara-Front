@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       where: { id, companyId: auth.companyId },
       include: {
         _count: { select: { contacts: true } },
-        company: { select: { apiCredit: true, plan: true } },
+        company: { select: { apiCredit: true, plan: true, isSandbox: true } },
       },
     });
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     }
 
     // Vérifier le crédit (estimation : 1 crédit = 1 appel)
-    if (campaign.company.apiCredit < pendingContacts) {
+    if (!campaign.company.isSandbox && campaign.company.apiCredit < pendingContacts) {
       return badRequest(
         `Crédit insuffisant. Vous avez ${campaign.company.apiCredit} crédits, mais il faut en avoir au moins ${pendingContacts} pour cette campagne. Contactez Sonara pour recharger.`
       );
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       campaignId: id,
       status: "RUNNING",
       pendingContacts,
+      sandbox: campaign.company.isSandbox,
       message: `Campagne lancée. ${pendingContacts} contact(s) vont être appelés.`,
     });
   } catch (error) {

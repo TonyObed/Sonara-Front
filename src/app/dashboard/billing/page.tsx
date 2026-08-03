@@ -15,6 +15,7 @@ export default function BillingPage() {
     plans,
     pushToast,
     kcr: credit,
+    company,
   } = useDashboard();
 
   const plansRef = useRef<HTMLDivElement>(null);
@@ -24,6 +25,7 @@ export default function BillingPage() {
   };
 
   const currentPlanObj = plans.find((p) => p.id === plan) || plans[1];
+  const isSandbox = company.isSandbox;
   const planBadge = currentPlanObj.contactSales ? "SUR DEVIS" : `${currentPlanObj.price} FCFA / APPEL`;
 
   const handleChoosePlan = (planId: string, name: string) => {
@@ -85,11 +87,11 @@ export default function BillingPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "24px", display: "flex", flexDirection: "column" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>CRÉDIT RESTANT</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "10px" }}>
-            <span style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-.02em" }}>{fmt(credit)}</span>
-            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>appels</span>
+            <span style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-.02em" }}>{isSandbox ? "Illimité" : fmt(credit)}</span>
+            <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>{isSandbox ? "tests" : "appels"}</span>
           </div>
           <div style={{ height: "8px", background: "var(--sn-w08)", borderRadius: "5px", marginTop: "12px", overflow: "hidden" }}>
-            <div style={{ width: "0%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
+            <div style={{ width: isSandbox ? "100%" : "0%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)", marginTop: "8px" }}>
             <span>HISTORIQUE EN COURS DE MISE EN PLACE</span>

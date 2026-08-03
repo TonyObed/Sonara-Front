@@ -60,6 +60,7 @@ export interface Company {
   email: string;
   plan: string;
   apiCredit: number;
+  isSandbox?: boolean;
 }
 
 export interface User {
