@@ -145,6 +145,23 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     { name: "Daloa", calls: "154", w: "30%", sent: "7.4", sentColor: sentColor(7.4) },
   ];
 
+  const applyCampaignAction = async (action: "pause" | "resume") => {
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.id}/pause`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Action impossible.");
+      setStOver((previous) => ({ ...previous, [campaign.id]: action === "pause" ? "paused" : "live" }));
+      pushToast(payload.data.message, action === "pause" ? "warn" : "ok");
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Action impossible.", "warn");
+    }
+  };
+
   // Pausing Campaign logic
   const handlePauseToggle = () => {
     if (currentStatus === "live") {
@@ -154,12 +171,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         label: "Mettre en pause",
         danger: false,
         action: () => {
-          setStOver((prev) => ({ ...prev, [campaign.id]: "paused" }));
+          void applyCampaignAction("pause");
           pushToast("Campagne mise en pause — " + campaign.name, "warn");
         },
       });
     } else {
-      setStOver((prev) => ({ ...prev, [campaign.id]: "live" }));
+      void applyCampaignAction("resume");
       pushToast("Campagne relancée — les appels reprennent", "ok");
     }
   };

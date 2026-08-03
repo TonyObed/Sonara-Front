@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
-import { unauthorized, notFound, badRequest, handleError } from "@/lib/response";
+import { unauthorized, forbidden, notFound, badRequest, handleError } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -23,6 +23,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
     const auth = await authenticateRequest(request);
     if (!auth) return unauthorized();
+    if (auth.role === "VIEWER") return forbidden("Les exports sont réservés aux administrateurs et managers.");
 
     const { id } = await params;
 
