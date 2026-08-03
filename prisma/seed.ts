@@ -11,6 +11,17 @@ const adapter = new PrismaPg({
 const db = new PrismaClient({ adapter });
 
 async function main() {
+  if (process.env.NODE_ENV !== "development" || process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+    throw new Error(
+      "Seed refusé : exécutez uniquement en développement avec ALLOW_DESTRUCTIVE_SEED=true."
+    );
+  }
+
+  const demoPassword = process.env.DEMO_SEED_PASSWORD;
+  if (!demoPassword || demoPassword.length < 12) {
+    throw new Error("DEMO_SEED_PASSWORD (12 caractères minimum) est requis pour le seed.");
+  }
+
   console.log("🌱 Seeding Sonara database...");
 
   // Nettoyer les données existantes
@@ -24,7 +35,7 @@ async function main() {
   await db.company.deleteMany();
 
   // ─── ENTREPRISE DE DEMO ────────────────────────────────────────────────────
-  const passwordHash = await bcrypt.hash("Sonara2026!", 12);
+  const passwordHash = await bcrypt.hash(demoPassword, 12);
 
   const company = await db.company.create({
     data: {
@@ -232,7 +243,7 @@ Ton : chaleureux, naturel, ivoirien. Utilise "ô" et "yako" naturellement. Sois 
   console.log("✅ Seed terminé !");
   console.log("─".repeat(50));
   console.log("📧 Email     : admin@banquexyz.ci");
-  console.log("🔑 Password  : Sonara2026!");
+  console.log("🔑 Mot de passe : défini dans DEMO_SEED_PASSWORD");
   console.log("🏢 Entreprise: Banque XYZ Côte d'Ivoire");
   console.log("─".repeat(50));
 }

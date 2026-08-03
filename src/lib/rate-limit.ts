@@ -4,11 +4,10 @@
 
 import { Redis } from "@upstash/redis";
 
-// Utilise les variables d'environnement standard de Upstash ou fallback vide pour la démo
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || "https://fake-url-for-build.upstash.io",
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || "fake-token",
-});
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
+const localCounters = new Map<string, { count: number; expiresAt: number }>();
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -28,6 +27,32 @@ export async function rateLimit(key: string, limit: number, windowSec: number): 
   // Fenêtre fixe temporelle
   const currentWindow = Math.floor(now / (windowSec * 1000));
   const redisKey = `ratelimit:${key}:${currentWindow}`;
+
+  const restrictiveFallback = (): RateLimitResult => {
+    if (process.env.NODE_ENV === "production") {
+      // Les routes appelant cette fonction ne doivent jamais devenir illimitées
+      // lorsqu'un service anti-abus est absent ou indisponible en production.
+      return { allowed: false, remaining: 0, resetAt: now + 60_000, retryAfterSec: 60 };
+    }
+
+    const existing = localCounters.get(redisKey);
+    const counter = !existing || existing.expiresAt <= now
+      ? { count: 1, expiresAt: now + windowSec * 1000 }
+      : { ...existing, count: existing.count + 1 };
+    localCounters.set(redisKey, counter);
+    const resetAt = counter.expiresAt;
+    return {
+      allowed: counter.count <= limit,
+      remaining: Math.max(0, limit - counter.count),
+      resetAt,
+      retryAfterSec: counter.count <= limit ? 0 : Math.ceil((resetAt - now) / 1000),
+    };
+  };
+
+  if (!redis) {
+    console.warn("Redis rate-limit non configuré; fallback local appliqué.");
+    return restrictiveFallback();
+  }
 
   try {
     const pipeline = redis.pipeline();
@@ -55,14 +80,10 @@ export async function rateLimit(key: string, limit: number, windowSec: number): 
       retryAfterSec: 0,
     };
   } catch (err) {
-    // Fail-open : si Redis tombe, on laisse passer pour ne pas bloquer l'app (choix MVP)
+    // En production, une panne Redis bloque les routes protégées plutôt que de
+    // les rendre illimitées. En développement, un compteur local garde le test utilisable.
     console.warn("Redis rate-limit failed:", err);
-    return {
-      allowed: true,
-      remaining: 1,
-      resetAt: now + windowSec * 1000,
-      retryAfterSec: 0,
-    };
+    return restrictiveFallback();
   }
 }
 

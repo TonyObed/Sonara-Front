@@ -6,13 +6,11 @@ import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
 import { TestCallSchema, normalizePhoneCI } from "@/lib/validation";
 import { triggerOutboundCall } from "@/lib/vapi";
-import { rateLimit } from "@/lib/rate-limit";
 import {
   ok,
   badRequest,
   unauthorized,
   forbidden,
-  tooManyRequests,
   zodError,
   handleError,
 } from "@/lib/response";
@@ -34,15 +32,6 @@ export async function POST(request: NextRequest) {
       return forbidden("Les utilisateurs en lecture seule ne peuvent pas lancer d'appels.");
     }
 
-    // VULN-007 : limiter les appels de test par entreprise (anti-abus de coûts).
-    // 10 appels / minute / entreprise — suffisant pour une démo, bloque le spam.
-    const rl = await rateLimit(`testcall:${auth.companyId}`, 10, 60);
-    if (!rl.allowed) {
-      return tooManyRequests(
-        `Trop d'appels de test. Réessayez dans ${rl.retryAfterSec} secondes.`
-      );
-    }
-
     const body = await request.json();
     const input = TestCallSchema.parse(body);
 
@@ -52,21 +41,23 @@ export async function POST(request: NextRequest) {
       return badRequest("Numéro invalide. Format attendu : 07XXXXXXXX ou +225XXXXXXXXXX.");
     }
 
-    // Vérifier le crédit de l'entreprise
-    const company = await db.company.findUnique({
-      where: { id: auth.companyId },
-      select: { apiCredit: true },
+    // Persisté séparément des campagnes : aucun KPI, crédit ou rapport client
+    // ne sera modifié par cet appel de validation.
+    const testCall = await db.testCall.create({
+      data: {
+        companyId: auth.companyId,
+        phone,
+        firstName: input.firstName ?? null,
+        aiVoice: input.aiVoice,
+        aiBrief: input.aiBrief ?? DEFAULT_TEST_BRIEF,
+        aiTemperature: input.aiTemperature,
+      },
     });
 
-    if (!company || company.apiCredit <= 0) {
-      return badRequest("Crédit d'appels insuffisant pour lancer un test.");
-    }
-
-    // Déclencher l'appel de test (non persisté — c'est un test ponctuel)
     const result = await triggerOutboundCall({
       phone,
-      callId: `test-${Date.now()}`,
-      aiBrief: input.aiBrief ?? DEFAULT_TEST_BRIEF,
+      callId: testCall.id,
+      aiBrief: testCall.aiBrief,
       aiVoice: input.aiVoice,
       aiTemperature: input.aiTemperature,
       maxDuration: 120, // 2 min max pour un test
@@ -75,20 +66,31 @@ export async function POST(request: NextRequest) {
       metadata: {
         type: "test-call",
         companyId: auth.companyId,
+        testCallId: testCall.id,
       },
     });
 
     if (!result.ok) {
+      await db.testCall.update({
+        where: { id: testCall.id },
+        data: { status: "FAILED", endedAt: new Date(), error: result.error ?? "Erreur Vapi inconnue" },
+      });
       return badRequest(
         `Échec du déclenchement de l'appel de test : ${result.error ?? "erreur inconnue"}`
       );
     }
+
+    await db.testCall.update({
+      where: { id: testCall.id },
+      data: { vapiCallId: result.vapiCallId, status: "RINGING" },
+    });
 
     return ok({
       message: "Appel de test déclenché. Le téléphone va sonner dans quelques secondes.",
       vapiCallId: result.vapiCallId,
       phone,
       voice: input.aiVoice,
+      testCallId: testCall.id,
     });
   } catch (error) {
     if (error instanceof ZodError) return zodError(error);

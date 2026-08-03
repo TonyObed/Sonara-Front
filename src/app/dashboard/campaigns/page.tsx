@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../DashboardContext";
@@ -14,7 +14,16 @@ export default function CampaignsPage() {
   const { data: apiCampaigns } = useCampaigns();
   const campaigns =
     apiCampaigns !== null ? apiCampaigns.map(mapApiCampaignToFront) : contextCampaigns;
-  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "done">("all");
+  const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "done" | "tests">("all");
+  const [testCalls, setTestCalls] = useState<Array<{ id: string; phone: string; firstName: string | null; aiVoice: string; status: string; durationSec: number | null; createdAt: string; summary: string | null; error: string | null }>>([]);
+
+  useEffect(() => {
+    if (filter !== "tests") return;
+    fetch("/api/calls/tests", { credentials: "include" })
+      .then((r) => r.json())
+      .then((payload) => { if (payload.success) setTestCalls(payload.data); })
+      .catch(() => {});
+  }, [filter]);
 
   const STATUS_DICT = {
     live: { label: "En cours", color: "var(--sn-green)", bg: "rgba(43,213,118,.11)" },
@@ -109,9 +118,27 @@ export default function CampaignsPage() {
         <button style={tabStyle(filter === "live")} onClick={() => setFilter("live")}>En cours ({liveCount})</button>
         <button style={tabStyle(filter === "scheduled")} onClick={() => setFilter("scheduled")}>Planifiées ({scheduledCount})</button>
         <button style={tabStyle(filter === "done")} onClick={() => setFilter("done")}>Terminées ({doneCount})</button>
+        <button style={tabStyle(filter === "tests")} onClick={() => setFilter("tests")}>Appels test ({testCalls.length})</button>
       </div>
 
-      {/* Table grid */}
+      {filter === "tests" ? (
+        <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", overflowX: "auto" }}>
+          <div style={{ minWidth: "760px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 90px 1.7fr 140px", gap: "12px", padding: "14px 20px", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".1em", color: "var(--sn-w38)", borderBottom: "1px solid var(--sn-w06)" }}>
+              <span>NUMERO TEST</span><span>STATUT</span><span>DUREE</span><span>RESULTAT</span><span>DATE</span>
+            </div>
+            {testCalls.length === 0 ? <div style={{ padding: "32px 20px", color: "var(--sn-w5)", fontSize: "13px" }}>Aucun appel test enregistre.</div> : testCalls.map((test) => (
+              <div key={test.id} className="sn-hover-w03" style={{ display: "grid", gridTemplateColumns: "1.5fr 120px 90px 1.7fr 140px", gap: "12px", alignItems: "center", padding: "15px 20px", borderBottom: "1px solid var(--sn-w04)" }}>
+                <div><div style={{ fontSize: "14px", fontWeight: 600 }}>{test.firstName || "Test"}</div><div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w45)", marginTop: "3px" }}>{test.phone}</div></div>
+                <span style={{ fontSize: "11.5px", fontWeight: 600, color: test.status === "COMPLETED" ? "var(--sn-green)" : test.status === "FAILED" ? "var(--sn-red)" : "var(--sn-amber)" }}>{test.status}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{test.durationSec == null ? "-" : `${Math.floor(test.durationSec / 60)}:${String(test.durationSec % 60).padStart(2, "0")}`}</span>
+                <span style={{ fontSize: "12px", color: test.error ? "var(--sn-red)" : "var(--sn-w6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{test.error || test.summary || "En attente..."}</span>
+                <span style={{ fontSize: "12px", color: "var(--sn-w5)" }}>{new Date(test.createdAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", overflowX: "auto" }}>
         <div style={{ minWidth: "880px" }}>
           
@@ -158,6 +185,7 @@ export default function CampaignsPage() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

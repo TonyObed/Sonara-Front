@@ -5,6 +5,16 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
+import { recomputeCampaignStatus } from "@/lib/campaign-status";
+
+type ClaimedContact = {
+  id: string;
+  phone: string;
+  firstName: string | null;
+  city: string | null;
+  segment: string | null;
+  attempts: number;
+};
 
 // ─── VÉRIFICATION HEURE ABIDJAN ───────────────────────────────────────────────
 
@@ -94,35 +104,65 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Récupérer les contacts PENDING
-    const pendingContacts = await db.contact.findMany({
-      where: {
-        campaignId,
-        status: "PENDING",
-        attempts: { lt: campaign.maxRetries },
-      },
-      take: slotsAvailable,
-      orderBy: { createdAt: "asc" },
-    });
+    // Réclamer les contacts en une seule opération atomique. Le verrou
+    // `SKIP LOCKED` évite qu'un second scheduler lise les mêmes PENDING entre
+    // la sélection et le passage à CALLING.
+    const pendingContacts = await db.$queryRaw<ClaimedContact[]>`
+      WITH candidates AS (
+        SELECT id
+        FROM contacts
+        WHERE campaign_id = ${campaignId}
+          AND status = 'PENDING'
+          AND attempts < ${campaign.maxRetries}
+        ORDER BY created_at ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${slotsAvailable}
+      )
+      UPDATE contacts
+      SET status = 'CALLING',
+          last_called_at = NOW(),
+          updated_at = NOW()
+      FROM candidates
+      WHERE contacts.id = candidates.id
+        AND contacts.status = 'PENDING'
+      RETURNING contacts.id,
+                contacts.phone,
+                contacts.first_name AS "firstName",
+                contacts.city,
+                contacts.segment,
+                contacts.attempts
+    `;
 
     if (pendingContacts.length === 0) {
-      // Plus de contacts à appeler → campagne terminée
-      await db.campaign.update({
-        where: { id: campaignId },
-        data: { status: "COMPLETED", completedAt: new Date() },
+      // Si un autre scheduler détient des lignes PENDING, elles ne sont pas
+      // retournées par SKIP LOCKED : ne surtout pas terminer la campagne.
+      const contactsStillActive = await db.contact.count({
+        where: {
+          campaignId,
+          status: { in: ["PENDING", "CALLING"] },
+          attempts: { lt: campaign.maxRetries },
+        },
       });
-      return ok({ processed: 0, message: "Campagne terminée — plus de contacts à appeler." });
+
+      if (contactsStillActive > 0) {
+        return ok({
+          processed: 0,
+          message: "Aucun contact disponible : un autre scheduler les traite déjà.",
+        });
+      }
+
+      const state = await recomputeCampaignStatus(campaignId);
+      return ok({
+        processed: 0,
+        message: state.completed
+          ? "Campagne terminée — plus de contacts à appeler."
+          : "Aucun contact réclamable pour le moment.",
+      });
     }
 
     let processed = 0;
 
     for (const contact of pendingContacts) {
-      // Marquer le contact comme "en cours d'appel"
-      await db.contact.update({
-        where: { id: contact.id },
-        data: { status: "CALLING", lastCalledAt: new Date() },
-      });
-
       // Créer l'enregistrement d'appel en BDD
       const call = await db.call.create({
         data: {

@@ -105,8 +105,19 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       ]
     : undefined;
 
-  // Gemini est appelé par Vapi via son endpoint compatible OpenAI.
-  const model = process.env.GEMINI_API_KEY
+  // Le fournisseur est explicitement piloté par LLM_PROVIDER afin de pouvoir
+  // basculer un environnement de test sans modifier les campagnes en BDD.
+  // Une clé OpenRouter validée dans Vapi > Integrations est requise pour ce mode.
+  const llmProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  const model = llmProvider === "openrouter"
+    ? {
+        provider: "openrouter",
+        model: process.env.OPENROUTER_MODEL ?? "openai/gpt-4o",
+        temperature: params.aiTemperature,
+        messages: [{ role: "system", content: systemPrompt }],
+        ...(tools ? { tools } : {}),
+      }
+    : process.env.GEMINI_API_KEY
     ? {
         provider: "custom-llm",
         url:
@@ -151,9 +162,9 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       language: "fr",
       smartFormat: true,
       keywords: CI_KEYWORDS,
-      // 150 ms coupait le client dès une micro-pause. 500 ms est la limite Vapi
-      // tout en laissant une personne formuler une réponse naturelle.
-      endpointing: 500,
+      // 450 ms laisse au client le temps de respirer sans ajouter une seconde
+      // complète avant chaque réponse. Vapi impose une valeur <= 500 ms.
+      endpointing: Number(process.env.VAPI_ENDPOINTING_MS ?? 450),
     },
 
     // Ouverture courte : le client peut répondre ou interrompre immédiatement.
@@ -168,12 +179,12 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // Le défaut Vapi attend 1.5s sans ponctuation (réponses courtes type "oui",
     // "trois") : c'est la principale source de latence perçue. On resserre tout.
     startSpeakingPlan: {
-      waitSeconds: 0.4,
+      waitSeconds: Number(process.env.VAPI_START_SPEAKING_WAIT_SECONDS ?? 0.2),
       transcriptionEndpointingPlan: {
         // Réglage Vapi recommandé pour les langues autres que l'anglais.
-        onPunctuationSeconds: 0.2,
-        onNoPunctuationSeconds: 1.5,
-        onNumberSeconds: 0.5,
+        onPunctuationSeconds: Number(process.env.VAPI_PUNCTUATION_SECONDS ?? 0.15),
+        onNoPunctuationSeconds: Number(process.env.VAPI_NO_PUNCTUATION_SECONDS ?? 0.9),
+        onNumberSeconds: Number(process.env.VAPI_NUMBER_SECONDS ?? 0.35),
       },
     },
 
@@ -181,8 +192,8 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // une phrase de l'IA, comme dans une conversation vocale naturelle.
     stopSpeakingPlan: {
       numWords: 0,
-      voiceSeconds: 0.2,
-      backoffSeconds: 1.0,
+      voiceSeconds: Number(process.env.VAPI_STOP_SPEAKING_VOICE_SECONDS ?? 0.15),
+      backoffSeconds: Number(process.env.VAPI_STOP_SPEAKING_BACKOFF_SECONDS ?? 0.5),
     },
 
     // ── Analyse post-appel : résumé automatique (CDC F2) ──

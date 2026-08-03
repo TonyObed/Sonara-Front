@@ -75,32 +75,33 @@ enum NotificationType {
 // ─── COMPANIES ────────────────────────────────────────────────────────────────
 
 model Company {
-  id            String   @id @default(uuid())
-  name          String
-  email         String   @unique
-  passwordHash  String   @map("password_hash")
-  plan          Plan     @default(STARTER)
-  apiCredit     Int      @default(0) @map("api_credit") // nombre d'appels restants
-  isActive      Boolean  @default(true) @map("is_active")
+  id                   String   @id @default(uuid())
+  name                 String
+  email                String   @unique
+  passwordHash         String   @map("password_hash")
+  plan                 Plan     @default(STARTER)
+  apiCredit            Int      @default(0) @map("api_credit") // nombre d'appels restants
+  isActive             Boolean  @default(true) @map("is_active")
   // ── 2FA (TOTP — CDC A9) ──
-  twoFactorSecret      String?  @map("two_factor_secret")        // secret TOTP base32 (à chiffrer en P2)
+  twoFactorSecret      String?  @map("two_factor_secret") // secret TOTP base32 (à chiffrer en P2)
   twoFactorEnabled     Boolean  @default(false) @map("two_factor_enabled")
-  twoFactorBackupCodes Json?    @map("two_factor_backup_codes")  // codes de secours hashés (bcrypt)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  twoFactorBackupCodes Json?    @map("two_factor_backup_codes") // codes de secours hashés (bcrypt)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   // Relations
-  users         User[]
-  campaigns     Campaign[]
-  blacklist     Blacklist[]
-  refreshTokens RefreshToken[]
+  users              User[]
+  campaigns          Campaign[]
+  blacklist          Blacklist[]
+  refreshTokens      RefreshToken[]
   creditTransactions CreditTransaction[]
-  notifications Notification[]
-  settings      CompanySetting?
-  reports       Report[]
-  reportSchedules ReportSchedule[]
-  apiKeys       CompanyApiKey[]
-  supportTickets SupportTicket[]
+  notifications      Notification[]
+  settings           CompanySetting?
+  reports            Report[]
+  reportSchedules    ReportSchedule[]
+  apiKeys            CompanyApiKey[]
+  supportTickets     SupportTicket[]
+  testCalls          TestCall[]
 
   @@map("companies")
 }
@@ -108,23 +109,23 @@ model Company {
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  companyId    String   @map("company_id")
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
   email        String
-  passwordHash String?  @map("password_hash") // null si invite pas encore accepté
-  firstName    String?  @map("first_name")
-  lastName     String?  @map("last_name")
-  avatarUrl    String?  @map("avatar_url")
-  role         UserRole @default(MANAGER)
-  inviteToken  String?  @unique @map("invite_token")
+  passwordHash String?   @map("password_hash") // null si invite pas encore accepté
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  avatarUrl    String?   @map("avatar_url")
+  role         UserRole  @default(MANAGER)
+  inviteToken  String?   @unique @map("invite_token")
   inviteExpiry DateTime? @map("invite_expiry")
-  isActive     Boolean  @default(false) @map("is_active") // false jusqu'à invitation acceptée
+  isActive     Boolean   @default(false) @map("is_active") // false jusqu'à invitation acceptée
   lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
   notifications Notification[]
 
@@ -144,8 +145,8 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
 }
@@ -153,40 +154,40 @@ model RefreshToken {
 // ─── CAMPAIGNS ────────────────────────────────────────────────────────────────
 
 model Campaign {
-  id           String         @id @default(uuid())
-  companyId    String         @map("company_id")
-  name         String
-  sector       String?        // banque, telecom, assurance, etudes...
-  aiBrief      String         @map("ai_brief") @db.Text // system prompt GPT-4o
-  aiVoice      String         @default("awa_female_ci") @map("ai_voice")
-  aiTemperature Float         @default(0.5) @map("ai_temperature")
+  id             String         @id @default(uuid())
+  companyId      String         @map("company_id")
+  name           String
+  sector         String? // banque, telecom, assurance, etudes...
+  aiBrief        String         @map("ai_brief") @db.Text // system prompt GPT-4o
+  aiVoice        String         @default("awa_female_ci") @map("ai_voice")
+  aiTemperature  Float          @default(0.5) @map("ai_temperature")
   // ── Réglages voix ElevenLabs (configurables par campagne) ──
-  aiVoiceId       String?     @map("ai_voice_id")        // voiceId ElevenLabs explicite (voix clonée) — override de aiVoice
-  aiVoiceModel    String      @default("eleven_turbo_v2_5") @map("ai_voice_model")
-  aiStability     Float       @default(0.5)  @map("ai_stability")      // 0-1
-  aiSimilarity    Float       @default(0.75) @map("ai_similarity")     // 0-1
-  aiStyle         Float       @default(0.0)  @map("ai_style")          // 0-1
-  aiSpeed         Float       @default(1.0)  @map("ai_speed")          // 0.7-1.2
-  aiSpeakerBoost  Boolean     @default(true) @map("ai_speaker_boost")
-  status       CampaignStatus @default(DRAFT)
-  maxRetries   Int            @default(2) @map("max_retries") // 1-3
-  timeStart    String         @default("08:00") @map("time_start") // "08:00" heure Abidjan
-  timeEnd      String         @default("19:00") @map("time_end")   // "19:00"
-  maxDuration  Int            @default(480) @map("max_duration")   // secondes, défaut 8min
-  concurrency  Int            @default(10) // appels simultanés
-  scheduledAt  DateTime?      @map("scheduled_at")
-  startedAt    DateTime?      @map("started_at")
-  completedAt  DateTime?      @map("completed_at")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
+  aiVoiceId      String?        @map("ai_voice_id") // voiceId ElevenLabs explicite (voix clonée) — override de aiVoice
+  aiVoiceModel   String         @default("eleven_turbo_v2_5") @map("ai_voice_model")
+  aiStability    Float          @default(0.5) @map("ai_stability") // 0-1
+  aiSimilarity   Float          @default(0.75) @map("ai_similarity") // 0-1
+  aiStyle        Float          @default(0.0) @map("ai_style") // 0-1
+  aiSpeed        Float          @default(1.0) @map("ai_speed") // 0.7-1.2
+  aiSpeakerBoost Boolean        @default(true) @map("ai_speaker_boost")
+  status         CampaignStatus @default(DRAFT)
+  maxRetries     Int            @default(2) @map("max_retries") // 1-3
+  timeStart      String         @default("08:00") @map("time_start") // "08:00" heure Abidjan
+  timeEnd        String         @default("19:00") @map("time_end") // "19:00"
+  maxDuration    Int            @default(480) @map("max_duration") // secondes, défaut 8min
+  concurrency    Int            @default(10) // appels simultanés
+  scheduledAt    DateTime?      @map("scheduled_at")
+  startedAt      DateTime?      @map("started_at")
+  completedAt    DateTime?      @map("completed_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contacts     Contact[]
-  calls        Call[]
-  reports      Report[]
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts        Contact[]
+  calls           Call[]
+  reports         Report[]
   reportSchedules ReportSchedule[]
-  questions    CampaignQuestion[]
+  questions       CampaignQuestion[]
 
   @@map("campaigns")
 }
@@ -194,23 +195,23 @@ model Campaign {
 // ─── CONTACTS ────────────────────────────────────────────────────────────────
 
 model Contact {
-  id          String        @id @default(uuid())
-  campaignId  String        @map("campaign_id")
-  phone       String        // format normalisé +22507XXXXXXXX
-  firstName   String?       @map("first_name")
-  lastName    String?       @map("last_name")
-  city        String?
-  segment     String?       // tag libre : premium, prospect, etc.
-  notes       String?       // note libre
-  status      ContactStatus @default(PENDING)
-  attempts    Int           @default(0) // nombre de tentatives effectuées
-  lastCalledAt DateTime?    @map("last_called_at")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  id           String        @id @default(uuid())
+  campaignId   String        @map("campaign_id")
+  phone        String // format normalisé +22507XXXXXXXX
+  firstName    String?       @map("first_name")
+  lastName     String?       @map("last_name")
+  city         String?
+  segment      String? // tag libre : premium, prospect, etc.
+  notes        String? // note libre
+  status       ContactStatus @default(PENDING)
+  attempts     Int           @default(0) // nombre de tentatives effectuées
+  lastCalledAt DateTime?     @map("last_called_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  calls       Call[]
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  calls    Call[]
 
   @@index([campaignId, status])
   @@map("contacts")
@@ -221,12 +222,12 @@ model Contact {
 model Blacklist {
   id        String   @id @default(uuid())
   companyId String   @map("company_id")
-  phone     String   // format normalisé
+  phone     String // format normalisé
   reason    String?
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, phone])
   @@map("blacklist")
@@ -235,45 +236,74 @@ model Blacklist {
 // ─── CALLS ───────────────────────────────────────────────────────────────────
 
 model Call {
-  id           String     @id @default(uuid())
-  contactId    String     @map("contact_id")
-  campaignId   String     @map("campaign_id")
-  vapiCallId   String?    @unique @map("vapi_call_id") // ID Vapi pour référence
-  atCallId     String?    @map("at_call_id")           // ID Africa's Talking
-  status       CallStatus @default(INITIATED)
-  durationSec  Int?       @map("duration_sec")
-  startedAt    DateTime?  @map("started_at")
-  endedAt      DateTime?  @map("ended_at")
-  transcript   Json?      // [{speaker, text, timestamp}]
-  summary      String?    @db.Text // résumé GPT-4o post-appel
-  recordingUrl String?    @map("recording_url")
-  costFcfa     Float?     @map("cost_fcfa") // coût calculé en FCFA
-  attemptNumber Int       @default(1) @map("attempt_number")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id            String     @id @default(uuid())
+  contactId     String     @map("contact_id")
+  campaignId    String     @map("campaign_id")
+  vapiCallId    String?    @unique @map("vapi_call_id") // ID Vapi pour référence
+  atCallId      String?    @map("at_call_id") // ID Africa's Talking
+  status        CallStatus @default(INITIATED)
+  durationSec   Int?       @map("duration_sec")
+  startedAt     DateTime?  @map("started_at")
+  endedAt       DateTime?  @map("ended_at")
+  transcript    Json? // [{speaker, text, timestamp}]
+  summary       String?    @db.Text // résumé GPT-4o post-appel
+  recordingUrl  String?    @map("recording_url")
+  costFcfa      Float?     @map("cost_fcfa") // coût calculé en FCFA
+  attemptNumber Int        @default(1) @map("attempt_number")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  events       CallEvent[]
-  insight      CallInsight?
+  contact  Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  events   CallEvent[]
+  insight  CallInsight?
 
   @@index([campaignId, status])
   @@index([contactId])
   @@map("calls")
 }
 
+// Appels de validation internes. Ils sont séparés des campagnes et ne
+// participent donc jamais aux KPIs, crédits ou rapports client.
+model TestCall {
+  id            String     @id @default(uuid())
+  companyId     String     @map("company_id")
+  vapiCallId    String?    @unique @map("vapi_call_id")
+  phone         String
+  firstName     String?    @map("first_name")
+  aiVoice       String     @map("ai_voice")
+  aiBrief       String     @map("ai_brief") @db.Text
+  aiTemperature Float      @default(0.5) @map("ai_temperature")
+  status        CallStatus @default(INITIATED)
+  durationSec   Int?       @map("duration_sec")
+  startedAt     DateTime?  @map("started_at")
+  endedAt       DateTime?  @map("ended_at")
+  transcript    Json?
+  summary       String?    @db.Text
+  recordingUrl  String?    @map("recording_url")
+  error         String?    @db.Text
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@map("test_calls")
+}
+
 // ─── CALL EVENTS (webhooks Vapi log) ─────────────────────────────────────────
 
 model CallEvent {
-  id        String   @id @default(uuid())
-  callId    String   @map("call_id")
-  eventType String   @map("event_type") // call-started, transcript, call-ended, etc.
-  payload   Json     // payload brut Vapi
-  createdAt DateTime @default(now()) @map("created_at")
+  id               String   @id @default(uuid())
+  callId           String   @map("call_id")
+  eventType        String   @map("event_type") // call-started, transcript, call-ended, etc.
+  eventFingerprint String?  @unique @map("event_fingerprint") // SHA-256 du webhook brut
+  payload          Json // payload brut Vapi
+  createdAt        DateTime @default(now()) @map("created_at")
 
   // Relations
-  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@index([callId])
   @@map("call_events")
@@ -291,7 +321,7 @@ model CreditTransaction {
   callId       String?               @map("call_id")
   createdAt    DateTime              @default(now()) @map("created_at")
 
-  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId, createdAt])
   @@index([callId])
@@ -310,8 +340,8 @@ model Notification {
   readAt    DateTime?        @map("read_at")
   createdAt DateTime         @default(now()) @map("created_at")
 
-  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([companyId, createdAt])
   @@index([userId, readAt])
@@ -321,19 +351,19 @@ model Notification {
 // Réglages réellement sauvegardés par entreprise. Les secrets restent hors de
 // cette table et doivent être chiffrés avant toute future persistance.
 model CompanySetting {
-  id                  String   @id @default(uuid())
-  companyId           String   @unique @map("company_id")
-  timezone            String   @default("UTC")
-  displayPhone        String?  @map("display_phone")
-  transferAgentNumber String?  @map("transfer_agent_number")
-  webhookUrl          String?  @map("webhook_url")
-  maxConcurrentCalls  Int      @default(10) @map("max_concurrent_calls")
-  autoRechargeEnabled Boolean  @default(false) @map("auto_recharge_enabled")
-  autoRechargeThreshold Int?   @map("auto_recharge_threshold")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid())
+  companyId             String   @unique @map("company_id")
+  timezone              String   @default("UTC")
+  displayPhone          String?  @map("display_phone")
+  transferAgentNumber   String?  @map("transfer_agent_number")
+  webhookUrl            String?  @map("webhook_url")
+  maxConcurrentCalls    Int      @default(10) @map("max_concurrent_calls")
+  autoRechargeEnabled   Boolean  @default(false) @map("auto_recharge_enabled")
+  autoRechargeThreshold Int?     @map("auto_recharge_threshold")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
-  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("company_settings")
 }
@@ -341,17 +371,17 @@ model CompanySetting {
 // Les questions configurées par campagne déterminent les graphiques de résultat.
 // Elles évitent d'imposer les exemples Q1/Q2 à chaque client.
 model CampaignQuestion {
-  id          String   @id @default(uuid())
-  campaignId  String   @map("campaign_id")
-  key         String
-  label       String
-  kind        String   @default("TEXT")
-  choices     Json?
-  position    Int      @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  campaignId String   @map("campaign_id")
+  key        String
+  label      String
+  kind       String   @default("TEXT")
+  choices    Json?
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, key])
   @@index([campaignId, position])
@@ -361,33 +391,33 @@ model CampaignQuestion {
 // Une clé ne peut jamais être relue : seul son préfixe d'affichage et son hash
 // sont stockés. Elle est propre à une entreprise.
 model CompanyApiKey {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  name        String
-  prefix      String
-  secretHash  String   @unique @map("secret_hash")
-  lastUsedAt  DateTime? @map("last_used_at")
-  revokedAt   DateTime? @map("revoked_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  name       String
+  prefix     String
+  secretHash String    @unique @map("secret_hash")
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId, revokedAt])
   @@map("company_api_keys")
 }
 
 model SupportTicket {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  userId      String?  @map("user_id")
-  subject     String
-  message     String   @db.Text
-  status      String   @default("OPEN")
-  priority    String   @default("NORMAL")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  userId    String?  @map("user_id")
+  subject   String
+  message   String   @db.Text
+  status    String   @default("OPEN")
+  priority  String   @default("NORMAL")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId, status, createdAt])
   @@map("support_tickets")
@@ -396,23 +426,23 @@ model SupportTicket {
 // État global des dépendances affiché dans le support. Il est administré par
 // Sonara et non inventé dans le navigateur.
 model ServiceStatus {
-  id          String   @id @default(uuid())
-  serviceKey  String   @unique @map("service_key")
-  label       String
-  status      String   @default("UNKNOWN")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  serviceKey String   @unique @map("service_key")
+  label      String
+  status     String   @default("UNKNOWN")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("service_statuses")
 }
 
 model ServiceIncident {
-  id          String   @id @default(uuid())
-  serviceKey  String   @map("service_key")
-  title       String
-  status      String   @default("OPEN")
-  startedAt   DateTime @default(now()) @map("started_at")
-  resolvedAt  DateTime? @map("resolved_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String    @id @default(uuid())
+  serviceKey String    @map("service_key")
+  title      String
+  status     String    @default("OPEN")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([serviceKey, startedAt])
   @@map("service_incidents")
@@ -431,7 +461,7 @@ model CallInsight {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  call           Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@map("call_insights")
 }
@@ -439,21 +469,21 @@ model CallInsight {
 // Rapport réellement généré et téléchargeable. Aucun rapport n'est créé tant
 // qu'une campagne n'a pas produit de données.
 model Report {
-  id             String   @id @default(uuid())
-  companyId      String   @map("company_id")
-  campaignId     String?  @map("campaign_id")
-  name           String
-  format         String   @default("PDF")
-  status         String   @default("PENDING")
-  fileUrl        String?  @map("file_url")
-  fileSizeBytes  Int?     @map("file_size_bytes")
-  summary        Json?
-  generatedAt    DateTime? @map("generated_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  companyId     String    @map("company_id")
+  campaignId    String?   @map("campaign_id")
+  name          String
+  format        String    @default("PDF")
+  status        String    @default("PENDING")
+  fileUrl       String?   @map("file_url")
+  fileSizeBytes Int?      @map("file_size_bytes")
+  summary       Json?
+  generatedAt   DateTime? @map("generated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([companyId, createdAt])
   @@index([campaignId])
@@ -463,20 +493,20 @@ model Report {
 // Planification persistante des envois de rapports. Elle reste vide sur les
 // nouveaux comptes et ne dépend d'aucun exemple de démonstration.
 model ReportSchedule {
-  id             String   @id @default(uuid())
-  companyId      String   @map("company_id")
-  campaignId     String?  @map("campaign_id")
-  name           String
-  frequency      String
-  sendAt         String   @map("send_at")
-  recipients     Json
-  isActive       Boolean  @default(true) @map("is_active")
-  lastSentAt     DateTime? @map("last_sent_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  campaignId String?   @map("campaign_id")
+  name       String
+  frequency  String
+  sendAt     String    @map("send_at")
+  recipients Json
+  isActive   Boolean   @default(true) @map("is_active")
+  lastSentAt DateTime? @map("last_sent_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  campaign       Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([companyId, isActive])
   @@index([campaignId])
@@ -493,7 +523,7 @@ model Lead {
   phone     String?
   message   String?
   source    String   @default("landing") // origine : landing, pricing, cta, etc.
-  status    String   @default("new")      // new, contacted, qualified, converted, lost
+  status    String   @default("new") // new, contacted, qualified, converted, lost
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([status])

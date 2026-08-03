@@ -1,9 +1,10 @@
 // POST /api/webhooks/vapi — Réception des événements Vapi.ai
 // Sécurisé par HMAC-SHA256 (CDC J1 — Validation webhook Vapi)
 import { NextRequest } from "next/server";
-import { createHmac } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { ok, unauthorized, handleError } from "@/lib/response";
+import { recomputeCampaignStatus } from "@/lib/campaign-status";
 
 // ─── TYPES WEBHOOK VAPI ────────────────────────────────────────────────────────
 
@@ -68,13 +69,7 @@ function verifyVapiSignature(
 
   // Comparaison à temps constant pour éviter les timing attacks
   if (expected.length !== signature.length) return false;
-
-  let mismatch = 0;
-  for (let i = 0; i < expected.length; i++) {
-    mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-  }
-
-  return mismatch === 0;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
 // ─── CALCUL COÛT EN FCFA ──────────────────────────────────────────────────────
@@ -136,7 +131,13 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("x-vapi-signature");
     const webhookSecret = process.env.VAPI_WEBHOOK_SECRET ?? "";
 
-    // Vérification de la signature HMAC (si secret configuré)
+    // En production, un webhook sans secret est une erreur de configuration :
+    // il ne doit jamais devenir un endpoint public non authentifié.
+    if (process.env.NODE_ENV === "production" && !webhookSecret) {
+      console.error("[Vapi Webhook] VAPI_WEBHOOK_SECRET manquant en production.");
+      return unauthorized("Webhook Vapi non configuré.");
+    }
+
     if (webhookSecret && !verifyVapiSignature(rawBody, signature, webhookSecret)) {
       return unauthorized("Signature webhook invalide.");
     }
@@ -163,6 +164,10 @@ export async function POST(request: NextRequest) {
             startedAt: new Date(),
           },
         });
+        await db.testCall.updateMany({
+          where: { vapiCallId },
+          data: { status: "IN_PROGRESS", startedAt: new Date() },
+        });
       }
 
       return ok({ received: true, event: "call-started" });
@@ -185,8 +190,37 @@ export async function POST(request: NextRequest) {
       });
 
       if (!call) {
-        console.warn(`[Vapi Webhook] Appel introuvable pour vapiCallId: ${vapiCallId}`);
-        return ok({ received: true, warning: "Appel non trouvé en BDD" });
+        const testCall = await db.testCall.findUnique({ where: { vapiCallId } });
+        if (!testCall) {
+          console.warn(`[Vapi Webhook] Appel introuvable pour vapiCallId: ${vapiCallId}`);
+          return ok({ received: true, warning: "Appel non trouvé en BDD" });
+        }
+
+        const reason = callPayload.call.endedReason ?? "";
+        const status = reason.includes("voicemail") ? "VOICEMAIL"
+          : reason.includes("no-answer") || reason.includes("no_answer") ? "NO_ANSWER"
+          : reason.includes("busy") ? "BUSY"
+          : reason.includes("error") || reason.includes("failed") ? "FAILED"
+          : "COMPLETED";
+        const transcript = (callPayload.artifact?.transcript ?? callPayload.call.transcript ?? []).map((t) => ({
+          speaker: t.role === "assistant" ? "IA (Awa)" : "Client",
+          text: t.message,
+          timestamp: t.secondsFromStart === undefined ? undefined : `${Math.floor(t.secondsFromStart / 60)}:${String(Math.floor(t.secondsFromStart % 60)).padStart(2, "0")}`,
+        }));
+        const durationSec = callPayload.call.durationSeconds ?? (callPayload.call.startedAt && callPayload.call.endedAt
+          ? Math.round((new Date(callPayload.call.endedAt).getTime() - new Date(callPayload.call.startedAt).getTime()) / 1000)
+          : null);
+        await db.testCall.update({
+          where: { id: testCall.id },
+          data: {
+            status, durationSec, transcript,
+            startedAt: callPayload.call.startedAt ? new Date(callPayload.call.startedAt) : testCall.startedAt,
+            endedAt: callPayload.call.endedAt ? new Date(callPayload.call.endedAt) : new Date(),
+            summary: callPayload.analysis?.summary ?? callPayload.call.summary ?? null,
+            recordingUrl: callPayload.artifact?.recordingUrl ?? callPayload.call.recordingUrl ?? null,
+          },
+        });
+        return ok({ received: true, event: "end-of-call-report", testCallId: testCall.id });
       }
 
       // Déterminer le statut final
@@ -238,35 +272,11 @@ export async function POST(request: NextRequest) {
           ? await generateSummary(rawTranscript)
           : null);
 
-      // Mise à jour de l'appel en BDD
-      await db.call.update({
-        where: { id: call.id },
-        data: {
-          status: finalStatus,
-          durationSec,
-          startedAt: callPayload.call.startedAt ? new Date(callPayload.call.startedAt) : call.startedAt,
-          endedAt: callPayload.call.endedAt ? new Date(callPayload.call.endedAt) : new Date(),
-          transcript: formattedTranscript,
-          summary,
-          recordingUrl: callPayload.artifact?.recordingUrl ?? callPayload.call.recordingUrl ?? null,
-          costFcfa,
-        },
-      });
-
-      // Les réponses structurées Vapi deviennent la source de vérité des
-      // graphiques de campagne. Aucun graphique ne dépend de valeurs front.
-      await db.callInsight.upsert({
-        where: { callId: call.id },
-        create: {
-          callId: call.id,
-          answers: (callPayload.analysis?.structuredData ?? undefined) as never,
-          providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never,
-        },
-        update: {
-          answers: (callPayload.analysis?.structuredData ?? undefined) as never,
-          providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never,
-        },
-      });
+      // Vapi peut rejouer un webhook après un timeout. Le hash du corps brut est
+      // stable pour un même événement et sa contrainte unique protège aussi les
+      // réceptions concurrentes. Toutes les écritures métier sont dans la même
+      // transaction : aucun crédit ne peut être débité partiellement.
+      const eventFingerprint = createHash("sha256").update(rawBody).digest("hex");
 
       // Mise à jour du contact
       const contactUpdate: {
@@ -289,28 +299,33 @@ export async function POST(request: NextRequest) {
         finalStatus !== "COMPLETED" &&
         call.contact.attempts + 1 < (call.campaign?.maxRetries ?? 2);
 
-      await db.contact.update({
-        where: { id: call.contactId },
-        data: {
-          ...contactUpdate,
-          status: shouldRetry ? "PENDING" : contactUpdate.status,
-          attempts: { increment: 1 },
-        },
-      });
-
-      // Logger l'événement
-      await db.callEvent.create({
-        data: {
-          callId: call.id,
-          eventType: "end-of-call-report",
-          payload: payload as object,
-        },
-      });
-
-      // VULN-002 corrigée : déduire le crédit de la BONNE entreprise
-      // (companyId récupéré via la relation campaign, pas un campaignId)
-      if (call.campaign?.companyId) {
+      try {
         await db.$transaction(async (tx) => {
+          await tx.callEvent.create({
+            data: { callId: call.id, eventType: "end-of-call-report", eventFingerprint, payload: payload as object },
+          });
+          await tx.call.update({
+            where: { id: call.id },
+            data: {
+              status: finalStatus, durationSec,
+              startedAt: callPayload.call.startedAt ? new Date(callPayload.call.startedAt) : call.startedAt,
+              endedAt: callPayload.call.endedAt ? new Date(callPayload.call.endedAt) : new Date(),
+              transcript: formattedTranscript, summary,
+              recordingUrl: callPayload.artifact?.recordingUrl ?? callPayload.call.recordingUrl ?? null,
+              costFcfa,
+            },
+          });
+          await tx.callInsight.upsert({
+            where: { callId: call.id },
+            create: { callId: call.id, answers: (callPayload.analysis?.structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
+            update: { answers: (callPayload.analysis?.structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
+          });
+          await tx.contact.update({
+            where: { id: call.contactId },
+            data: { ...contactUpdate, status: shouldRetry ? "PENDING" : contactUpdate.status, attempts: { increment: 1 } },
+          });
+
+          if (!call.campaign?.companyId) return;
           const company = await tx.company.update({
             where: { id: call.campaign.companyId },
             data: { apiCredit: { decrement: 1 } },
@@ -335,19 +350,15 @@ export async function POST(request: NextRequest) {
             },
           });
         });
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") {
+          return ok({ received: true, duplicate: true, event: "end-of-call-report", callId: call.id });
+        }
+        throw error;
       }
 
-      // Vérifier si la campagne est terminée (tous les contacts traités)
-      const pendingCount = await db.contact.count({
-        where: { campaignId: call.campaignId, status: "PENDING" },
-      });
-
-      if (pendingCount === 0) {
-        await db.campaign.update({
-          where: { id: call.campaignId },
-          data: { status: "COMPLETED", completedAt: new Date() },
-        });
-      } else {
+      const campaignState = await recomputeCampaignStatus(call.campaignId);
+      if (!campaignState.completed) {
         // Scheduler récurrent : un slot de concurrence vient de se libérer,
         // on relance le moteur d'appels pour traiter le contact suivant.
         const appUrl =

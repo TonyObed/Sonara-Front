@@ -1,12 +1,23 @@
-// GET /api/campaigns/[id]/export — Export Excel/CSV des résultats d'une campagne
+// GET /api/campaigns/[id]/export — Export CSV des résultats d'une campagne
 import { NextRequest } from "next/server";
-import * as XLSX from "xlsx";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
 import { unauthorized, notFound, badRequest, handleError } from "@/lib/response";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+function toCsv(rows: Record<string, unknown>[]) {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (value: unknown) => {
+    const text = String(value ?? "").replace(/\r?\n/g, " ");
+    // Neutralise les formules à l'ouverture dans Excel/LibreOffice.
+    const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
+  return [headers.map(escape).join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\r\n");
+}
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
@@ -21,10 +32,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     if (!campaign) return notFound("Campagne");
 
     const { searchParams } = new URL(request.url);
-    const format = searchParams.get("format") ?? "xlsx"; // xlsx ou csv
+    const format = searchParams.get("format") ?? "csv";
 
-    if (!["xlsx", "csv"].includes(format)) {
-      return badRequest("Format invalide. Utilisez 'xlsx' ou 'csv'.");
+    if (format !== "csv") {
+      return badRequest("Export CSV uniquement pour le moment.");
     }
 
     // Récupérer toutes les données d'appels avec contacts
@@ -69,88 +80,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const filename = `sonara-${campaignSlug}-${dateStr}`;
 
-    if (format === "csv") {
-      // Export CSV brut
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      const csv = XLSX.utils.sheet_to_csv(worksheet);
-
-      return new NextResponse(csv, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${filename}.csv"`,
-        },
-      });
-    }
-
-    // Export Excel (.xlsx)
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-
-    // Largeurs de colonnes
-    worksheet["!cols"] = [
-      { wch: 15 }, // Prénom
-      { wch: 15 }, // Nom
-      { wch: 18 }, // Téléphone
-      { wch: 15 }, // Ville
-      { wch: 12 }, // Segment
-      { wch: 16 }, // Statut Contact
-      { wch: 14 }, // Statut Appel
-      { wch: 12 }, // Durée sec
-      { wch: 10 }, // Durée min
-      { wch: 20 }, // Date Appel
-      { wch: 12 }, // Tentative
-      { wch: 50 }, // Résumé IA
-      { wch: 12 }, // Coût
-      { wch: 60 }, // Transcription
-    ];
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Résultats Campagne");
-
-    // Feuille KPIs
-    const totalCalls = calls.length;
-    const completed = calls.filter((c: CallWithContact) => c.status === "COMPLETED").length;
-    const failed = calls.filter((c: CallWithContact) => ["FAILED", "NO_ANSWER", "BUSY"].includes(c.status)).length;
-    const voicemail = calls.filter((c: CallWithContact) => c.status === "VOICEMAIL").length;
-    const totalDuration = calls.reduce((sum: number, c: CallWithContact) => sum + (c.durationSec ?? 0), 0);
-    const totalCost = calls.reduce((sum: number, c: CallWithContact) => sum + (c.costFcfa ?? 0), 0);
-
-    const kpiRows = [
-      { "Indicateur": "Campagne", "Valeur": campaign.name },
-      { "Indicateur": "Export généré le", "Valeur": new Date().toLocaleString("fr-FR") },
-      { "Indicateur": "Total appels", "Valeur": totalCalls },
-      { "Indicateur": "Appels complétés", "Valeur": completed },
-      { "Indicateur": "Appels échoués", "Valeur": failed },
-      { "Indicateur": "Messageries vocales", "Valeur": voicemail },
-      {
-        "Indicateur": "Taux de réponse",
-        "Valeur": totalCalls > 0 ? `${Math.round((completed / totalCalls) * 100)}%` : "0%",
-      },
-      {
-        "Indicateur": "Durée totale",
-        "Valeur": `${Math.floor(totalDuration / 60)} min ${totalDuration % 60} sec`,
-      },
-      {
-        "Indicateur": "Durée moyenne / appel",
-        "Valeur":
-          completed > 0
-            ? `${Math.round(totalDuration / completed)} sec`
-            : "0 sec",
-      },
-      { "Indicateur": "Coût total (FCFA)", "Valeur": totalCost.toFixed(0) },
-    ];
-
-    const kpiSheet = XLSX.utils.json_to_sheet(kpiRows);
-    kpiSheet["!cols"] = [{ wch: 25 }, { wch: 30 }];
-    XLSX.utils.book_append_sheet(workbook, kpiSheet, "Résumé KPIs");
-
-    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-    return new NextResponse(buffer, {
+    return new NextResponse(`\uFEFF${toCsv(rows)}`, {
       status: 200,
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}.csv"`,
       },
     });
   } catch (error) {
