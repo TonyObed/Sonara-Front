@@ -2,6 +2,7 @@
 // Déclenche les appels via Vapi.ai (orchestration STT/LLM/TTS)
 // Sécurisé par clé interne (x-internal-key header)
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
@@ -15,6 +16,37 @@ type ClaimedContact = {
   segment: string | null;
   attempts: number;
 };
+
+function isValidCronRequest(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+
+  if (!secret || !token || token.length !== secret.length) return false;
+  return timingSafeEqual(Buffer.from(token), Buffer.from(secret));
+}
+
+function getAppUrl(request: NextRequest): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return request.nextUrl.origin;
+}
+
+async function runInternalJob(
+  request: NextRequest,
+  path: string,
+  body?: Record<string, unknown>
+): Promise<boolean> {
+  const response = await fetch(`${getAppUrl(request)}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-key": process.env.INTERNAL_JOB_KEY ?? "dev-key",
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  return response.ok;
+}
 
 // ─── VÉRIFICATION HEURE ABIDJAN ───────────────────────────────────────────────
 
@@ -231,6 +263,59 @@ export async function POST(request: NextRequest) {
       slotsUsed: processed,
       slotsAvailable: slotsAvailable - processed,
       message: `${processed} appel(s) déclenchés.`,
+    });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Called by a trusted scheduler (Vercel Cron or an external cron provider).
+// It promotes due campaigns, re-kicks active ones and reconciles stale calls.
+export async function GET(request: NextRequest) {
+  try {
+    if (!isValidCronRequest(request)) {
+      return unauthorized("Cron non autorise.");
+    }
+
+    const now = new Date();
+    const dueCampaigns = await db.campaign.findMany({
+      where: { status: "SCHEDULED", scheduledAt: { lte: now } },
+      select: { id: true },
+      take: 25,
+    });
+
+    const promotedIds: string[] = [];
+    for (const campaign of dueCampaigns) {
+      const updated = await db.campaign.updateMany({
+        where: { id: campaign.id, status: "SCHEDULED", scheduledAt: { lte: now } },
+        data: { status: "RUNNING", startedAt: now },
+      });
+      if (updated.count === 1) promotedIds.push(campaign.id);
+    }
+
+    const activeCampaigns = await db.campaign.findMany({
+      where: { status: "RUNNING" },
+      select: { id: true },
+      take: 25,
+    });
+    const campaignIds = [...new Set([...promotedIds, ...activeCampaigns.map((campaign) => campaign.id)])];
+
+    const dispatches = await Promise.allSettled(
+      campaignIds.map((campaignId) => runInternalJob(request, "/api/jobs/call-scheduler", { campaignId }))
+    );
+    const dispatched = dispatches.filter(
+      (result) => result.status === "fulfilled" && result.value
+    ).length;
+
+    const reconcile = await Promise.allSettled([
+      runInternalJob(request, "/api/jobs/reconcile-calls"),
+    ]);
+
+    return ok({
+      promoted: promotedIds.length,
+      dispatched,
+      reconciled: reconcile[0].status === "fulfilled" && reconcile[0].value,
+      campaignsChecked: campaignIds.length,
     });
   } catch (error) {
     return handleError(error);
