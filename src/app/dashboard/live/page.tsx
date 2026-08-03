@@ -2,15 +2,14 @@
 
 import { useDashboard } from "../DashboardContext";
 import { useLiveCalls } from "@/hooks/useSonara";
-import { WaveformCanvas } from "@/components/dashboard/WaveformCanvas";
 
 const liveEvents: Array<{ time: string; kind: "ok" | "info" | "warn" | "alert"; text: string }> = [];
 
 export default function LiveMonitoringPage() {
-  const { tick, liveCalls: demoLiveCalls, dashboard } = useDashboard();
+  const { tick, dashboard } = useDashboard();
   // Appels en cours réels (rafraîchis toutes les 5 s) ; repli démo si non auth / erreur.
   const { data, error } = useLiveCalls(5000);
-  const liveCalls = data && !error ? data : demoLiveCalls;
+  const liveCalls = data && !error ? data : [];
 
   const inProgress = liveCalls.length;
   const liveSlots = dashboard?.live.capacity ?? 10;
@@ -20,15 +19,7 @@ export default function LiveMonitoringPage() {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
 
-  const phases = [
-    { label: "L'IA parle", color: "var(--sn-blue2)", bg: "rgba(0,82,255,.14)" },
-    { label: "Écoute en cours", color: "var(--sn-green)", bg: "rgba(43,213,118,.11)" },
-  ];
-
-  const liveCards = liveCalls.map((l, i) => {
-    // Alternate phases every 5 seconds
-    const phaseIndex = (i + Math.floor((tick + i * 2) / 5)) % 2;
-    const ph = phases[phaseIndex];
+  const liveCards = liveCalls.map((l) => {
     const initials = l.name
       .split(" ")
       .slice(0, 2)
@@ -40,15 +31,11 @@ export default function LiveMonitoringPage() {
       ...l,
       dur: mmss((l.startedSecondsAgo || 0) + tick),
       initials,
-      phase: ph.label,
-      phaseColor: ph.color,
-      phaseBg: ph.bg,
+      phase: "Appel en cours",
+      phaseColor: "var(--sn-blue2)",
+      phaseBg: "rgba(0,82,255,.14)",
     };
   });
-
-  const handleListenClick = (name: string) => {
-    alert(`Écoute en direct de l'appel de "${name}"...`);
-  };
 
   return (
     <div data-screen-label="Live monitoring" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "snFadeUp .45s ease both" }}>
@@ -127,7 +114,9 @@ export default function LiveMonitoringPage() {
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)" }}>{inProgress} CANAL(AUX) ACTIF(S)</span>
         </div>
         <div style={{ marginTop: "14px", borderRadius: "12px", background: "var(--sn-inset)", border: "1px solid var(--sn-w05)", padding: "12px 14px" }}>
-          <WaveformCanvas id="sn-wave-live" height="150px" />
+          <div style={{ minHeight: "150px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sn-w45)", fontSize: "13px", textAlign: "center" }}>
+            Le flux audio en direct n'est pas encore disponible. Les appels affichés ci-dessous proviennent des données réelles.
+          </div>
         </div>
       </div>
 
@@ -161,13 +150,7 @@ export default function LiveMonitoringPage() {
               <span style={{ fontSize: "11.5px", fontWeight: 600, color: lv.phaseColor, background: lv.phaseBg, padding: "4px 10px", borderRadius: "12px" }}>
                 {lv.phase}
               </span>
-              <span
-                onClick={() => handleListenClick(lv.name)}
-                className="sn-hover-support-faq"
-                style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--sn-blue2)", cursor: "pointer" }}
-              >
-                Écouter →
-              </span>
+              <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--sn-w45)" }}>Audio indisponible</span>
             </div>
           </div>
         ))}

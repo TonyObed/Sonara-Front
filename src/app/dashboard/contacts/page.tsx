@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDashboard } from "../DashboardContext";
-import { useContacts } from "@/hooks/useSonara";
+import { useCampaigns, useContacts } from "@/hooks/useSonara";
 
 export default function ContactsPage() {
   // Données réelles via l'API ; repli sur l'annuaire démo si non authentifié / erreur.
-  const { directory: contextDirectory } = useDashboard();
-  const { data, error, loading } = useContacts();
-  const directory = data && !error ? data : contextDirectory;
+  const { pushToast } = useDashboard();
+  const { data, error, loading, refetch } = useContacts();
+  const { data: campaigns } = useCampaigns({ limit: 100 });
+  const directory = data && !error ? data : [];
 
   const [filter, setFilter] = useState<"all" | "Particulier" | "PME" | "Premium" | "opt-out">("all");
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [showImportTarget, setShowImportTarget] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const importableCampaigns = (campaigns ?? []).filter((campaign) => campaign.status === "DRAFT" || campaign.status === "SCHEDULED");
 
   const totalContacts = directory.length;
   const totalOptout = directory.filter((d) => d.optout).length;
@@ -60,11 +66,43 @@ export default function ContactsPage() {
   });
 
   const handleCsvDownload = () => {
-    alert("Téléchargement du modèle CSV...");
+    const content = "first_name,last_name,phone,city,segment,notes\nAwa,Koné,0700000000,Abidjan,Premium,Client pilote\n";
+    const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "modele-contacts-sonara.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleCsvUpload = () => {
-    alert("Sélectionnez un fichier CSV à importer...");
+    if (!selectedCampaignId) {
+      setShowImportTarget(true);
+      pushToast("Choisissez d'abord une campagne brouillon ou planifiée.", "info");
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const importCsv = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedCampaignId) return;
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`/api/campaigns/${selectedCampaignId}/contacts`, { method: "POST", credentials: "include", body: formData });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Import impossible.");
+      pushToast(`${payload.data.imported} contact(s) importé(s), ${payload.data.skipped} ignoré(s).`, "ok");
+      setShowImportTarget(false);
+      refetch();
+    } catch (importError) {
+      pushToast(importError instanceof Error ? importError.message : "Import impossible.", "warn");
+    } finally {
+      setImporting(false);
+    }
   };
 
   return (
@@ -82,6 +120,7 @@ export default function ContactsPage() {
           </div>
         </div>
         <div style={{ display: "flex", gap: "9px" }}>
+          <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event); }} style={{ display: "none" }} />
           <button
             onClick={handleCsvDownload}
             className="sn-hover-border"
@@ -125,10 +164,22 @@ export default function ContactsPage() {
               <path d="M12 15V4M7 9l5-5 5 5"></path>
               <path d="M4 19h16"></path>
             </svg>
-            Importer CSV
+            {importing ? "Import en cours..." : "Importer CSV"}
           </button>
         </div>
       </div>
+
+      {showImportTarget && (
+        <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "14px", padding: "14px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "13px", color: "var(--sn-w6)" }}>Importer dans :</span>
+          <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)} style={{ minWidth: "240px", background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "9px", padding: "9px 11px", color: "var(--sn-text)" }}>
+            <option value="">Choisir une campagne</option>
+            {importableCampaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+          </select>
+          <button onClick={handleCsvUpload} disabled={!selectedCampaignId || importing} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "9px", padding: "9px 13px", fontWeight: 600, cursor: "pointer", opacity: !selectedCampaignId || importing ? 0.6 : 1 }}>Choisir le fichier</button>
+          {importableCampaigns.length === 0 && <span style={{ fontSize: "12px", color: "var(--sn-amber)" }}>Créez d'abord une campagne brouillon ou planifiée.</span>}
+        </div>
+      )}
 
       {/* Filter Segment tabs */}
       <div style={{ display: "flex", flexWrap: "wrap" }}>

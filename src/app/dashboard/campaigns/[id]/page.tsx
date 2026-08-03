@@ -127,24 +127,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const cities = analytics?.cities ?? [];
   const cityMax = Math.max(...(cities.map((city) => city.calls)), 1);
 
-  // Q2 wait percipient data
-  const Q2_DATA = [
-    { label: "Moins de 10 min", pct: "22%", color: "var(--sn-green)" },
-    { label: "10 – 30 min", pct: "41%", color: "#0052FF" },
-    { label: "30 min – 1 h", pct: "28%", color: "var(--sn-amber)" },
-    { label: "Plus d'1 h", pct: "9%", color: "var(--sn-red)" },
-  ];
-
-  // Cities breakdown
-  const CITIES_DATA = [
-    { name: "Abidjan — Cocody", calls: "512", w: "100%", sent: "7.2", sentColor: sentColor(7.2) },
-    { name: "Abidjan — Yopougon", calls: "438", w: "85%", sent: "8.1", sentColor: sentColor(8.1) },
-    { name: "Abidjan — Plateau", calls: "301", w: "58%", sent: "7.6", sentColor: sentColor(7.6) },
-    { name: "Bouaké", calls: "264", w: "51%", sent: "7.9", sentColor: sentColor(7.9) },
-    { name: "San-Pédro", calls: "178", w: "34%", sent: "8.3", sentColor: sentColor(8.3) },
-    { name: "Daloa", calls: "154", w: "30%", sent: "7.4", sentColor: sentColor(7.4) },
-  ];
-
   const applyCampaignAction = async (action: "pause" | "resume") => {
     try {
       const response = await fetch(`/api/campaigns/${campaign.id}/pause`, {
@@ -162,6 +144,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const exportCampaignCsv = () => {
+    window.location.assign(`/api/campaigns/${campaign.id}/export?format=csv`);
+  };
+
   // Pausing Campaign logic
   const handlePauseToggle = () => {
     if (currentStatus === "live") {
@@ -172,12 +158,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         danger: false,
         action: () => {
           void applyCampaignAction("pause");
-          pushToast("Campagne mise en pause — " + campaign.name, "warn");
         },
       });
     } else {
       void applyCampaignAction("resume");
-      pushToast("Campagne relancée — les appels reprennent", "ok");
     }
   };
 
@@ -215,7 +199,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               {pauseLabel}
             </button>
           )}
-          <button onClick={() => pushToast("Export CSV en préparation — un email vous sera envoyé", "info")} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
+          <button onClick={exportCampaignCsv} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M4 19h16"></path></svg>
             Export CSV
           </button>

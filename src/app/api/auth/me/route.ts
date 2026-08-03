@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         plan: company.plan,
         apiCredit: company.apiCredit,
         isSandbox: company.isSandbox,
+        twoFactorEnabled: company.twoFactorEnabled,
         memberSince: company.createdAt,
         totalCampaigns: company._count.campaigns,
         teamSize: company.users.length,

@@ -22,15 +22,21 @@ export default function SettingsPage() {
   const planBadge = curPlan.contactSales ? "SUR DEVIS" : `${curPlan.price} FCFA / APPEL`;
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string; avatarUrl: string | null }>>([]);
   const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; revokedAt: string | null }>>([]);
+  const [createdApiSecret, setCreatedApiSecret] = useState<string | null>(null);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{ qrCodeUrl: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
   useEffect(() => { fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCompany({ ...company, phone: payload.data.displayPhone ?? "", tz: payload.data.timezone }); }).catch(() => {}); }, []);
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetch("/api/company/members", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/api-keys", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json())]).then(([members, keys, settings]) => {
+    Promise.all([fetch("/api/company/members", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/api-keys", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()), fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json())]).then(([members, keys, settings, me]) => {
       if (!mounted) return;
       if (members.success) setTeamMembers(members.data.map((user: { id: string; firstName: string; lastName: string; email: string; role: string; avatarUrl: string | null }) => ({ id: user.id, name: `${user.firstName} ${user.lastName}`.trim(), email: user.email, role: user.role.toLowerCase(), avatarUrl: user.avatarUrl })));
-      if (keys.success) setApiKeyPrefix(keys.data.find((key: { revokedAt: string | null }) => !key.revokedAt)?.prefix ?? null);
+      if (keys.success) { setApiKeys(keys.data); setApiKeyPrefix(keys.data.find((key: { revokedAt: string | null }) => !key.revokedAt)?.prefix ?? null); }
       if (settings.success) setWebhookUrl(settings.data.webhookUrl ?? null);
+      if (me.success) setTwoFactorEnabled(Boolean(me.data.company.twoFactorEnabled));
     }).catch(() => {});
     return () => { mounted = false; };
   }, []);
@@ -62,6 +68,82 @@ export default function SettingsPage() {
       pushToast("Informations entreprise enregistrées", "ok");
     }
     setCompanyEdit(false);
+  };
+
+  const inviteCollaborator = async () => {
+    const email = window.prompt("Email professionnel du collaborateur :")?.trim().toLowerCase();
+    if (!email) return;
+    const role = window.confirm("OK : rôle Manager. Annuler : rôle Viewer.") ? "MANAGER" : "VIEWER";
+    try {
+      const response = await fetch("/api/auth/invite", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Invitation impossible.");
+      await navigator.clipboard?.writeText(payload.data.inviteUrl);
+      pushToast("Invitation créée : lien copié dans le presse-papiers.", "ok");
+    } catch (inviteError) {
+      pushToast(inviteError instanceof Error ? inviteError.message : "Invitation impossible.", "warn");
+    }
+  };
+
+  const createApiKey = async () => {
+    const name = window.prompt("Nom de cette clé API :")?.trim();
+    if (!name) return;
+    try {
+      const response = await fetch("/api/company/api-keys", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Création impossible.");
+      setCreatedApiSecret(payload.data.secret);
+      setApiKeys((previous) => [payload.data.key, ...previous]);
+      setApiKeyPrefix(payload.data.key.prefix);
+      pushToast("Clé créée. Copiez-la maintenant : elle ne sera plus affichée.", "warn");
+    } catch (keyError) {
+      pushToast(keyError instanceof Error ? keyError.message : "Création impossible.", "warn");
+    }
+  };
+
+  const revokeApiKey = async () => {
+    const activeKey = apiKeys.find((key) => !key.revokedAt);
+    if (!activeKey || !window.confirm("Révoquer la clé API active ? Cette action est définitive.")) return;
+    try {
+      const response = await fetch("/api/company/api-keys", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: activeKey.id }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Révocation impossible.");
+      setApiKeys((previous) => previous.map((key) => key.id === activeKey.id ? { ...key, revokedAt: new Date().toISOString() } : key));
+      setApiKeyPrefix(null);
+      pushToast("Clé API révoquée.", "ok");
+    } catch (keyError) {
+      pushToast(keyError instanceof Error ? keyError.message : "Révocation impossible.", "warn");
+    }
+  };
+
+  const toggleTwoFactor = async () => {
+    if (twoFactorEnabled) {
+      const code = window.prompt("Entrez votre code 2FA à 6 chiffres pour désactiver :");
+      if (!code) return;
+      const response = await fetch("/api/auth/2fa/disable", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) { pushToast(payload.error?.message ?? "Désactivation impossible.", "warn"); return; }
+      setTwoFactorEnabled(false);
+      pushToast("Double authentification désactivée.", "ok");
+      return;
+    }
+    const setupResponse = await fetch("/api/auth/2fa/setup", { method: "POST", credentials: "include" });
+    const setup = await setupResponse.json();
+    if (!setupResponse.ok || !setup.success) { pushToast(setup.error?.message ?? "Configuration 2FA impossible.", "warn"); return; }
+    setTwoFactorCode("");
+    setTwoFactorSetup({ qrCodeUrl: setup.data.qrCodeUrl });
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorCode.trim()) return;
+    const enableResponse = await fetch("/api/auth/2fa/enable", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: twoFactorCode }) });
+    const enabled = await enableResponse.json();
+    if (!enableResponse.ok || !enabled.success) { pushToast(enabled.error?.message ?? "Code 2FA invalide.", "warn"); return; }
+    setTwoFactorEnabled(true);
+    setTwoFactorSetup(null);
+    setTwoFactorCode("");
+    window.alert(`Conservez ces codes de secours :\n${enabled.data.backupCodes.join("\n")}`);
+    pushToast("2FA activée. Conservez vos codes de secours.", "ok");
   };
 
   // Helper to format initials
@@ -199,8 +281,11 @@ export default function SettingsPage() {
                 <span style={{ color: "var(--sn-w55)" }}>Clé API</span>
                 <span style={{ display: "inline-flex", gap: "9px", alignItems: "center" }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-w45)" }}>{apiKeyPrefix ? `${apiKeyPrefix}••••` : "Non configurée"}</span>
+                  <button onClick={createApiKey} style={{ border: "none", background: "transparent", color: "var(--sn-blue2)", cursor: "pointer", fontWeight: 600 }}>Créer</button>
+                  {apiKeyPrefix && <button onClick={revokeApiKey} style={{ border: "none", background: "transparent", color: "var(--sn-red)", cursor: "pointer", fontWeight: 600 }}>Révoquer</button>}
                 </span>
               </div>
+              {createdApiSecret && <div style={{ padding: "10px", borderBottom: "1px solid var(--sn-w05)", background: "rgba(255,176,46,.08)", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", wordBreak: "break-all" }}>Copiez cette clé maintenant : {createdApiSecret}</div>}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", padding: "13px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Webhook sortant</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w7)" }}>
@@ -217,9 +302,9 @@ export default function SettingsPage() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Double authentification</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w5)", border: "1px solid var(--sn-w18)", padding: "3px 8px", borderRadius: "6px" }}>
-                  P3
-                </span>
+                <button onClick={() => { void toggleTwoFactor(); }} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: twoFactorEnabled ? "var(--sn-green)" : "var(--sn-blue2)", border: "1px solid var(--sn-w18)", background: "transparent", padding: "3px 8px", borderRadius: "6px", cursor: "pointer" }}>
+                  {twoFactorEnabled ? "ACTIVÉE" : "ACTIVER"}
+                </button>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 0", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Conformité</span>
@@ -243,10 +328,8 @@ export default function SettingsPage() {
                 const displayName = isSelf ? profile.name : u.name;
                 const displayEmail = isSelf ? profile.email : u.email;
                 const initials = getInitials(displayName);
-                const avatarBg = isSelf && profile.photo
-                  ? `url(${profile.photo}) center / cover no-repeat`
-                  : "rgba(0,82,255,.15)";
-                const avatarColor = isSelf && profile.photo ? "transparent" : "var(--sn-blue3)";
+                const avatarBg = "rgba(0,82,255,.15)";
+                const avatarColor = "var(--sn-blue3)";
                 const roleStyles = getRoleStyles(u.role);
 
                 return (
@@ -273,9 +356,10 @@ export default function SettingsPage() {
                         fontSize: "12px",
                         fontWeight: 700,
                         color: avatarColor,
+                        overflow: "hidden",
                       }}
                     >
-                      {(!isSelf || !profile.photo) && initials}
+                      {isSelf && profile.photo ? <img src="/api/auth/avatar/image" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: "13.5px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
@@ -291,7 +375,7 @@ export default function SettingsPage() {
               })}
             </div>
             <button
-              onClick={() => pushToast("Lien d'invitation généré !", "ok")}
+              onClick={() => { void inviteCollaborator(); }}
               className="sn-hover-ticket"
               style={{
                 marginTop: "14px",
@@ -317,6 +401,20 @@ export default function SettingsPage() {
         </div>
 
       </div>
+      {twoFactorSetup && (
+        <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div style={{ width: "min(390px, 100%)", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "16px", padding: "22px", boxShadow: "0 24px 60px rgba(0,0,0,.35)" }}>
+            <div style={{ fontSize: "17px", fontWeight: 700 }}>Activer la double authentification</div>
+            <p style={{ fontSize: "13px", color: "var(--sn-w6)", lineHeight: 1.5 }}>Scanne ce QR code avec une application d'authentification, puis entre le code à six chiffres.</p>
+            <img src={twoFactorSetup.qrCodeUrl} alt="QR code 2FA Sonara" style={{ display: "block", width: "190px", height: "190px", margin: "14px auto", background: "#fff", padding: "8px", borderRadius: "10px" }} />
+            <input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="Code à 6 chiffres" style={{ width: "100%", boxSizing: "border-box", background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "10px", padding: "11px 13px", color: "var(--sn-text)", fontSize: "14px", outline: "none" }} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", marginTop: "16px" }}>
+              <button onClick={() => { setTwoFactorSetup(null); setTwoFactorCode(""); }} style={{ background: "transparent", color: "var(--sn-w7)", border: "1px solid var(--sn-w14)", borderRadius: "10px", padding: "10px 14px", cursor: "pointer" }}>Annuler</button>
+              <button onClick={() => { void confirmTwoFactorSetup(); }} disabled={twoFactorCode.length !== 6} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 14px", fontWeight: 700, cursor: "pointer", opacity: twoFactorCode.length === 6 ? 1 : .55 }}>Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -61,6 +61,7 @@ export interface Company {
   plan: string;
   apiCredit: number;
   isSandbox?: boolean;
+  twoFactorEnabled?: boolean;
 }
 
 export interface User {

@@ -9,9 +9,6 @@ const invoices: Array<{ ref: string; date: string; amountFcfa: number; status: "
 export default function BillingPage() {
   const {
     plan,
-    setPlan,
-    autoRecharge,
-    toggleAutoRecharge,
     plans,
     pushToast,
     kcr: credit,
@@ -28,14 +25,8 @@ export default function BillingPage() {
   const isSandbox = company.isSandbox;
   const planBadge = currentPlanObj.contactSales ? "SUR DEVIS" : `${currentPlanObj.price} FCFA / APPEL`;
 
-  const handleChoosePlan = (planId: string, name: string) => {
-    const pObj = plans.find((p) => p.id === planId);
-    if (pObj?.contactSales) {
-      pushToast("Demande transmise à notre équipe commerciale", "info");
-      return;
-    }
-    setPlan(planId);
-    pushToast(`Plan modifié : ${name} est désormais actif`, "ok");
+  const handleChoosePlan = (_planId: string, name: string) => {
+    pushToast(`Le passage au plan ${name} nécessite l'intégration du paiement. Aucun changement n'a été effectué.`, "info");
   };
 
   const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -101,8 +92,8 @@ export default function BillingPage() {
             <span style={{ color: "var(--sn-w55)" }}>Recharge automatique</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "9px" }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w5)" }}>BIENTÔT</span>
-              <span onClick={toggleAutoRecharge} style={{ width: "38px", height: "21px", borderRadius: "12px", background: autoRecharge ? "#0052FF" : "var(--sn-w14)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
-                <span style={{ position: "absolute", top: "2px", left: autoRecharge ? "19px" : "2px", width: "17px", height: "17px", borderRadius: "50%", background: "#fff", transition: "left .2s" }}></span>
+              <span aria-disabled="true" style={{ width: "38px", height: "21px", borderRadius: "12px", background: "var(--sn-w14)", position: "relative", cursor: "not-allowed" }}>
+                <span style={{ position: "absolute", top: "2px", left: "2px", width: "17px", height: "17px", borderRadius: "50%", background: "#fff" }}></span>
               </span>
             </span>
           </div>
