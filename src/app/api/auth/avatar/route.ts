@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (!auth?.sub) return unauthorized();
 
-    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/+$/, "");
     const secretKey = process.env.SUPABASE_SECRET_KEY;
     if (!supabaseUrl || !secretKey) return badRequest("Stockage des avatars non configuré.");
 
