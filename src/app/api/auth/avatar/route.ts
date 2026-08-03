@@ -10,6 +10,7 @@ const ALLOWED_TYPES = new Map([
   ["image/webp", "webp"],
 ]);
 const MAX_FILE_SIZE = 1_000_000;
+const AVATAR_BUCKET = "Avatars";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     if (file.size <= 0 || file.size > MAX_FILE_SIZE) return badRequest("L'image doit faire au maximum 1 Mo.");
 
     const path = `${auth.companyId}/${auth.sub}/${crypto.randomUUID()}.${extension}`;
-    const upload = await fetch(`${supabaseUrl}/storage/v1/object/avatars/${path}`, {
+    const upload = await fetch(`${supabaseUrl}/storage/v1/object/${AVATAR_BUCKET}/${path}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${secretKey}`,
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       return badRequest("Impossible d'envoyer l'avatar dans le stockage.");
     }
 
-    const avatarUrl = `${supabaseUrl}/storage/v1/object/public/avatars/${path}`;
+    const avatarUrl = `${supabaseUrl}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`;
     const updated = await db.user.updateMany({
       where: { id: auth.sub, companyId: auth.companyId },
       data: { avatarUrl },
