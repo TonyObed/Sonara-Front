@@ -48,7 +48,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     ]);
     if (!active) return; if (!me?.data) { window.location.assign("/login"); return; }
     const { user, company: dbCompany } = me.data;
-    setProfile({ name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email, role: user.role, photo: null }); setCompany({ name: dbCompany.name, phone: "", tz: "UTC", plan: dbCompany.plan, isSandbox: Boolean(dbCompany.isSandbox) }); setPlan(dbCompany.plan);
+    setProfile({ name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email, role: user.role, photo: user.avatarUrl ?? null }); setCompany({ name: dbCompany.name, phone: "", tz: "UTC", plan: dbCompany.plan, isSandbox: Boolean(dbCompany.isSandbox) }); setPlan(dbCompany.plan);
     if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront)); if (usage?.data) { setKa(usage.data.calls.total); setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); } if (dashboardData?.data) { setDashboard(dashboardData.data); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); } if (live?.data) setLiveCalls(live.data); if (contacts?.data) setDirectory(contacts.data);
   } finally { if (active) setIsLoading(false); } })(); return () => { active = false; }; }, []);
   const setTheme = (t: "dark" | "light") => { setThemeState(t); localStorage.setItem("sonara-theme", t); };

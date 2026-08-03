@@ -372,6 +372,48 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setProfileModalOpen(false);
   };
 
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const response = await fetch("/api/auth/avatar", { method: "POST", credentials: "include", body: formData });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Upload impossible.");
+      if (profileDraft) setProfileDraft({ ...profileDraft, photo: payload.data.avatarUrl });
+      pushToast("Photo envoyee.", "ok");
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Upload impossible.", "warn");
+    }
+  };
+
+  const handlePersistentProfileSave = async () => {
+    if (!profileDraft) return;
+    const [firstName, ...lastNameParts] = profileDraft.name.trim().split(/\s+/);
+    try {
+      const result = await api.auth.updateProfile({
+        firstName: firstName || undefined,
+        lastName: lastNameParts.join(" ") || undefined,
+        email: profileDraft.email,
+        avatarUrl: profileDraft.photo,
+      });
+      const saved = {
+        ...profileDraft,
+        name: [result.data.firstName, result.data.lastName].filter(Boolean).join(" "),
+        email: result.data.email,
+        photo: result.data.avatarUrl ?? null,
+      };
+      setProfile(saved);
+      persistAccount(company, saved);
+      setProfileModalOpen(false);
+      pushToast("Profil mis a jour.", "ok");
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Enregistrement impossible.", "warn");
+    }
+  };
+
   // Déconnexion réelle : vide les cookies de session côté API puis redirige.
   const handleLogout = async () => {
     try {
@@ -1064,7 +1106,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                   {!profileDraft.photo && initials(profileDraft.name || "A")}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
-                  <input type="file" accept="image/*" onChange={handlePhotoPick} ref={photoInputRef} style={{ display: "none" }} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void uploadAvatar(event); }} ref={photoInputRef} style={{ display: "none" }} />
                   <button onClick={() => photoInputRef.current?.click()} style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "10px", padding: "9px 14px", fontFamily: "'Satoshi', sans-serif", fontSize: "13px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13.5" r="3.4"></circle></svg>
                     Changer la photo
@@ -1090,7 +1132,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", padding: "16px 22px", borderTop: "1px solid var(--sn-w06)" }}>
               <button onClick={() => setProfileModalOpen(false)} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", color: "var(--sn-w7)", border: "1px solid var(--sn-w14)", borderRadius: "10px", padding: "11px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">Annuler</button>
-              <button onClick={handleProfileSave} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "11px 20px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">Enregistrer</button>
+              <button onClick={() => { void handlePersistentProfileSave(); }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "11px 20px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">Enregistrer</button>
             </div>
           </div>
         </div>
