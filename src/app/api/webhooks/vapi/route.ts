@@ -72,6 +72,23 @@ function verifyVapiSignature(
   return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
+/** Accepts Vapi's legacy inline secret and its credential-based HMAC mode. */
+function verifyVapiAuthentication(
+  rawBody: string,
+  signature: string | null,
+  receivedSecret: string | null,
+  secret: string
+): boolean {
+  // `assistant.server.secret` is delivered by Vapi in X-Vapi-Secret.
+  if (receivedSecret) {
+    if (receivedSecret.length !== secret.length) return false;
+    return timingSafeEqual(Buffer.from(receivedSecret), Buffer.from(secret));
+  }
+
+  // Future-compatible with a Vapi HMAC credential.
+  return verifyVapiSignature(rawBody, signature, secret);
+}
+
 // ─── CALCUL COÛT EN FCFA ──────────────────────────────────────────────────────
 
 function usdToFcfa(usd: number): number {
@@ -129,6 +146,7 @@ export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
     const signature = request.headers.get("x-vapi-signature");
+    const receivedSecret = request.headers.get("x-vapi-secret");
     const webhookSecret = process.env.VAPI_WEBHOOK_SECRET ?? "";
 
     // En production, un webhook sans secret est une erreur de configuration :
@@ -138,8 +156,11 @@ export async function POST(request: NextRequest) {
       return unauthorized("Webhook Vapi non configuré.");
     }
 
-    if (webhookSecret && !verifyVapiSignature(rawBody, signature, webhookSecret)) {
-      return unauthorized("Signature webhook invalide.");
+    if (
+      webhookSecret &&
+      !verifyVapiAuthentication(rawBody, signature, receivedSecret, webhookSecret)
+    ) {
+      return unauthorized("Authentification webhook invalide.");
     }
 
     let payload: VapiWebhookPayload;
