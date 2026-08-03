@@ -804,15 +804,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
           
           <div style={{ position: "relative" }}>
-            <div onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} style={{ width: "36px", height: "36px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}>
-              {!profile.photo && initials(profile.name || "A")}
+            <div onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} style={{ width: "36px", height: "36px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", overflow: "hidden" }}>
+              {profile.photo ? <img src={profile.photo} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profile.name || "A")}
             </div>
             
             {profileOpen && (
               <div style={{ position: "absolute", top: "47px", right: 0, width: "290px", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "16px", boxShadow: "0 24px 60px rgba(0,0,0,.35)", zIndex: 70, overflow: "hidden", animation: "snFadeUp .22s ease both" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 18px", borderBottom: "1px solid var(--sn-w06)" }}>
-                  <div style={{ width: "42px", height: "42px", minWidth: "42px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "14px" }}>
-                    {!profile.photo && initials(profile.name || "A")}
+                  <div style={{ width: "42px", height: "42px", minWidth: "42px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "14px", overflow: "hidden" }}>
+                    {profile.photo ? <img src={profile.photo} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profile.name || "A")}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "14px", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.name}</div>
@@ -1102,8 +1102,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ padding: "22px", display: "flex", flexDirection: "column", gap: "18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div style={{ width: "76px", height: "76px", minWidth: "76px", borderRadius: "50%", background: avBgOf(profileDraft.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "24px", border: "2px solid var(--sn-w09)" }}>
-                  {!profileDraft.photo && initials(profileDraft.name || "A")}
+                <div style={{ width: "76px", height: "76px", minWidth: "76px", borderRadius: "50%", background: avBgOf(profileDraft.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "24px", border: "2px solid var(--sn-w09)", overflow: "hidden" }}>
+                  {profileDraft.photo ? <img src={profileDraft.photo} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profileDraft.name || "A")}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>
                   <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void uploadAvatar(event); }} ref={photoInputRef} style={{ display: "none" }} />
