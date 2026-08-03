@@ -10,7 +10,7 @@ const ALLOWED_TYPES = new Map([
   ["image/webp", "webp"],
 ]);
 const MAX_FILE_SIZE = 1_000_000;
-const AVATAR_BUCKET = "Avatars";
+const AVATAR_BUCKET = "avatars";
 
 export async function POST(request: NextRequest) {
   try {
