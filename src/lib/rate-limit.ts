@@ -29,12 +29,9 @@ export async function rateLimit(key: string, limit: number, windowSec: number): 
   const redisKey = `ratelimit:${key}:${currentWindow}`;
 
   const restrictiveFallback = (): RateLimitResult => {
-    if (process.env.NODE_ENV === "production") {
-      // Les routes appelant cette fonction ne doivent jamais devenir illimitées
-      // lorsqu'un service anti-abus est absent ou indisponible en production.
-      return { allowed: false, remaining: 0, resetAt: now + 60_000, retryAfterSec: 60 };
-    }
-
+    // Secours par instance : moins robuste que Redis entre plusieurs fonctions
+    // Vercel, mais conserve une limite anti-bruteforce et ne bloque jamais tous
+    // les utilisateurs lorsque Redis n'est pas encore configuré.
     const existing = localCounters.get(redisKey);
     const counter = !existing || existing.expiresAt <= now
       ? { count: 1, expiresAt: now + windowSec * 1000 }
