@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { badRequest, handleError, ok, unauthorized } from "@/lib/response";
+import { getSupabaseOrigin } from "@/lib/supabase";
 
 const ALLOWED_TYPES = new Map([
   ["image/jpeg", "jpg"],
@@ -17,10 +18,7 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (!auth?.sub) return unauthorized();
 
-    const configuredSupabaseUrl = process.env.SUPABASE_URL;
-    const supabaseUrl = configuredSupabaseUrl
-      ? new URL(configuredSupabaseUrl).origin
-      : undefined;
+    const supabaseUrl = getSupabaseOrigin(process.env.SUPABASE_URL);
     const secretKey = process.env.SUPABASE_SECRET_KEY;
     if (!supabaseUrl || !secretKey) return badRequest("Stockage des avatars non configuré.");
 
