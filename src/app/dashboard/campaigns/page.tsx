@@ -18,10 +18,15 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     if (filter !== "tests") return;
-    fetch("/api/calls/tests", { credentials: "include" })
-      .then((r) => r.json())
-      .then((payload) => { if (payload.success) setTestCalls(payload.data); })
-      .catch(() => {});
+    const loadTests = () => {
+      fetch("/api/calls/tests", { credentials: "include" })
+        .then((r) => r.json())
+        .then((payload) => { if (payload.success) setTestCalls(payload.data); })
+        .catch(() => {});
+    };
+    loadTests();
+    const interval = window.setInterval(loadTests, 10_000);
+    return () => window.clearInterval(interval);
   }, [filter]);
 
   const STATUS_DICT = {
