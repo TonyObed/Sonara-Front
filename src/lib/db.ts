@@ -35,12 +35,13 @@ function createPrismaClient() {
   const resolvedConnectionString = resolveDatabaseUrl(connectionString);
   // Certains réseaux de développement injectent leur propre certificat TLS.
   // On ne désactive sa vérification que localement ; la production reste stricte.
-  const acceptLocalProxyCertificate =
-    process.env.NODE_ENV !== "production" &&
-    process.env.PG_SSL_REJECT_UNAUTHORIZED !== "true";
+  const rejectUnauthorized =
+    process.env.PG_SSL_REJECT_UNAUTHORIZED === "false"
+      ? false
+      : process.env.NODE_ENV === "production";
   const pool = new Pool({
     connectionString: resolvedConnectionString,
-    ssl: { rejectUnauthorized: !acceptLocalProxyCertificate },
+    ssl: { rejectUnauthorized },
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
