@@ -13,10 +13,13 @@ import { Pool } from "pg";
  */
 function resolveDatabaseUrl(connectionString: string): string {
   const url = new URL(connectionString);
+  // `pg` laisse sslmode pr\u00e9sent dans l'URL remplacer l'option `ssl` du Pool.
+  // Le code ci-dessous est la source unique de configuration TLS.
+  url.searchParams.delete("sslmode");
   const directMatch = /^db\.([a-z0-9]+)\.supabase\.co$/i.exec(url.hostname);
 
   if (!directMatch || process.env.SUPABASE_USE_DIRECT_CONNECTION === "true") {
-    return connectionString;
+    return url.toString();
   }
 
   const projectRef = directMatch[1];
