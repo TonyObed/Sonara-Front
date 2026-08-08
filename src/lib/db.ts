@@ -16,6 +16,10 @@ function resolveDatabaseUrl(connectionString: string): string {
   // `pg` laisse sslmode pr\u00e9sent dans l'URL remplacer l'option `ssl` du Pool.
   // Le code ci-dessous est la source unique de configuration TLS.
   url.searchParams.delete("sslmode");
+  const isSupabasePooler = url.hostname.endsWith(".pooler.supabase.com");
+  if (isSupabasePooler && process.env.SUPABASE_USE_SESSION_POOLER !== "true") {
+    url.port = process.env.SUPABASE_POOLER_PORT ?? "6543";
+  }
   const directMatch = /^db\.([a-z0-9]+)\.supabase\.co$/i.exec(url.hostname);
 
   if (!directMatch || process.env.SUPABASE_USE_DIRECT_CONNECTION === "true") {
@@ -26,7 +30,7 @@ function resolveDatabaseUrl(connectionString: string): string {
   url.hostname =
     process.env.SUPABASE_POOLER_HOST ?? "aws-1-eu-central-1.pooler.supabase.com";
   url.username = `postgres.${projectRef}`;
-  url.port = "5432";
+  url.port = process.env.SUPABASE_POOLER_PORT ?? "6543";
   return url.toString();
 }
 
