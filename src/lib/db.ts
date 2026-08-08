@@ -45,6 +45,11 @@ function createPrismaClient() {
   const pool = new Pool({
     connectionString: resolvedConnectionString,
     ssl: { rejectUnauthorized },
+    // Une fonction Vercel peut d\u00e9marrer plusieurs instances en parall\u00e8le.
+    // Un pool par instance saturerait vite la limite du Session Pooler Supabase.
+    max: Number(process.env.PG_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 1 : 5)),
+    idleTimeoutMillis: 10_000,
+    allowExitOnIdle: true,
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({
