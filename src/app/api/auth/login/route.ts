@@ -10,7 +10,7 @@ import {
   generatePreAuthToken,
 } from "@/lib/auth";
 import { LoginSchema } from "@/lib/validation";
-import { ok, unauthorized, tooManyRequests, zodError, handleError } from "@/lib/response";
+import { badRequest, ok, unauthorized, tooManyRequests, zodError, handleError } from "@/lib/response";
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { ZodError } from "zod";
 
@@ -25,7 +25,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return badRequest("Le corps de la requete doit etre du JSON valide.");
+    }
     const input = LoginSchema.parse(body);
 
     // Chercher l'entreprise par email
