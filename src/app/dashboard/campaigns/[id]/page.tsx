@@ -10,7 +10,10 @@ import { mapApiCallToRow } from "@/lib/dashboard-adapters";
 type CampaignAnalytics = {
   questions: Array<{ id: string; label: string; responseCount: number; distribution: Array<{ label: string; count: number; percentage: number }> }>;
   cities: Array<{ name: string; calls: number; sentiment: number | null }>;
+  topics: Array<{ label: string; count: number; percentage: number }>;
 };
+type CampaignDetail = { kpis: { totalContacts: number; totalCalls: number; completed: number; failed: number; voicemail: number; transferred: number; responseRate: number; progress: number; avgDurationSec: number }; insights: Array<{ sentimentScore: number | null }> };
+type CampaignContact = { id: string; firstName: string | null; lastName: string | null; phone: string; city: string | null; segment: string | null; status: string; attempts: number };
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -32,12 +35,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const { data: apiCalls } = useCampaignCalls(id);
   const callRows = (apiCalls ?? []).map(mapApiCallToRow);
   const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
+  const [detail, setDetail] = useState<CampaignDetail | null>(null);
+  const [campaignContacts, setCampaignContacts] = useState<CampaignContact[]>([]);
   useEffect(() => {
     let mounted = true;
     fetch(`/api/campaigns/${id}`, { credentials: "include" })
       .then((response) => response.json())
-      .then((payload) => { if (mounted && payload.success) setAnalytics(payload.data.analytics); })
+      .then((payload) => { if (mounted && payload.success) { setAnalytics(payload.data.analytics); setDetail(payload.data); } })
       .catch(() => {});
+    fetch(`/api/campaigns/${id}/contacts?limit=100`, { credentials: "include" }).then((response) => response.json()).then((payload) => { if (mounted && payload.success) setCampaignContacts(payload.data); }).catch(() => {});
     return () => { mounted = false; };
   }, [id]);
 
@@ -91,11 +97,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     return "var(--sn-red)";
   };
 
-  const pct = campaign.total ? Math.round((campaign.done / campaign.total) * 100) : 0;
+  const totalContacts = detail?.kpis.totalContacts ?? campaign.total;
+  const totalCalls = detail?.kpis.totalCalls ?? campaign.done;
+  const completedCalls = detail?.kpis.completed ?? 0;
+  const averageDurationSec = detail?.kpis.avgDurationSec ?? 0;
+  const averageSentiment = detail?.insights.length ? detail.insights.reduce((sum, insight) => sum + (insight.sentimentScore ?? 0), 0) / detail.insights.filter((insight) => insight.sentimentScore !== null).length : campaign.sentiment;
+  const pct = totalContacts ? Math.round((completedCalls / totalContacts) * 100) : 0;
   const campPct = pct + "%";
-  const campProgress = fmt(campaign.done) + " / " + fmt(campaign.total);
-  const campSentiment = campaign.sentiment !== null ? campaign.sentiment.toFixed(1) : "—";
-  const campSentimentColor = sentColor(campaign.sentiment);
+  const campProgress = fmt(completedCalls) + " / " + fmt(totalContacts);
+  const campSentiment = averageSentiment !== null && Number.isFinite(averageSentiment) ? averageSentiment.toFixed(1) : "—";
+  const campSentimentColor = sentColor(averageSentiment);
+  const topics = analytics?.topics ?? [];
 
   // Tab Header Styling helper
   const tabHeaderStyle = (tabName: typeof activeTab) => {
@@ -185,7 +197,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "11.5px", fontWeight: 600, color: st.color, background: st.bg, padding: "5px 11px", borderRadius: 14 }}>{st.label}</span>
           </div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "8px" }}>
-            {campaign.sector} · {fmt(campaign.total)} CONTACTS · VOIX : AWA
+            {campaign.sector} · {fmt(totalContacts)} CONTACTS · VOIX : {campaign.voice ?? "Awa"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 9 }}>
@@ -223,18 +235,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
             <div style={{ display: "flex", flexDirection: "column", background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>APPELS PASSÉS</div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{fmt(campaign.done)}</div>
-              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>sur {fmt(campaign.total)} contacts</div>
+              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{fmt(totalCalls)}</div>
+              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>sur {fmt(totalContacts)} contacts</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>TAUX DE RÉPONSE</div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{campaign.responseRate || "—"}</div>
-              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>moyenne plateforme : 64%</div>
+              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{detail ? `${detail.kpis.responseRate}%` : campaign.responseRate || "—"}</div>
+              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>calculé sur les appels de cette campagne</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>DURÉE MOYENNE</div>
-              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>2:46</div>
-              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>max configuré : 8 min</div>
+              <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{averageDurationSec ? `${Math.floor(averageDurationSec / 60)}:${String(averageDurationSec % 60).padStart(2, "0")}` : "—"}</div>
+              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>sur les appels terminés</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>SENTIMENT MOYEN</div>
@@ -242,7 +254,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 <span style={{ fontSize: "28px", fontWeight: 700, color: campSentimentColor }}>{campSentiment}</span>
                 <span style={{ fontSize: "14px", color: "var(--sn-w45)" }}>/10</span>
               </div>
-              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>humeur dominante : satisfait</div>
+              <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "auto", paddingTop: "4px" }}>selon les analyses enregistrées</div>
             </div>
           </div>
 
@@ -252,33 +264,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
               <div style={{ fontSize: "16px", fontWeight: 700 }}>Points clés détectés par l'IA</div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>
-                VERBATIMS CLUSTÉRISÉS — {fmt(campaign.done)} APPELS ANALYSÉS
+                THÈMES EXTRAITS — {fmt(detail?.insights.length ?? 0)} APPELS ANALYSÉS
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "18px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 10, background: "rgba(255,176,46,.12)", color: "var(--sn-amber)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>1</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>Temps d'attente en agence jugé trop long</div>
-                    <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "2px" }}>214 mentions · principalement Cocody &amp; Abobo</div>
-                  </div>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-amber)" }}>38%</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 10, background: "rgba(43,213,118,.12)", color: "var(--sn-green)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>2</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>Accueil du personnel apprécié</div>
-                    <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "2px" }}>489 mentions positives sur l'ensemble du réseau</div>
-                  </div>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-green)" }}>61%</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 10, background: "rgba(0,82,255,.13)", color: "var(--sn-blue2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>3</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 500 }}>Demande récurrente d'une appli mobile plus complète</div>
-                    <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "2px" }}>96 mentions · opportunité produit signalée</div>
-                  </div>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-blue2)" }}>12%</span>
-                </div>
+                {topics.length ? topics.map((topic, index) => <div key={topic.label} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 10, background: "rgba(0,82,255,.13)", color: "var(--sn-blue2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>{index + 1}</span>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: "14px", fontWeight: 500 }}>{topic.label}</div><div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "2px" }}>{topic.count} mention(s) dans les analyses</div></div>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-blue2)" }}>{topic.percentage}%</span>
+                </div>) : <div style={{ color: "var(--sn-w45)", fontSize: "13px" }}>Les thèmes apparaîtront après les premiers appels analysés.</div>}
               </div>
             </div>
 
@@ -293,11 +286,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 <div style={{ width: campPct, height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px", transition: "width .8s ease" }}></div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
-                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Enquêtes complétées</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>1 312</span></div>
-                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Non joignables</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>259</span></div>
-                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Messagerie vocale</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>166</span></div>
-                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Transferts agent humain</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>37</span></div>
-                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Refus / opt-out</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>73</span></div>
+                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Enquêtes complétées</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{completedCalls}</span></div>
+                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Non joignables</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{detail?.kpis.failed ?? 0}</span></div>
+                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Messagerie vocale</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{detail?.kpis.voicemail ?? 0}</span></div>
+                <div style={{ display: "flex", fontSize: "13px", justifyContent: "space-between" }}><span style={{ color: "var(--sn-w55)" }}>Transferts agent humain</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{detail?.kpis.transferred ?? 0}</span></div>
               </div>
             </div>
           </div>
@@ -487,21 +479,24 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               <span>STATUT</span>
               <span style={{ textAlign: "center" }}>TENTATIVES</span>
             </div>
-            {directory.map((ct, index) => {
-              const cst = CONTACT_STATUS_DICT.completed; // mock
+            {campaignContacts.map((ct) => {
+              const statusKey = ct.status.toLowerCase() as keyof typeof CONTACT_STATUS_DICT;
+              const cst = CONTACT_STATUS_DICT[statusKey] ?? CONTACT_STATUS_DICT.pending;
+              const name = [ct.firstName, ct.lastName].filter(Boolean).join(" ") || "—";
               return (
-                <div key={index} style={{ display: "grid", gridTemplateColumns: "1.8fr 160px 130px 110px 110px 90px", gap: "12px", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--sn-w04)" }} className="sn-hover-w03">
-                  <span style={{ fontSize: "14px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--sn-text)" }}>{ct.name}</span>
+                <div key={ct.id} style={{ display: "grid", gridTemplateColumns: "1.8fr 160px 130px 110px 110px 90px", gap: "12px", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--sn-w04)" }} className="sn-hover-w03">
+                  <span style={{ fontSize: "14px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--sn-text)" }}>{name}</span>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-w6)" }}>{ct.phone}</span>
-                  <span style={{ fontSize: "13px", color: "var(--sn-w6)" }}>{ct.city}</span>
-                  <span style={{ fontSize: "12.5px", color: "var(--sn-w6)" }}>{ct.segment}</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "11.5px", fontWeight: 600, color: ct.optout ? "var(--sn-red)" : "var(--sn-green)", background: ct.optout ? "rgba(255,92,92,.11)" : "rgba(43,213,118,.11)", padding: "5px 10px", borderRadius: "14px", whiteSpace: "nowrap", width: "fit-content" }}>
-                    {ct.optout ? "Opt-out" : "Actif"}
+                  <span style={{ fontSize: "13px", color: "var(--sn-w6)" }}>{ct.city ?? "—"}</span>
+                  <span style={{ fontSize: "12.5px", color: "var(--sn-w6)" }}>{ct.segment ?? "—"}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "11.5px", fontWeight: 600, color: cst.color, background: cst.bg, padding: "5px 10px", borderRadius: "14px", whiteSpace: "nowrap", width: "fit-content" }}>
+                    {cst.label}
                   </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12.5px", textAlign: "center" }}>1/2</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12.5px", textAlign: "center" }}>{ct.attempts}</span>
                 </div>
               );
             })}
+            {campaignContacts.length === 0 && <div style={{ padding: "24px 20px", color: "var(--sn-w45)", fontSize: "13px" }}>Aucun contact pour cette campagne.</div>}
           </div>
         </div>
       )}

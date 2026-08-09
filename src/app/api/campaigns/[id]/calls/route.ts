@@ -35,6 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         skip: (query.page - 1) * query.limit,
         take: query.limit,
         include: {
+          insight: { select: { sentimentScore: true } },
           contact: {
             select: {
               id: true,
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       summary: call.summary,
       attemptNumber: call.attemptNumber,
       costFcfa: call.costFcfa,
+      sentimentScore: call.insight?.sentimentScore ?? null,
       contact: call.contact,
       // Transcription non incluse dans la liste — récupérée via GET /calls/[id]
     }));

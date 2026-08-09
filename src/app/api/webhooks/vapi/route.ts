@@ -96,6 +96,28 @@ function usdToFcfa(usd: number): number {
   return Math.round(usd * RATE * 100) / 100;
 }
 
+function extractSentimentScore(data: Record<string, unknown> | undefined): number | null {
+  if (!data) return null;
+  for (const key of ["sentimentScore", "sentiment_score", "score", "satisfactionScore"]) {
+    const value = data[key];
+    const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(",", ".")) : NaN;
+    if (Number.isFinite(number)) return Math.max(0, Math.min(10, number));
+  }
+  const sentiment = typeof data.sentiment === "string" ? data.sentiment.toLowerCase() : "";
+  if (["positive", "positif", "satisfait"].includes(sentiment)) return 8;
+  if (["negative", "négatif", "insatisfait"].includes(sentiment)) return 3;
+  if (["neutral", "neutre"].includes(sentiment)) return 5;
+  return null;
+}
+
+function extractTopics(data: Record<string, unknown> | undefined): string[] | null {
+  if (!data) return null;
+  const value = data.topics ?? data.keywords ?? data.themes;
+  if (!Array.isArray(value)) return null;
+  const topics = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim()).slice(0, 20);
+  return topics.length ? topics : null;
+}
+
 // ─── GÉNÉRATION RÉSUMÉ VIA GPT-4o ─────────────────────────────────────────────
 
 async function generateSummary(transcript: VapiTranscriptEntry[]): Promise<string | null> {
@@ -292,6 +314,9 @@ export async function POST(request: NextRequest) {
         (finalStatus === "COMPLETED" && formattedTranscript.length > 0
           ? await generateSummary(rawTranscript)
           : null);
+      const structuredData = callPayload.analysis?.structuredData;
+      const sentimentScore = extractSentimentScore(structuredData);
+      const topics = extractTopics(structuredData);
 
       // Vapi peut rejouer un webhook après un timeout. Le hash du corps brut est
       // stable pour un même événement et sa contrainte unique protège aussi les
@@ -338,8 +363,8 @@ export async function POST(request: NextRequest) {
           });
           await tx.callInsight.upsert({
             where: { callId: call.id },
-            create: { callId: call.id, answers: (callPayload.analysis?.structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
-            update: { answers: (callPayload.analysis?.structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
+            create: { callId: call.id, sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
+            update: { sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
           });
           await tx.contact.update({
             where: { id: call.contactId },

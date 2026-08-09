@@ -92,6 +92,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       };
     });
     const cities = new Map<string, { calls: number; sentimentTotal: number; sentimentCount: number }>();
+    const topicCounts = new Map<string, number>();
     for (const insight of insights) {
       const city = insight.call.contact.city?.trim();
       if (!city) continue;
@@ -99,6 +100,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       current.calls += 1;
       if (insight.sentimentScore !== null) { current.sentimentTotal += insight.sentimentScore; current.sentimentCount += 1; }
       cities.set(city, current);
+      if (Array.isArray(insight.topics)) {
+        for (const topic of insight.topics) {
+          if (typeof topic !== "string" || !topic.trim()) continue;
+          const label = topic.trim();
+          topicCounts.set(label, (topicCounts.get(label) ?? 0) + 1);
+        }
+      }
     }
 
     return ok({
@@ -129,6 +137,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       analytics: {
         questions: questionAnalytics,
         cities: Array.from(cities, ([name, value]) => ({ name, calls: value.calls, sentiment: value.sentimentCount ? Math.round((value.sentimentTotal / value.sentimentCount) * 10) / 10 : null })).sort((a, b) => b.calls - a.calls),
+        topics: Array.from(topicCounts, ([label, count]) => ({ label, count, percentage: insights.length ? Math.round((count / insights.length) * 1000) / 10 : 0 })).sort((a, b) => b.count - a.count).slice(0, 5),
       },
       status: campaign.status,
       maxRetries: campaign.maxRetries,

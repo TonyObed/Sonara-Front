@@ -48,7 +48,7 @@ export interface CampaignCallRow {
   city: string;
   time: string;
   dur: string | null;
-  sentiment: number | null; // non exposé par l'API → toujours null (Phase 2)
+  sentiment: number | null;
   status: FrontCallStatus;
   summary: string | null;
 }
@@ -74,7 +74,7 @@ export function mapApiCallToRow(c: ApiCall): CampaignCallRow {
       ? new Date(c.startedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
       : "—",
     dur: durLabel(c.durationSec),
-    sentiment: null,
+    sentiment: c.sentimentScore ?? null,
     status: CALL_STATUS_MAP[c.status] ?? "completed",
     summary: c.summary,
   };

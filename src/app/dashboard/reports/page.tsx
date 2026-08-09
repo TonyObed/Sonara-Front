@@ -4,20 +4,32 @@ import { useEffect, useState } from "react";
 
 type DbReport = { id: string; name: string; fileUrl: string | null; fileSizeBytes: number | null; generatedAt: string | null; createdAt: string; campaign: { name: string } | null; summary: { responseRate?: number; sentiment?: number } | null };
 type DbSchedule = { id: string; name: string; frequency: string; sendAt: string; recipients: unknown; isActive: boolean; campaign: { name: string } | null };
+type CampaignOption = { id: string; name: string };
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<DbReport[]>([]);
   const [scheduled, setScheduled] = useState<DbSchedule[]>([]);
-  useEffect(() => { let mounted = true; fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (mounted && payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); } }).catch(() => {}); return () => { mounted = false; }; }, []);
-  const downloadReport = (report: DbReport) => { if (report.fileUrl) window.open(report.fileUrl, "_blank", "noopener,noreferrer"); };
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
+  const [campaignId, setCampaignId] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loadReports = () => fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); } });
+  useEffect(() => { void loadReports(); fetch("/api/campaigns?limit=100", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCampaigns(payload.data.map((item: CampaignOption) => ({ id: item.id, name: item.name }))); }).catch(() => {}); }, []);
+  const downloadReport = (report: DbReport) => { if (report.fileUrl) window.open(`/api/reports/${report.id}`, "_blank", "noopener,noreferrer"); };
+  const generate = async () => {
+    setGenerating(true); setError(null);
+    try {
+      const response = await fetch("/api/reports", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(campaignId ? { campaignId } : {}) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Génération impossible.");
+      await loadReports();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Génération impossible."); }
+    finally { setGenerating(false); }
+  };
   const toggleSchedule = async (schedule: DbSchedule) => {
     const next = !schedule.isActive;
     const response = await fetch(`/api/reports/${schedule.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: next }) });
     if (response.ok) setScheduled((current) => current.map((item) => item.id === schedule.id ? { ...item, isActive: next } : item));
-  };
-
-  const handleDownload = (name: string) => {
-    alert(`Téléchargement du rapport PDF pour "${name}" lancé.`);
   };
 
   const sentColor = (sentiment: number | null) => {
@@ -35,8 +47,19 @@ export default function ReportsPage() {
           Rapports
         </h1>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "7px" }}>
-          GÉNÉRÉS AUTOMATIQUEMENT EN FIN DE CAMPAGNE — PDF + EXPORT CSV
+          RAPPORTS RÉELS GÉNÉRÉS À PARTIR DES APPELS ET INSIGHTS
         </div>
+      </div>
+
+      <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "16px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <select value={campaignId} onChange={(event) => setCampaignId(event.target.value)} style={{ minWidth: "230px", flex: 1, background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "10px", padding: "10px 12px", color: "var(--sn-text)" }}>
+          <option value="">Toutes les campagnes</option>
+          {campaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
+        </select>
+        <button onClick={() => { void generate(); }} disabled={generating} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 16px", fontWeight: 700, cursor: generating ? "wait" : "pointer", opacity: generating ? .65 : 1 }}>
+          {generating ? "Génération…" : "Générer le rapport CSV"}
+        </button>
+        {error && <span style={{ width: "100%", color: "var(--sn-red)", fontSize: "12px" }}>{error}</span>}
       </div>
 
       {/* Reports Cards Grid */}
@@ -123,7 +146,7 @@ export default function ReportsPage() {
                 <path d="M12 4v11M7 10l5 5 5-5"></path>
                 <path d="M4 19h16"></path>
               </svg>
-              Télécharger le PDF
+              Télécharger le CSV
             </button>
           </div>
         ))}

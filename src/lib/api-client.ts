@@ -136,6 +136,7 @@ export interface Call {
   startedAt: string | null;
   endedAt: string | null;
   summary: string | null;
+  sentimentScore?: number | null;
   transcript: TranscriptEntry[];
   contact: { firstName: string | null; lastName: string | null; phone: string; city?: string | null };
 }

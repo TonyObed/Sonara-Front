@@ -310,11 +310,15 @@ export async function GET(request: NextRequest) {
     const reconcile = await Promise.allSettled([
       runInternalJob(request, "/api/jobs/reconcile-calls"),
     ]);
+    const reports = await Promise.allSettled([
+      runInternalJob(request, "/api/jobs/report-scheduler"),
+    ]);
 
     return ok({
       promoted: promotedIds.length,
       dispatched,
       reconciled: reconcile[0].status === "fulfilled" && reconcile[0].value,
+      reportsScheduled: reports[0].status === "fulfilled" && reports[0].value,
       campaignsChecked: campaignIds.length,
     });
   } catch (error) {
