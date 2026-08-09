@@ -12,6 +12,7 @@ export default function ContactsPage() {
   const directory = data && !error ? data : [];
 
   const [filter, setFilter] = useState<"all" | "Particulier" | "PME" | "Premium" | "opt-out">("all");
+  const [search, setSearch] = useState("");
   const [selectedCampaignId, setSelectedCampaignId] = useState("");
   const [showImportTarget, setShowImportTarget] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -47,9 +48,10 @@ export default function ContactsPage() {
   });
 
   const filteredDirectory = decoratedDirectory.filter((d) => {
-    if (filter === "all") return true;
-    if (filter === "opt-out") return d.optout;
-    return d.segment === filter && !d.optout;
+    const matchesSegment = filter === "all" || (filter === "opt-out" ? d.optout : d.segment === filter && !d.optout);
+    const query = search.trim().toLocaleLowerCase("fr-FR");
+    const matchesSearch = !query || [d.name, d.phone, d.city, d.segment].some((value) => value.toLocaleLowerCase("fr-FR").includes(query));
+    return matchesSegment && matchesSearch;
   });
 
   const tabStyle = (active: boolean) => ({
@@ -182,6 +184,7 @@ export default function ContactsPage() {
       )}
 
       {/* Filter Segment tabs */}
+      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un contact, numéro, ville ou segment" style={{ maxWidth: "520px", background: "var(--sn-panel)", border: "1px solid var(--sn-w08)", borderRadius: "11px", padding: "12px 14px", color: "var(--sn-text)", fontSize: "13.5px", outline: "none" }} />
       <div style={{ display: "flex", flexWrap: "wrap" }}>
         <button style={tabStyle(filter === "all")} onClick={() => setFilter("all")}>
           Tous ({counts.all})

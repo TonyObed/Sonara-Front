@@ -34,6 +34,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   // Appels réels de la campagne (transcription accessible via le drawer / useCall).
   const { data: apiCalls } = useCampaignCalls(id);
   const callRows = (apiCalls ?? []).map(mapApiCallToRow);
+  const [callFilter, setCallFilter] = useState("all");
+  const filteredCallRows = callFilter === "all" ? callRows : callRows.filter((call) => call.status === callFilter);
   const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [campaignContacts, setCampaignContacts] = useState<CampaignContact[]>([]);
@@ -159,6 +161,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const exportCampaignCsv = () => {
     window.location.assign(`/api/campaigns/${campaign.id}/export?format=csv`);
   };
+  const generateCampaignReport = async () => {
+    try {
+      const response = await fetch("/api/reports", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: campaign.id }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Génération impossible.");
+      pushToast("Rapport généré. Il est disponible dans l'onglet Rapports.", "ok");
+    } catch (error) { pushToast(error instanceof Error ? error.message : "Génération impossible.", "warn"); }
+  };
 
   // Pausing Campaign logic
   const handlePauseToggle = () => {
@@ -214,6 +224,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <button onClick={exportCampaignCsv} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M4 19h16"></path></svg>
             Export CSV
+          </button>
+          <button onClick={() => { void generateCampaignReport(); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">
+            Générer le rapport
           </button>
         </div>
       </div>
@@ -383,7 +396,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       {/* 3. Calls List */}
       {activeTab === "calls" && (
         <>
-          {callRows.length > 0 ? (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {["all", "completed", "unreachable", "voicemail", "failed"].map((status) => <button key={status} onClick={() => setCallFilter(status)} style={{ border: "1px solid var(--sn-w12)", borderRadius: "18px", padding: "7px 11px", background: callFilter === status ? "rgba(0,82,255,.16)" : "var(--sn-panel)", color: callFilter === status ? "var(--sn-blue3)" : "var(--sn-w6)", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>{status === "all" ? "Tous" : CALL_STATUS_DICT[status as keyof typeof CALL_STATUS_DICT]?.label}</button>)}
+          </div>
+          {filteredCallRows.length > 0 ? (
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", overflowX: "auto" }}>
               <div style={{ minWidth: "760px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 90px 90px 110px 130px 36px", gap: "12px", alignItems: "center", padding: "14px 20px", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".12em", color: "var(--sn-w38)", borderBottom: "1px solid var(--sn-w06)" }}>
@@ -394,7 +410,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   <span>STATUT</span>
                   <span></span>
                 </div>
-                {callRows.map((a) => {
+                {filteredCallRows.map((a) => {
                   const cst = CALL_STATUS_DICT[a.status] || CALL_STATUS_DICT.completed;
                   const canOpen = !!a.summary;
                   return (

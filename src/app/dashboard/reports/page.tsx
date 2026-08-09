@@ -12,6 +12,9 @@ export default function ReportsPage() {
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [scheduleFrequency, setScheduleFrequency] = useState("WEEKLY");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleEmail, setScheduleEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const loadReports = () => fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); } });
   useEffect(() => { void loadReports(); fetch("/api/campaigns?limit=100", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCampaigns(payload.data.map((item: CampaignOption) => ({ id: item.id, name: item.name }))); }).catch(() => {}); }, []);
@@ -25,6 +28,15 @@ export default function ReportsPage() {
       await loadReports();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Génération impossible."); }
     finally { setGenerating(false); }
+  };
+  const createSchedule = async () => {
+    setError(null);
+    try {
+      const response = await fetch("/api/reports/schedules", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: campaignId || undefined, frequency: scheduleFrequency, sendAt: scheduleTime, recipients: scheduleEmail.split(",").map((email) => email.trim()).filter(Boolean) }) });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Programmation impossible.");
+      setScheduleEmail(""); await loadReports();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Programmation impossible."); }
   };
   const toggleSchedule = async (schedule: DbSchedule) => {
     const next = !schedule.isActive;
@@ -175,10 +187,16 @@ export default function ReportsPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ fontSize: "16px", fontWeight: 700 }}>Rapports programmés</div>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".1em", color: "var(--sn-w4)" }}>
-            ENVOI AUTOMATIQUE PAR EMAIL
+            GÉNÉRATION AUTOMATIQUE DANS LE DASHBOARD
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", padding: "10px 0 16px" }}>
+            <select value={scheduleFrequency} onChange={(event) => setScheduleFrequency(event.target.value)} style={{ background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "9px", padding: "9px", color: "var(--sn-text)" }}><option value="DAILY">Quotidien</option><option value="WEEKLY">Hebdomadaire</option><option value="MONTHLY">Mensuel</option></select>
+            <input type="time" value={scheduleTime} onChange={(event) => setScheduleTime(event.target.value)} style={{ background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "9px", padding: "9px", color: "var(--sn-text)" }} />
+            <input value={scheduleEmail} onChange={(event) => setScheduleEmail(event.target.value)} placeholder="email@entreprise.com" style={{ minWidth: "210px", flex: 1, background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "9px", padding: "9px", color: "var(--sn-text)" }} />
+            <button onClick={() => { void createSchedule(); }} style={{ border: "none", borderRadius: "9px", background: "#0052FF", color: "#fff", padding: "9px 13px", fontWeight: 700, cursor: "pointer" }}>Programmer</button>
+          </div>
           {scheduled.map((s, index) => (
             <div
               key={s.id}
