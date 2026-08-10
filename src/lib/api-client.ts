@@ -221,7 +221,7 @@ export const api = {
       post<{ company: Company; user: User; accessToken: string }>("/auth/2fa/verify", body),
     logout: () => post<{ message: string }>("/auth/logout"),
     me: () => get<{ company: Company; user: User }>("/auth/me"),
-    updateProfile: (body: { firstName?: string; lastName?: string; email?: string; avatarUrl?: string | null }) =>
+    updateProfile: (body: { firstName?: string; lastName?: string | null; email?: string; avatarUrl?: string | null }) =>
       patch<User>("/auth/profile", body),
     forgotPassword: (body: { email: string }) =>
       post<{ message: string; resetUrl?: string }>("/auth/forgot-password", body),

@@ -22,12 +22,12 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
 
     const firstName = typeof body.firstName === "string" ? body.firstName.trim() : undefined;
-    const lastName = typeof body.lastName === "string" ? body.lastName.trim() : undefined;
+    const lastName = typeof body.lastName === "string" ? body.lastName.trim() || null : undefined;
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : undefined;
     const avatarUrl = nullableAvatar(body.avatarUrl);
 
     if ((firstName !== undefined && (firstName.length < 1 || firstName.length > 80)) ||
-        (lastName !== undefined && (lastName.length < 1 || lastName.length > 80)) ||
+        (lastName !== undefined && lastName !== null && lastName.length > 80) ||
         (email !== undefined && !/^\S+@\S+\.\S+$/.test(email)) ||
         (body.avatarUrl !== undefined && avatarUrl === undefined)) {
       return badRequest("Profil invalide.");
