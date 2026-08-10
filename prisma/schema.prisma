@@ -103,8 +103,29 @@ model Company {
   apiKeys            CompanyApiKey[]
   supportTickets     SupportTicket[]
   testCalls          TestCall[]
+  onboarding         CompanyOnboarding?
 
   @@map("companies")
+}
+
+// Parcours de découverte affiché uniquement après une nouvelle inscription.
+// Il appartient à l'entreprise : les collaborateurs invités ne le relancent pas.
+model CompanyOnboarding {
+  id              String    @id @default(uuid())
+  companyId       String    @unique @map("company_id")
+  acquisition     String?   @map("acquisition")
+  jobRole         String?   @map("job_role")
+  primaryGoal     String?   @map("primary_goal")
+  contactVolume   String?   @map("contact_volume")
+  completedAt     DateTime? @map("completed_at")
+  skippedAt       DateTime? @map("skipped_at")
+  tutorialSeenAt  DateTime? @map("tutorial_seen_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_onboarding")
 }
 
 // ─── USERS ────────────────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         plan: "STARTER",
         apiCredit: 0,
         settings: { create: {} },
+        onboarding: { create: {} },
       },
     });
 

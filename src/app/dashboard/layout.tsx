@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import "./dashboard.css";
 import { DashboardProvider, useDashboard } from "./DashboardContext";
+import { OnboardingFlow } from "./OnboardingFlow";
 import { api } from "@/lib/api-client";
 import { useCall } from "@/hooks/useSonara";
 
@@ -1187,6 +1188,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <DashboardProvider>
       <DashboardLayoutInner>{children}</DashboardLayoutInner>
+      <OnboardingFlow />
     </DashboardProvider>
   );
 }
