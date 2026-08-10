@@ -20,7 +20,13 @@ export default function SettingsPage() {
 
   const curPlan = plans.find((p) => p.id === plan) || plans[1];
   const planBadge = curPlan.contactSales ? "SUR DEVIS" : `${curPlan.price} FCFA / APPEL`;
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string; avatarUrl: string | null }>>([]);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string; avatarUrl: string | null; isActive: boolean }>>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"MANAGER" | "VIEWER">("MANAGER");
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null);
   const [apiKeys, setApiKeys] = useState<Array<{ id: string; prefix: string; revokedAt: string | null }>>([]);
   const [createdApiSecret, setCreatedApiSecret] = useState<string | null>(null);
@@ -33,10 +39,10 @@ export default function SettingsPage() {
     let mounted = true;
     Promise.all([fetch("/api/company/members", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/api-keys", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()), fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json())]).then(([members, keys, settings, me]) => {
       if (!mounted) return;
-      if (members.success) setTeamMembers(members.data.map((user: { id: string; firstName: string; lastName: string; email: string; role: string; avatarUrl: string | null }) => ({ id: user.id, name: `${user.firstName} ${user.lastName}`.trim(), email: user.email, role: user.role.toLowerCase(), avatarUrl: user.avatarUrl })));
+      if (members.success) setTeamMembers(members.data.map((user: { id: string; firstName: string | null; lastName: string | null; email: string; role: string; avatarUrl: string | null; isActive: boolean }) => ({ id: user.id, name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Invitation en attente", email: user.email, role: user.role.toLowerCase(), avatarUrl: user.avatarUrl, isActive: user.isActive })));
       if (keys.success) { setApiKeys(keys.data); setApiKeyPrefix(keys.data.find((key: { revokedAt: string | null }) => !key.revokedAt)?.prefix ?? null); }
       if (settings.success) setWebhookUrl(settings.data.webhookUrl ?? null);
-      if (me.success) setTwoFactorEnabled(Boolean(me.data.company.twoFactorEnabled));
+      if (me.success) { setTwoFactorEnabled(Boolean(me.data.company.twoFactorEnabled)); setCurrentUserId(me.data.user.id); }
     }).catch(() => {});
     return () => { mounted = false; };
   }, []);
@@ -71,17 +77,46 @@ export default function SettingsPage() {
   };
 
   const inviteCollaborator = async () => {
-    const email = window.prompt("Email professionnel du collaborateur :")?.trim().toLowerCase();
-    if (!email) return;
-    const role = window.confirm("OK : rôle Manager. Annuler : rôle Viewer.") ? "MANAGER" : "VIEWER";
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) { pushToast("Saisissez l'adresse e-mail du collaborateur.", "warn"); return; }
+    setInviteSubmitting(true);
     try {
-      const response = await fetch("/api/auth/invite", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role }) });
+      const response = await fetch("/api/auth/invite", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role: inviteRole }) });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Invitation impossible.");
       await navigator.clipboard?.writeText(payload.data.inviteUrl);
+      setInviteUrl(payload.data.inviteUrl);
+      setTeamMembers((previous) => {
+        const pending = { id: `pending-${email}`, name: "Invitation en attente", email, role: inviteRole.toLowerCase(), avatarUrl: null, isActive: false };
+        return [pending, ...previous.filter((member) => member.email !== email)];
+      });
       pushToast("Invitation créée : lien copié dans le presse-papiers.", "ok");
     } catch (inviteError) {
       pushToast(inviteError instanceof Error ? inviteError.message : "Invitation impossible.", "warn");
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const revokeCollaborator = async (member: { id: string; email: string; isActive: boolean }) => {
+    if (member.id.startsWith("pending-")) {
+      // Une invitation tout juste créée est encore identifiée par l'e-mail dans l'état local.
+      const membersResponse = await fetch("/api/company/members", { credentials: "include" });
+      const membersPayload = await membersResponse.json();
+      const persisted = membersPayload.success ? membersPayload.data.find((entry: { email: string }) => entry.email === member.email) : null;
+      if (!persisted) { pushToast("Impossible de retrouver cette invitation.", "warn"); return; }
+      member = { id: persisted.id, email: member.email, isActive: persisted.isActive };
+    }
+    const label = member.isActive ? "Retirer ce collaborateur ? Ses sessions seront fermées." : "Annuler cette invitation ?";
+    if (!window.confirm(label)) return;
+    try {
+      const response = await fetch(`/api/company/members/${member.id}`, { method: "DELETE", credentials: "include" });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Retrait impossible.");
+      setTeamMembers((previous) => previous.filter((entry) => entry.email !== member.email));
+      pushToast(member.isActive ? "Collaborateur retiré. Ses sessions ont été fermées." : "Invitation annulée.", "ok");
+    } catch (memberError) {
+      pushToast(memberError instanceof Error ? memberError.message : "Retrait impossible.", "warn");
     }
   };
 
@@ -324,7 +359,7 @@ export default function SettingsPage() {
             <div style={{ display: "flex", flexDirection: "column" }}>
               {teamMembers.map((u, index) => {
                 // Highlight active profile settings locally
-                const isSelf = index === 0;
+                const isSelf = u.id === currentUserId;
                 const displayName = isSelf ? profile.name : u.name;
                 const displayEmail = isSelf ? profile.email : u.email;
                 const initials = getInitials(displayName);
@@ -334,7 +369,7 @@ export default function SettingsPage() {
 
                 return (
                   <div
-                    key={index}
+                    key={u.id}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -367,15 +402,19 @@ export default function SettingsPage() {
                         {displayEmail}
                       </div>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: 600, color: roleStyles.color, background: roleStyles.bg, padding: "4px 10px", borderRadius: "12px" }}>
-                      {u.role}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                      {!u.isActive && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "9px", color: "var(--sn-amber)", background: "rgba(255,176,46,.12)", padding: "4px 7px", borderRadius: "12px" }}>EN ATTENTE</span>}
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: roleStyles.color, background: roleStyles.bg, padding: "4px 10px", borderRadius: "12px" }}>
+                        {u.role}
+                      </span>
+                      {!isSelf && u.role !== "admin" && u.role !== "super_admin" && <button onClick={() => { void revokeCollaborator(u); }} title={u.isActive ? "Retirer le collaborateur" : "Annuler l'invitation"} style={{ border: "none", background: "transparent", color: "var(--sn-red)", cursor: "pointer", fontSize: "15px", padding: "3px 0" }}>×</button>}
+                    </div>
                   </div>
                 );
               })}
             </div>
             <button
-              onClick={() => { void inviteCollaborator(); }}
+              onClick={() => { setInviteOpen(true); setInviteUrl(null); }}
               className="sn-hover-ticket"
               style={{
                 marginTop: "14px",
@@ -411,6 +450,28 @@ export default function SettingsPage() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", marginTop: "16px" }}>
               <button onClick={() => { setTwoFactorSetup(null); setTwoFactorCode(""); }} style={{ background: "transparent", color: "var(--sn-w7)", border: "1px solid var(--sn-w14)", borderRadius: "10px", padding: "10px 14px", cursor: "pointer" }}>Annuler</button>
               <button onClick={() => { void confirmTwoFactorSetup(); }} disabled={twoFactorCode.length !== 6} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 14px", fontWeight: 700, cursor: "pointer", opacity: twoFactorCode.length === 6 ? 1 : .55 }}>Confirmer</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {inviteOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Inviter un collaborateur" style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div style={{ width: "min(430px, 100%)", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "16px", padding: "22px", boxShadow: "0 24px 60px rgba(0,0,0,.35)" }}>
+            <div style={{ fontSize: "17px", fontWeight: 700 }}>Inviter un collaborateur</div>
+            <p style={{ fontSize: "13px", color: "var(--sn-w6)", lineHeight: 1.5 }}>Créez un lien valable 48 h. Vous pourrez le partager directement avec votre collaborateur.</p>
+            {inviteUrl ? (
+              <div style={{ background: "rgba(43,213,118,.09)", border: "1px solid rgba(43,213,118,.22)", borderRadius: "10px", padding: "12px", fontSize: "12px", color: "var(--sn-w75)", wordBreak: "break-all" }}>
+                Lien copié dans le presse-papiers.<br /><span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px" }}>{inviteUrl}</span>
+              </div>
+            ) : <>
+              <input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} type="email" placeholder="email@entreprise.com" style={{ width: "100%", boxSizing: "border-box", background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "10px", padding: "11px 13px", color: "var(--sn-text)", fontSize: "14px", outline: "none" }} />
+              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                {(["MANAGER", "VIEWER"] as const).map((role) => <button key={role} onClick={() => setInviteRole(role)} style={{ flex: 1, border: `1px solid ${inviteRole === role ? "#0052FF" : "var(--sn-w14)"}`, background: inviteRole === role ? "rgba(0,82,255,.14)" : "transparent", color: inviteRole === role ? "var(--sn-blue2)" : "var(--sn-w7)", borderRadius: "9px", padding: "9px", cursor: "pointer", fontWeight: 700, fontSize: "12px" }}>{role === "MANAGER" ? "Manager" : "Viewer"}</button>)}
+              </div>
+            </>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", marginTop: "16px" }}>
+              <button onClick={() => setInviteOpen(false)} style={{ background: "transparent", color: "var(--sn-w7)", border: "1px solid var(--sn-w14)", borderRadius: "10px", padding: "10px 14px", cursor: "pointer" }}>{inviteUrl ? "Fermer" : "Annuler"}</button>
+              {!inviteUrl && <button onClick={() => { void inviteCollaborator(); }} disabled={inviteSubmitting} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "10px", padding: "10px 14px", fontWeight: 700, cursor: "pointer", opacity: inviteSubmitting ? .55 : 1 }}>{inviteSubmitting ? "Création…" : "Créer l'invitation"}</button>}
             </div>
           </div>
         </div>
