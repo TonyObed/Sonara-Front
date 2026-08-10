@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { unauthorized } from "@/lib/response";
-import { getSupabaseOrigin } from "@/lib/supabase";
+import { getSupabaseOrigin, getSupabaseServiceHeaders } from "@/lib/supabase";
 
 const AVATAR_BUCKET = "avatars";
 
@@ -29,10 +29,7 @@ export async function GET(request: NextRequest) {
   }
 
   const storedImage = await fetch(source, {
-    headers: {
-      authorization: `Bearer ${secretKey}`,
-      apikey: secretKey,
-    },
+    headers: getSupabaseServiceHeaders(secretKey),
     cache: "no-store",
   });
   if (!storedImage.ok) return new Response(null, { status: storedImage.status });

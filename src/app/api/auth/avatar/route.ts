@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { badRequest, handleError, ok, unauthorized } from "@/lib/response";
-import { getSupabaseOrigin } from "@/lib/supabase";
+import { getSupabaseOrigin, getSupabaseServiceHeaders } from "@/lib/supabase";
 
 const ALLOWED_TYPES = new Map([
   ["image/jpeg", "jpg"],
@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
     const upload = await fetch(`${supabaseUrl}/storage/v1/object/${AVATAR_BUCKET}/${path}`, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${secretKey}`,
-        apikey: secretKey,
+        ...getSupabaseServiceHeaders(secretKey),
         "content-type": file.type,
         "x-upsert": "false",
       },

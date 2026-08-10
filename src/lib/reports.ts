@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getSupabaseOrigin } from "@/lib/supabase";
+import { getSupabaseOrigin, getSupabaseServiceHeaders } from "@/lib/supabase";
 
 const REPORT_BUCKET = "sonara-reports";
 
@@ -24,7 +24,7 @@ function toCsv(rows: Record<string, unknown>[]): string {
 async function ensureBucket(origin: string, key: string) {
   const response = await fetch(`${origin}/storage/v1/bucket`, {
     method: "POST",
-    headers: { authorization: `Bearer ${key}`, apikey: key, "content-type": "application/json" },
+    headers: { ...getSupabaseServiceHeaders(key), "content-type": "application/json" },
     body: JSON.stringify({ id: REPORT_BUCKET, name: REPORT_BUCKET, public: false }),
   });
   // 400 signifie généralement que le bucket existe déjà.
@@ -42,8 +42,7 @@ async function uploadReport(path: string, content: string) {
   const response = await fetch(`${origin}/storage/v1/object/${REPORT_BUCKET}/${path}`, {
     method: "POST",
     headers: {
-      authorization: `Bearer ${key}`,
-      apikey: key,
+      ...getSupabaseServiceHeaders(key),
       "content-type": "text/csv; charset=utf-8",
       "x-upsert": "false",
     },
@@ -57,7 +56,7 @@ export async function getStoredReport(path: string) {
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!origin || !key) throw new Error("Le stockage des rapports n'est pas configuré.");
   const response = await fetch(`${origin}/storage/v1/object/${REPORT_BUCKET}/${path}`, {
-    headers: { authorization: `Bearer ${key}`, apikey: key },
+    headers: getSupabaseServiceHeaders(key),
   });
   if (!response.ok) throw new Error("Le fichier du rapport est introuvable.");
   return response;
