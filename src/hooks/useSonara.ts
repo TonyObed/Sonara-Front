@@ -186,10 +186,10 @@ export function useAuthActions() {
   }, []);
 
   const register = useCallback(
-    async (companyName: string, email: string, password: string) => {
+    async (fullName: string, companyName: string, email: string, password: string) => {
       setState({ submitting: true, error: null, fieldErrors: {} });
       try {
-        const res = await api.auth.register({ companyName, email, password });
+        const res = await api.auth.register({ fullName, companyName, email, password });
         setState({ submitting: false, error: null, fieldErrors: {} });
         return res.data;
       } catch (e) {

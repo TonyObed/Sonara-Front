@@ -232,6 +232,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
     try {
       if (mode === "signup") {
         await api.auth.register({
+          fullName: values.name.trim(),
           companyName: values.company.trim(),
           email: values.email.trim(),
           password: values.password,

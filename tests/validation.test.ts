@@ -40,6 +40,7 @@ describe("normalizePhoneCI — numéros Côte d'Ivoire", () => {
 describe("RegisterSchema — règles d'inscription", () => {
   it("accepte un mot de passe valide (maj + chiffre + 8 car.) et minuscule l'email", () => {
     const parsed = RegisterSchema.parse({
+      fullName: "Koffi N'Guessan",
       companyName: "Banque XYZ",
       email: "Admin@Test.CI",
       password: "Sonara2026",
@@ -49,19 +50,25 @@ describe("RegisterSchema — règles d'inscription", () => {
 
   it("refuse un mot de passe sans majuscule", () => {
     expect(() =>
-      RegisterSchema.parse({ companyName: "ACME", email: "a@b.ci", password: "sonara2026" })
+      RegisterSchema.parse({ fullName: "Koffi N'Guessan", companyName: "ACME", email: "a@b.ci", password: "sonara2026" })
     ).toThrow();
   });
 
   it("refuse un mot de passe sans chiffre", () => {
     expect(() =>
-      RegisterSchema.parse({ companyName: "ACME", email: "a@b.ci", password: "SonaraPass" })
+      RegisterSchema.parse({ fullName: "Koffi N'Guessan", companyName: "ACME", email: "a@b.ci", password: "SonaraPass" })
     ).toThrow();
   });
 
   it("refuse un nom d'entreprise trop court", () => {
     expect(() =>
-      RegisterSchema.parse({ companyName: "A", email: "a@b.ci", password: "Sonara2026" })
+      RegisterSchema.parse({ fullName: "Koffi N'Guessan", companyName: "A", email: "a@b.ci", password: "Sonara2026" })
+    ).toThrow();
+  });
+
+  it("refuse une inscription sans identité utilisateur", () => {
+    expect(() =>
+      RegisterSchema.parse({ fullName: "", companyName: "ACME", email: "a@b.ci", password: "Sonara2026" })
     ).toThrow();
   });
 });

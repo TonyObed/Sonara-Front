@@ -24,6 +24,15 @@ const PUBLIC_API_ROUTES = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Aperçu visuel local de l'onboarding, jamais disponible en production.
+  if (
+    process.env.NODE_ENV === "development" &&
+    pathname === "/onboarding" &&
+    request.nextUrl.searchParams.get("preview") === "1"
+  ) {
+    return NextResponse.next();
+  }
+
   // ─── Protection des pages dashboard ────────────────────────────────────────
   if (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding")) {
     const token = request.cookies.get("sonara_access")?.value;

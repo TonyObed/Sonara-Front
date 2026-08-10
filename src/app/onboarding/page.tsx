@@ -1,57 +1,322 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import styles from "./onboarding.module.css";
 
-const choices = {
-  acquisition: ["Recommandation", "Réseaux sociaux", "Recherche Google", "Événement / démo", "Autre"],
-  jobRole: ["Dirigeant(e)", "Marketing / communication", "Relation client", "Études / qualité", "Commercial", "Autre"],
-  primaryGoal: ["Mesurer la satisfaction", "Qualifier des prospects", "Relancer des clients", "Mener une étude", "Autre"],
-  contactVolume: ["Moins de 100", "100 à 500", "500 à 2 000", "Plus de 2 000"],
+type AnswerKey = "acquisition" | "jobRole" | "primaryGoal" | "contactVolume";
+type Answers = Record<AnswerKey, string>;
+
+type Choice = { title: string; description: string; code: string };
+type Step = {
+  key: AnswerKey;
+  shortLabel: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  choices: Choice[];
 };
-type Answers = { acquisition: string; jobRole: string; primaryGoal: string; contactVolume: string };
-const empty: Answers = { acquisition: "", jobRole: "", primaryGoal: "", contactVolume: "" };
+
+const STEPS: Step[] = [
+  {
+    key: "acquisition",
+    shortLabel: "Découverte",
+    eyebrow: "Faisons connaissance",
+    title: "Comment avez-vous découvert Sonara ?",
+    description: "Votre réponse nous aide à comprendre ce qui vous a mené jusqu'ici.",
+    choices: [
+      { title: "Recommandation", description: "Un proche ou un collègue", code: "RE" },
+      { title: "Réseaux sociaux", description: "LinkedIn, Instagram, X…", code: "RS" },
+      { title: "Recherche Google", description: "Une recherche sur le web", code: "GO" },
+      { title: "Événement / démo", description: "Une présentation ou rencontre", code: "EV" },
+      { title: "Autre", description: "Une autre source", code: "AU" },
+    ],
+  },
+  {
+    key: "jobRole",
+    shortLabel: "Votre rôle",
+    eyebrow: "Votre quotidien",
+    title: "Quel rôle occupez-vous dans l'entreprise ?",
+    description: "Nous adapterons les raccourcis et conseils de départ à votre métier.",
+    choices: [
+      { title: "Dirigeant(e)", description: "Vision, pilotage et décisions", code: "DG" },
+      { title: "Marketing / communication", description: "Marque et connaissance client", code: "MK" },
+      { title: "Relation client", description: "Satisfaction et fidélisation", code: "RC" },
+      { title: "Études / qualité", description: "Analyse et amélioration continue", code: "EQ" },
+      { title: "Commercial", description: "Prospection et qualification", code: "CO" },
+      { title: "Autre", description: "Un autre métier", code: "AU" },
+    ],
+  },
+  {
+    key: "primaryGoal",
+    shortLabel: "Objectif",
+    eyebrow: "Votre première victoire",
+    title: "Que voulez-vous accomplir en premier ?",
+    description: "Sonara préparera votre espace autour de ce premier cas d'usage.",
+    choices: [
+      { title: "Mesurer la satisfaction", description: "Collecter des avis à grande échelle", code: "CS" },
+      { title: "Qualifier des prospects", description: "Identifier les opportunités", code: "QP" },
+      { title: "Relancer des clients", description: "Réactiver et fidéliser", code: "RL" },
+      { title: "Mener une étude", description: "Explorer un marché ou un sujet", code: "ET" },
+      { title: "Autre", description: "Un objectif personnalisé", code: "AU" },
+    ],
+  },
+  {
+    key: "contactVolume",
+    shortLabel: "Volume",
+    eyebrow: "À votre échelle",
+    title: "Combien de contacts prévoyez-vous ?",
+    description: "Une simple estimation pour adapter votre démarrage. Cela ne limite pas votre compte.",
+    choices: [
+      { title: "Moins de 100", description: "Premiers tests et petits panels", code: "<1" },
+      { title: "100 à 500", description: "Campagnes ciblées régulières", code: "5H" },
+      { title: "500 à 2 000", description: "Volume intermédiaire", code: "2K" },
+      { title: "Plus de 2 000", description: "Déploiement à grande échelle", code: "+2" },
+    ],
+  },
+];
+
+const EMPTY_ANSWERS: Answers = {
+  acquisition: "",
+  jobRole: "",
+  primaryGoal: "",
+  contactVolume: "",
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(empty);
+  const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { fetch("/api/company/onboarding", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (!payload.success || !payload.data.shouldShow) router.replace("/dashboard"); else setReady(true); }).catch(() => router.replace("/dashboard")); }, [router]);
-  const steps = [
-    { key: "acquisition" as const, label: "Découverte", title: "Comment avez-vous connu Sonara ?", sub: "Une réponse rapide pour mieux comprendre ce qui vous aide." },
-    { key: "jobRole" as const, label: "Votre rôle", title: "Quel est votre rôle dans l'entreprise ?", sub: "Nous adapterons les recommandations de départ." },
-    { key: "primaryGoal" as const, label: "Objectif", title: "Que voulez-vous accomplir en premier ?", sub: "Votre espace sera orienté vers ce premier cas d'usage." },
-    { key: "contactVolume" as const, label: "Volume", title: "Quelle taille de liste prévoyez-vous ?", sub: "C'est une estimation, elle ne limite pas votre compte." },
-  ];
-  const current = steps[step];
-  const value = answers[current?.key];
-  const skip = async () => { setSaving(true); await fetch("/api/company/onboarding", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ skipped: true }) }).catch(() => {}); router.replace("/dashboard"); };
-  const finish = async () => { setSaving(true); setError(null); try { const response = await fetch("/api/company/onboarding", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...answers, tutorialSeen: true }) }); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Enregistrement impossible."); setStep(4); } catch (cause) { setError(cause instanceof Error ? cause.message : "Enregistrement impossible."); } finally { setSaving(false); } };
-  if (!ready) return <main style={{ minHeight: "100vh", background: "#090b11" }} />;
 
-  return <main style={{ minHeight: "100vh", background: "radial-gradient(circle at 78% 12%, rgba(0,82,255,.16), transparent 27%), #090b11", color: "#f5f7fb", display: "flex", flexDirection: "column" }}>
-    <header style={{ height: "72px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 clamp(22px, 5vw, 72px)", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
-      <Image src="/Branding bard sonara/Sonara_Logo_Variante_01.png" alt="Sonara" width={126} height={31} priority />
-      {step < 4 && <button onClick={() => { void skip(); }} disabled={saving} style={{ background: "transparent", border: 0, color: "rgba(255,255,255,.56)", fontSize: "13px", cursor: "pointer" }}>Configurer plus tard</button>}
-    </header>
-    <section style={{ flex: 1, display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(300px,.75fr)", alignItems: "stretch" }}>
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "48px 28px" }}>
-        <div style={{ width: "min(610px, 100%)" }}>
-          {step < 4 ? <>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", fontFamily: "monospace", fontSize: "11px", color: "#75a0ff", letterSpacing: ".1em" }}><span>CONFIGURATION DE VOTRE ESPACE</span><span style={{ color: "rgba(255,255,255,.35)" }}>0{step + 1}/04</span></div>
-            <div style={{ display: "flex", gap: "7px", marginTop: "18px" }}>{steps.map((item, index) => <div key={item.key} style={{ height: "4px", flex: 1, borderRadius: "9px", background: index <= step ? "#276bff" : "rgba(255,255,255,.1)" }} />)}</div>
-            <h1 style={{ fontSize: "clamp(30px,4vw,46px)", lineHeight: 1.08, margin: "38px 0 13px", letterSpacing: "-.035em" }}>{current.title}</h1><p style={{ color: "rgba(255,255,255,.6)", fontSize: "16px", margin: 0, lineHeight: 1.55 }}>{current.sub}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(235px,1fr))", gap: "12px", marginTop: "34px" }}>{choices[current.key].map((choice) => <button key={choice} onClick={() => setAnswers((previous) => ({ ...previous, [current.key]: choice }))} style={{ textAlign: "left", padding: "17px", minHeight: "60px", background: value === choice ? "rgba(39,107,255,.2)" : "rgba(255,255,255,.035)", color: "#fff", border: `1px solid ${value === choice ? "#3c7aff" : "rgba(255,255,255,.1)"}`, borderRadius: "12px", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>{choice}</button>)}</div>
-            {error && <p style={{ color: "#ff7d7d", fontSize: "13px" }}>{error}</p>}
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "35px" }}><button onClick={() => setStep((n) => Math.max(0, n - 1))} disabled={step === 0 || saving} style={{ background: "transparent", border: 0, color: "rgba(255,255,255,.6)", cursor: "pointer", opacity: step === 0 ? .35 : 1 }}>← Retour</button><button disabled={!value || saving} onClick={() => step === 3 ? void finish() : setStep((n) => n + 1)} style={{ border: 0, background: "#276bff", color: "#fff", borderRadius: "10px", padding: "13px 20px", fontWeight: 700, cursor: "pointer", opacity: !value || saving ? .55 : 1 }}>{saving ? "Enregistrement…" : step === 3 ? "Terminer" : "Continuer →"}</button></div>
-          </> : <><span style={{ color: "#44d48a", fontFamily: "monospace", fontSize: "11px", letterSpacing: ".1em" }}>VOTRE ESPACE EST PRÊT</span><h1 style={{ fontSize: "clamp(32px,4vw,48px)", lineHeight: 1.08, margin: "27px 0 14px", letterSpacing: "-.035em" }}>Votre première campagne peut commencer.</h1><p style={{ color: "rgba(255,255,255,.6)", fontSize: "16px", lineHeight: 1.6 }}>Vous êtes prêt à tester Sonara avec une petite liste de contacts. Le dashboard vous accompagnera à chaque étape.</p><div style={{ marginTop: "31px", display: "grid", gap: "10px" }}>{["Créer une campagne", "Importer un fichier CSV", "Recevoir un appel test", "Lire les résultats et le rapport"].map((item, index) => <div key={item} style={{ padding: "14px 16px", border: "1px solid rgba(255,255,255,.1)", borderRadius: "11px", color: "rgba(255,255,255,.85)" }}><span style={{ color: "#75a0ff", fontFamily: "monospace", marginRight: "12px" }}>0{index + 1}</span>{item}</div>)}</div><button onClick={() => router.replace("/dashboard/campaigns/new")} style={{ marginTop: "30px", width: "100%", border: 0, background: "#276bff", color: "#fff", borderRadius: "11px", padding: "15px", fontWeight: 700, cursor: "pointer" }}>Créer ma première campagne →</button></>}
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("preview") === "1") {
+      setReady(true);
+      return;
+    }
+    fetch("/api/company/onboarding", { credentials: "include" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!payload.success || !payload.data.shouldShow) {
+          router.replace("/dashboard");
+          return;
+        }
+        setReady(true);
+      })
+      .catch(() => router.replace("/dashboard"));
+  }, [router]);
+
+  const current = STEPS[Math.min(step, STEPS.length - 1)];
+  const selectedValue = answers[current.key];
+  const answeredCount = useMemo(() => Object.values(answers).filter(Boolean).length, [answers]);
+  const completion = step >= STEPS.length ? 100 : answeredCount * 25;
+
+  const skip = async () => {
+    setSaving(true);
+    await fetch("/api/company/onboarding", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skipped: true }),
+    }).catch(() => undefined);
+    router.replace("/dashboard");
+  };
+
+  const finish = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/company/onboarding", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...answers, tutorialSeen: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error?.message ?? "Enregistrement impossible.");
+      }
+      setStep(STEPS.length);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!ready) {
+    return <main className={styles.loading}><span /></main>;
+  }
+
+  const isComplete = step >= STEPS.length;
+
+  return (
+    <main className={styles.shell}>
+      <div className={styles.auroraOne} />
+      <div className={styles.auroraTwo} />
+      <div className={styles.grid} />
+
+      <aside className={styles.sidebar}>
+        <div>
+          <Image
+            src="/Branding bard sonara/Sonara_Logo_Variante_01.png"
+            alt="Sonara"
+            width={126}
+            height={31}
+            priority
+            className={styles.logo}
+          />
+          <div className={styles.sidebarIntro}>
+            <span className={styles.monoLabel}>MISE EN ROUTE</span>
+            <h2>Votre espace,<br />à votre image.</h2>
+            <p>Quatre réponses. Une expérience Sonara mieux adaptée dès le premier appel.</p>
+          </div>
         </div>
-      </div>
-      <aside style={{ padding: "48px clamp(28px,5vw,72px)", borderLeft: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.018)", display: "flex", flexDirection: "column", justifyContent: "center", gap: "24px" }}><span style={{ color: "rgba(255,255,255,.4)", fontFamily: "monospace", fontSize: "10px", letterSpacing: ".14em" }}>{step < 4 ? steps[step].label.toUpperCase() : "PROCHAINE ÉTAPE"}</span><div style={{ padding: "24px", border: "1px solid rgba(255,255,255,.1)", borderRadius: "16px", background: "linear-gradient(145deg,rgba(40,105,255,.14),rgba(255,255,255,.025))" }}><div style={{ width: "38px", height: "38px", borderRadius: "12px", background: "rgba(80,140,255,.2)", color: "#7aa5ff", display: "grid", placeItems: "center", fontWeight: 800 }}>S</div><h2 style={{ fontSize: "19px", margin: "20px 0 9px" }}>Sonara s'adapte à votre usage.</h2><p style={{ margin: 0, color: "rgba(255,255,255,.55)", fontSize: "14px", lineHeight: 1.6 }}>Vos réponses servent à personnaliser le point de départ, jamais à modifier vos droits ou vos données.</p></div><p style={{ margin: 0, color: "rgba(255,255,255,.35)", lineHeight: 1.65, fontSize: "13px" }}>Vous pourrez modifier vos paramètres et lancer une campagne quand vous le souhaitez.</p></aside>
-    </section>
-  </main>;
+
+        <nav className={styles.stepList} aria-label="Progression de l'onboarding">
+          {STEPS.map((item, index) => {
+            const done = index < step || isComplete;
+            const active = index === step && !isComplete;
+            return (
+              <div key={item.key} className={`${styles.stepItem} ${active ? styles.stepActive : ""} ${done ? styles.stepDone : ""}`}>
+                <div className={styles.stepMarker}>{done ? "✓" : String(index + 1).padStart(2, "0")}</div>
+                <div>
+                  <span>Étape {index + 1}</span>
+                  <strong>{item.shortLabel}</strong>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className={styles.sidebarFoot}>
+          <div className={styles.securityDot} />
+          <p><strong>Vos réponses restent privées.</strong><br />Elles personnalisent votre accueil, jamais vos droits.</p>
+        </div>
+      </aside>
+
+      <section className={styles.workspace}>
+        <header className={styles.topbar}>
+          <div className={styles.mobileBrand}>
+            <Image src="/Branding bard sonara/Sonara_Logo_Variante_01.png" alt="Sonara" width={108} height={27} />
+          </div>
+          {!isComplete && (
+            <div className={styles.progressBlock}>
+              <span>{answeredCount}/4 réponses</span>
+              <div className={styles.progressTrack}><i style={{ width: `${completion}%` }} /></div>
+              <strong>{completion}%</strong>
+            </div>
+          )}
+          {!isComplete && (
+            <button className={styles.skipButton} type="button" onClick={() => void skip()} disabled={saving}>
+              Configurer plus tard
+            </button>
+          )}
+        </header>
+
+        <div className={styles.contentGrid}>
+          <div className={styles.formColumn}>
+            {!isComplete ? (
+              <div className={styles.question} key={current.key}>
+                <div className={styles.eyebrow}><span />{current.eyebrow}</div>
+                <h1>{current.title}</h1>
+                <p className={styles.lead}>{current.description}</p>
+
+                <div className={styles.choiceGrid}>
+                  {current.choices.map((choice) => {
+                    const selected = selectedValue === choice.title;
+                    return (
+                      <button
+                        type="button"
+                        key={choice.title}
+                        className={`${styles.choiceCard} ${selected ? styles.choiceSelected : ""}`}
+                        onClick={() => setAnswers((previous) => ({ ...previous, [current.key]: choice.title }))}
+                        aria-pressed={selected}
+                      >
+                        <span className={styles.choiceCode}>{choice.code}</span>
+                        <span className={styles.choiceText}>
+                          <strong>{choice.title}</strong>
+                          <small>{choice.description}</small>
+                        </span>
+                        <span className={styles.choiceCheck}>{selected ? "✓" : "→"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {error && <p className={styles.error}>{error}</p>}
+                <div className={styles.actions}>
+                  <button
+                    type="button"
+                    className={styles.backButton}
+                    onClick={() => setStep((value) => Math.max(0, value - 1))}
+                    disabled={step === 0 || saving}
+                  >
+                    <span>←</span> Retour
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.nextButton}
+                    disabled={!selectedValue || saving}
+                    onClick={() => step === STEPS.length - 1 ? void finish() : setStep((value) => value + 1)}
+                  >
+                    {saving ? "Préparation…" : step === STEPS.length - 1 ? "Préparer mon espace" : "Continuer"}
+                    {!saving && <span>→</span>}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.complete}>
+                <div className={styles.successOrb}><span>✓</span></div>
+                <div className={styles.eyebrow}><span />Configuration terminée</div>
+                <h1>Votre cockpit Sonara est prêt.</h1>
+                <p className={styles.lead}>Vous pouvez maintenant créer votre première campagne et entendre votre assistant en action.</p>
+                <div className={styles.launchSteps}>
+                  <div><span>01</span><strong>Créez votre campagne</strong><small>Définissez l'objectif et le scénario.</small></div>
+                  <div><span>02</span><strong>Ajoutez vos contacts</strong><small>Importez une liste CSV ou testez un numéro.</small></div>
+                  <div><span>03</span><strong>Lancez et analysez</strong><small>Suivez les résultats depuis votre dashboard.</small></div>
+                </div>
+                <button type="button" className={styles.launchButton} onClick={() => router.replace("/dashboard/campaigns/new")}>
+                  Créer ma première campagne <span>→</span>
+                </button>
+                <button type="button" className={styles.dashboardLink} onClick={() => router.replace("/dashboard")}>Découvrir d'abord le dashboard</button>
+              </div>
+            )}
+          </div>
+
+          <aside className={styles.previewColumn}>
+            <div className={styles.previewLabel}><span>APERÇU DE VOTRE ESPACE</span><i>LIVE</i></div>
+            <div className={styles.previewCard}>
+              <div className={styles.previewHeader}>
+                <div className={styles.miniLogo}>S</div>
+                <div><span>SONARA WORKSPACE</span><strong>Première campagne</strong></div>
+                <button type="button" aria-label="Menu de l'aperçu">•••</button>
+              </div>
+              <div className={styles.wavePanel}>
+                <div className={styles.waveBars} aria-hidden="true">
+                  {[34, 58, 42, 75, 49, 88, 61, 35, 71, 92, 48, 67, 39, 80, 53, 30, 62, 45].map((height, index) => (
+                    <i key={index} style={{ height: `${height}%`, animationDelay: `${index * 45}ms` }} />
+                  ))}
+                </div>
+                <div className={styles.liveRow}><span><i /> ASSISTANT PRÊT</span><strong>00:00</strong></div>
+              </div>
+              <div className={styles.previewData}>
+                <div><span>OBJECTIF</span><strong>{answers.primaryGoal || "À définir"}</strong></div>
+                <div><span>VOLUME</span><strong>{answers.contactVolume || "À définir"}</strong></div>
+                <div><span>EXPÉRIENCE</span><strong>{answers.jobRole ? "Personnalisée" : "En préparation"}</strong></div>
+              </div>
+              <div className={styles.readiness}>
+                <div><span>Préparation du workspace</span><strong>{isComplete ? 100 : answeredCount * 25}%</strong></div>
+                <div className={styles.readinessTrack}><i style={{ width: `${isComplete ? 100 : answeredCount * 25}%` }} /></div>
+              </div>
+            </div>
+            <p className={styles.previewHint}><span>✦</span> Vos choix mettent à jour cet aperçu en temps réel.</p>
+          </aside>
+        </div>
+      </section>
+    </main>
+  );
 }

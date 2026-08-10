@@ -19,6 +19,11 @@ import {
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { ZodError } from "zod";
 
+function splitFullName(fullName: string): { firstName: string; lastName: string | null } {
+  const [firstName, ...rest] = fullName.trim().split(/\s+/);
+  return { firstName, lastName: rest.join(" ") || null };
+}
+
 export async function POST(request: NextRequest) {
   try {
     // VULN-003 : limiter la création de comptes par IP
@@ -32,6 +37,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const input = RegisterSchema.parse(body);
+    const { firstName, lastName } = splitFullName(input.fullName);
 
     // Vérifier email unique
     const existing = await db.company.findUnique({
@@ -58,12 +64,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Créer l'utilisateur admin principal
-    await db.user.create({
+    // Créer l'utilisateur admin principal avec l'identité saisie à l'inscription.
+    const user = await db.user.create({
       data: {
         companyId: company.id,
         email: input.email,
         passwordHash,
+        firstName,
+        lastName,
         role: "ADMIN",
         isActive: true,
       },
@@ -71,18 +79,19 @@ export async function POST(request: NextRequest) {
 
     // Générer les tokens JWT
     const accessToken = await generateAccessToken({
-      sub: company.id,
+      sub: user.id,
       companyId: company.id,
       role: "ADMIN",
     });
 
-    const refreshToken = await generateRefreshToken(company.id, company.id);
+    const refreshToken = await generateRefreshToken(company.id, user.id);
 
     // Stocker le refresh token en BDD
     await db.refreshToken.create({
       data: {
         token: refreshToken,
         companyId: company.id,
+        userId: user.id,
         expiresAt: getRefreshTokenExpiry(),
       },
     });
@@ -98,6 +107,13 @@ export async function POST(request: NextRequest) {
           email: company.email,
           plan: company.plan,
           apiCredit: company.apiCredit,
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
         },
         accessToken,
       },

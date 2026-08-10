@@ -38,6 +38,7 @@ export const CONTACT_STATUSES = [
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 export const RegisterSchema = z.object({
+  fullName: z.string().trim().min(2, "Nom complet requis (min 2 caractères)").max(100),
   companyName: z.string().min(2, "Nom entreprise requis (min 2 caractères)").max(100),
   email: z.string().email("Email invalide").toLowerCase(),
   password: z

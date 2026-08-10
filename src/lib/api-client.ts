@@ -213,7 +213,7 @@ const patch = <T>(p: string, body?: unknown) =>
 
 export const api = {
   auth: {
-    register: (body: { companyName: string; email: string; password: string }) =>
+    register: (body: { fullName: string; companyName: string; email: string; password: string }) =>
       post<{ company: Company; user: User; accessToken: string }>("/auth/register", body),
     login: (body: { email: string; password: string }) =>
       post<{ company: Company; user: User; accessToken: string; twoFactorRequired?: boolean; preAuthToken?: string }>("/auth/login", body),
