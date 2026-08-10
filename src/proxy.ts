@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/auth";
 
 // Routes qui nécessitent une authentification
-const PROTECTED_PREFIXES = ["/dashboard", "/api/campaigns", "/api/calls", "/api/company", "/api/contacts"];
+const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/api/campaigns", "/api/calls", "/api/company", "/api/contacts"];
 
 // Routes API publiques (pas d'auth)
 const PUBLIC_API_ROUTES = [
@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ─── Protection des pages dashboard ────────────────────────────────────────
-  if (pathname.startsWith("/dashboard")) {
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding")) {
     const token = request.cookies.get("sonara_access")?.value;
 
     if (!token) {
@@ -96,6 +96,7 @@ export const config = {
   matcher: [
     // Dashboard pages
     "/dashboard/:path*",
+    "/onboarding/:path*",
     // API routes protégées
     "/api/campaigns/:path*",
     "/api/calls/:path*",

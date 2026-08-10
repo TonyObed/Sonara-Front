@@ -157,7 +157,6 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   // Étape 2FA : déclenchée quand le login renvoie twoFactorRequired.
   const [twoFA, setTwoFA] = useState<{ required: boolean; preAuthToken: string; code: string }>({
@@ -192,11 +191,15 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
     }
   }, []);
 
-  // Redirection après succès (login direct, 2FA, ou inscription).
-  const goAfterAuth = useCallback(() => {
+  // Inscription : parcours de configuration dédié. Connexion : accès direct.
+  const goAfterAuth = useCallback((isSignup = false) => {
+    if (isSignup) {
+      router.replace("/onboarding");
+      return;
+    }
     const redirect =
       new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
-    setTimeout(() => router.push(redirect), 1100);
+    router.replace(redirect);
   }, [router]);
 
   // Démarre un flux OAuth (redirection pleine page vers le provider).
@@ -219,7 +222,6 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   /* ── Submit ── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccess(false);
     setForgotSent(false);
     const errs = validateForm(mode, values);
     if (Object.keys(errs).length > 0) {
@@ -247,8 +249,7 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
         }
       }
       setLoading(false);
-      setSuccess(true);
-      goAfterAuth();
+      goAfterAuth(mode === "signup");
     } catch (err) {
       setLoading(false);
       if (err instanceof ApiError) {
@@ -282,7 +283,6 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
     try {
       await api.auth.verify2FA({ preAuthToken: twoFA.preAuthToken, code });
       setLoading(false);
-      setSuccess(true);
       goAfterAuth();
     } catch (err) {
       setLoading(false);
@@ -293,7 +293,6 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   /* ── Forgot password (appel API réel + anti-énumération) ── */
   const handleForgot = async (e: React.MouseEvent) => {
     e.preventDefault();
-    setSuccess(false);
     if (!EMAIL_RE.test(values.email.trim())) {
       setErrors({ email: "Saisissez votre email pour recevoir le lien de réinitialisation." });
       return;
@@ -360,14 +359,6 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
                 <span className={styles.spin} />
                 <span className={styles.ctaLabel}>Vérifier</span>
               </button>
-              {success && (
-                <div className={`${styles.okBanner} ${styles.show}`}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  <span>Connexion réussie. Redirection…</span>
-                </div>
-              )}
               <p className={styles.switchText}>
                 <a
                   href="#"
@@ -597,17 +588,13 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
               </svg>
             </button>
 
-            {/* Success / forgot banner */}
-            {(success || forgotSent) && (
+            {/* Réinitialisation uniquement : aucune bannière après connexion/inscription. */}
+            {forgotSent && (
               <div className={`${styles.okBanner} ${styles.show}`}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
-                <span>
-                  {forgotSent
-                    ? "Un lien de réinitialisation a été envoyé à votre adresse."
-                    : copy.ok}
-                </span>
+                <span>Un lien de réinitialisation a été envoyé à votre adresse.</span>
               </div>
             )}
 
