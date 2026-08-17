@@ -106,10 +106,11 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       ]
     : undefined;
 
-  // Le fournisseur est explicitement piloté par LLM_PROVIDER afin de pouvoir
-  // basculer un environnement de test sans modifier les campagnes en BDD.
-  // Une clé OpenRouter validée dans Vapi > Integrations est requise pour ce mode.
-  const llmProvider = process.env.LLM_PROVIDER?.toLowerCase();
+  // Le fournisseur est explicitement piloté par LLM_PROVIDER. Le mode Vapi
+  // (OpenAI géré par Vapi) est le défaut fiable pour les appels : une clé
+  // Gemini gratuite peut atteindre son quota pendant une conversation et
+  // provoquer un `pipeline-error-custom-llm-429`.
+  const llmProvider = process.env.LLM_PROVIDER?.toLowerCase() ?? "vapi";
   const model = llmProvider === "openrouter"
     ? {
         provider: "openrouter",
@@ -121,7 +122,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         messages: [{ role: "system", content: systemPrompt }],
         ...(tools ? { tools } : {}),
       }
-    : process.env.GEMINI_API_KEY
+    : llmProvider === "gemini" && process.env.GEMINI_API_KEY
     ? {
         provider: "custom-llm",
         url:

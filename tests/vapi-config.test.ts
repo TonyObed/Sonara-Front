@@ -37,4 +37,14 @@ describe("Configuration Vapi", () => {
     expect(ingrid.firstMessage).toContain("ici Ingrid");
     expect(loic.firstMessage).toContain("ici Loïc");
   });
+
+  it("utilise le modèle géré par Vapi hors modes Gemini et OpenRouter", () => {
+    process.env.LLM_PROVIDER = "vapi";
+    const assistant = buildAssistant({
+      aiBrief: "Mène une conversation courte.", aiVoice: "awa_female_ci",
+      aiTemperature: 0.3, maxDuration: 120, callId: "vapi-test",
+    });
+
+    expect(assistant.model).toMatchObject({ provider: "openai", model: "gpt-4o" });
+  });
 });
