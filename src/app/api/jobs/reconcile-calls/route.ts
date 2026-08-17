@@ -40,7 +40,7 @@ function formatVapiMessages(messages: VapiMessage[] | undefined) {
   return (messages ?? [])
     .filter((message) => typeof message.message === "string" && message.message.trim().length > 0)
     .map((message) => ({
-      speaker: message.role === "assistant" ? "IA (Awa)" : "Client",
+      speaker: message.role === "assistant" ? "IA" : "Client",
       text: message.message,
       timestamp:
         message.secondsFromStart === undefined

@@ -3,8 +3,6 @@
 import { useDashboard } from "../DashboardContext";
 import { useLiveCalls } from "@/hooks/useSonara";
 
-const liveEvents: Array<{ time: string; kind: "ok" | "info" | "warn" | "alert"; text: string }> = [];
-
 export default function LiveMonitoringPage() {
   const { tick, dashboard } = useDashboard();
   // Appels en cours réels (rafraîchis toutes les 5 s) ; repli démo si non auth / erreur.
@@ -14,6 +12,11 @@ export default function LiveMonitoringPage() {
   const inProgress = liveCalls.length;
   const liveSlots = dashboard?.live.capacity ?? 10;
   const slotsPct = Math.min(100, Math.round((inProgress / liveSlots) * 100));
+  const liveEvents = (dashboard?.events ?? []).map((event) => ({
+    time: new Date(event.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    kind: event.kind,
+    text: event.text,
+  }));
 
   const mmss = (s: number) => {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -102,8 +105,8 @@ export default function LiveMonitoringPage() {
         {/* KPI 4: Taux décroché */}
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>TAUX DÉCROCHÉ — 1H</div>
-          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{dashboard?.responseRate ?? 0}%</div>
-          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>{dashboard?.calls.launched ?? 0} appels lancés</div>
+          <div style={{ fontSize: "28px", fontWeight: 700, marginTop: "8px" }}>{dashboard?.lastHour.responseRate ?? 0}%</div>
+          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>{dashboard?.lastHour.launched ?? 0} appels lancés</div>
         </div>
       </div>
 
@@ -115,7 +118,7 @@ export default function LiveMonitoringPage() {
         </div>
         <div style={{ marginTop: "14px", borderRadius: "12px", background: "var(--sn-inset)", border: "1px solid var(--sn-w05)", padding: "12px 14px" }}>
           <div style={{ minHeight: "150px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sn-w45)", fontSize: "13px", textAlign: "center" }}>
-            Le flux audio en direct n'est pas encore disponible. Les appels affichés ci-dessous proviennent des données réelles.
+            Le flux audio en direct n’est pas encore disponible. Les appels affichés ci-dessous proviennent des données réelles.
           </div>
         </div>
       </div>
@@ -176,6 +179,7 @@ export default function LiveMonitoringPage() {
               <span style={{ color: "var(--sn-w75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.text}</span>
             </div>
           ))}
+          {liveEvents.length === 0 && <div style={{ padding: "14px 4px", color: "var(--sn-w45)", fontSize: "13px" }}>Aucun événement d’appel enregistré.</div>}
         </div>
       </div>
     </div>

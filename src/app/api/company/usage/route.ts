@@ -38,6 +38,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!company) return unauthorized("Compte introuvable.");
+    const creditPeak = await db.creditTransaction.aggregate({
+      where: { companyId: auth.companyId },
+      _max: { balanceAfter: true },
+    });
 
     // Statistiques du mois en cours
     const startOfMonth = new Date();
@@ -52,6 +56,23 @@ export async function GET(request: NextRequest) {
       _count: { id: true },
       _sum: { costFcfa: true },
     });
+    const monthlyByCampaignRows = await db.call.groupBy({
+      by: ["campaignId"],
+      where: {
+        campaign: { companyId: auth.companyId },
+        createdAt: { gte: startOfMonth },
+      },
+      _count: { id: true },
+      _sum: { costFcfa: true },
+      orderBy: { _count: { id: "desc" } },
+    });
+    const monthlyCampaigns = monthlyByCampaignRows.length
+      ? await db.campaign.findMany({
+          where: { id: { in: monthlyByCampaignRows.map((row) => row.campaignId) }, companyId: auth.companyId },
+          select: { id: true, name: true },
+        })
+      : [];
+    const campaignNames = new Map(monthlyCampaigns.map((campaign) => [campaign.id, campaign.name]));
 
     // Formatter les stats campagnes
     const campaignMap = Object.fromEntries(
@@ -75,6 +96,7 @@ export async function GET(request: NextRequest) {
       },
       credit: {
         remaining: company.apiCredit,
+        referenceLimit: Math.max(company.apiCredit, creditPeak._max.balanceAfter ?? 0),
         isUnlimited: company.isSandbox,
         estimatedCallsRemaining: company.apiCredit,
         estimatedMinutesRemaining,
@@ -97,6 +119,15 @@ export async function GET(request: NextRequest) {
           count: monthlyStats._count.id,
           costFcfa: Math.round(monthlyStats._sum.costFcfa ?? 0),
         },
+        usageThisMonth: monthlyByCampaignRows.map((row) => ({
+          campaignId: row.campaignId,
+          campaign: campaignNames.get(row.campaignId) ?? "Campagne supprimée",
+          calls: row._count.id,
+          costFcfa: Math.round(row._sum.costFcfa ?? 0),
+          percentage: monthlyStats._count.id
+            ? Math.round((row._count.id / monthlyStats._count.id) * 1000) / 10
+            : 0,
+        })),
       },
     });
   } catch (error) {

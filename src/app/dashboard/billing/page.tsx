@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDashboard } from "../DashboardContext";
+import { api } from "@/lib/api-client";
 
-const usageThisMonth: Array<{ campaign: string; calls: number; costFcfa: number; pct: number }> = [];
 const invoices: Array<{ ref: string; date: string; amountFcfa: number; status: "paid" | "pending" }> = [];
 
 export default function BillingPage() {
@@ -16,6 +16,23 @@ export default function BillingPage() {
   } = useDashboard();
 
   const plansRef = useRef<HTMLDivElement>(null);
+  const [usageThisMonth, setUsageThisMonth] = useState<Array<{ campaign: string; calls: number; costFcfa: number; pct: number }>>([]);
+  const [creditReferenceLimit, setCreditReferenceLimit] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    api.company.usage().then(({ data }) => {
+      if (!mounted) return;
+      setUsageThisMonth(data.calls.usageThisMonth.map((item) => ({
+        campaign: item.campaign,
+        calls: item.calls,
+        costFcfa: item.costFcfa,
+        pct: item.percentage,
+      })));
+      setCreditReferenceLimit(data.credit.referenceLimit);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const scrollToPlans = () => {
     plansRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,11 +99,11 @@ export default function BillingPage() {
             <span style={{ fontSize: "13px", color: "var(--sn-w45)" }}>{isSandbox ? "tests" : "appels"}</span>
           </div>
           <div style={{ height: "8px", background: "var(--sn-w08)", borderRadius: "5px", marginTop: "12px", overflow: "hidden" }}>
-            <div style={{ width: isSandbox ? "100%" : "0%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
+            <div style={{ width: isSandbox ? "100%" : creditReferenceLimit ? `${Math.min(100, Math.round((credit / creditReferenceLimit) * 100))}%` : "0%", height: "100%", background: "linear-gradient(90deg, #0052FF, #00D4A6)", borderRadius: "5px" }}></div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)", marginTop: "8px" }}>
-            <span>HISTORIQUE EN COURS DE MISE EN PLACE</span>
-            <span>—</span>
+            <span>{creditReferenceLimit ? `SOLDE DE RÉFÉRENCE : ${fmt(creditReferenceLimit)}` : "AUCUN CRÉDIT ATTRIBUÉ"}</span>
+            <span>{creditReferenceLimit ? `${Math.round((credit / creditReferenceLimit) * 100)}%` : "—"}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", padding: "12px 14px", background: "var(--sn-inset)", border: "1px solid var(--sn-w06)", borderRadius: "11px", fontSize: "13px" }}>
             <span style={{ color: "var(--sn-w55)" }}>Recharge automatique</span>
@@ -128,6 +145,7 @@ export default function BillingPage() {
               </div>
             </div>
           ))}
+          {usageThisMonth.length === 0 && <div style={{ color: "var(--sn-w45)", fontSize: "13px" }}>Aucun appel facturable enregistré ce mois-ci.</div>}
         </div>
       </div>
 
@@ -223,6 +241,7 @@ export default function BillingPage() {
               </span>
             </div>
           ))}
+          {invoices.length === 0 && <div style={{ padding: "14px 0", color: "var(--sn-w45)", fontSize: "13px" }}>Aucune facture : le paiement n’est pas encore activé.</div>}
         </div>
       </div>
     </div>

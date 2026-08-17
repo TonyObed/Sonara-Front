@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
+import { inferCampaignQuestions } from "@/lib/campaign-questions";
 
 type ClaimedContact = {
   id: string;
@@ -71,7 +72,7 @@ function isWithinAllowedHours(timeStart: string, timeEnd: string): boolean {
   return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 }
 
-// Le déclenchement d'appel (assistant Vapi : Deepgram + GPT-4o + ElevenLabs)
+// Le déclenchement d'appel (assistant Vapi : Deepgram + LLM configurable + ElevenLabs)
 // est désormais centralisé dans src/lib/vapi.ts (triggerOutboundCall).
 
 // ─── HANDLER PRINCIPAL ────────────────────────────────────────────────────────
@@ -100,8 +101,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Charger la campagne
-    const campaign = await db.campaign.findUnique({
+    let campaign = await db.campaign.findUnique({
       where: { id: campaignId },
+      include: {
+        questions: { orderBy: { position: "asc" } },
+      },
     });
 
     if (!campaign || campaign.status !== "RUNNING") {
@@ -109,6 +113,23 @@ export async function POST(request: NextRequest) {
         processed: 0,
         message: "Campagne non active ou introuvable.",
       });
+    }
+
+    if (campaign.questions.length === 0) {
+      const inferredQuestions = inferCampaignQuestions(campaign.aiBrief);
+      if (inferredQuestions.length > 0) {
+        await db.campaignQuestion.createMany({
+          data: inferredQuestions.map((question) => ({ ...question, campaignId })),
+          skipDuplicates: true,
+        });
+        campaign = await db.campaign.findUnique({
+          where: { id: campaignId },
+          include: { questions: { orderBy: { position: "asc" } } },
+        });
+        if (!campaign || campaign.status !== "RUNNING") {
+          return ok({ processed: 0, message: "Campagne non active ou introuvable." });
+        }
+      }
     }
 
     // En phase MVP, ce flag permet de tester des campagnes à toute heure sans
@@ -151,6 +172,11 @@ export async function POST(request: NextRequest) {
         WHERE campaign_id = ${campaignId}
           AND status = 'PENDING'
           AND attempts < ${campaign.maxRetries}
+          AND (
+            attempts = 0
+            OR last_called_at IS NULL
+            OR last_called_at <= NOW() - (${campaign.retryDelayMinutes} * INTERVAL '1 minute')
+          )
         ORDER BY created_at ASC
         FOR UPDATE SKIP LOCKED
         LIMIT ${slotsAvailable}
@@ -210,7 +236,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Déclencher l'appel via Vapi.ai (Deepgram + GPT-4o + ElevenLabs)
+      // Déclencher l'appel via Vapi.ai (Deepgram + LLM configurable + ElevenLabs)
       const vapiResult = await triggerOutboundCall({
         phone: contact.phone,
         callId: call.id,
@@ -230,6 +256,12 @@ export async function POST(request: NextRequest) {
         contactCity: contact.city,
         contactSegment: contact.segment,
         transferNumber: process.env.TRANSFER_AGENT_NUMBER ?? null,
+        questions: campaign.questions.map((question) => ({
+          key: question.key,
+          label: question.label,
+          kind: question.kind,
+          choices: question.choices,
+        })),
         metadata: {
           callId: call.id,
           campaignId,

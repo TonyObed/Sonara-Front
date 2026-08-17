@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type DbReport = { id: string; name: string; fileUrl: string | null; fileSizeBytes: number | null; generatedAt: string | null; createdAt: string; campaign: { name: string } | null; summary: { responseRate?: number; sentiment?: number } | null };
 type DbSchedule = { id: string; name: string; frequency: string; sendAt: string; recipients: unknown; isActive: boolean; campaign: { name: string } | null };
 type CampaignOption = { id: string; name: string };
+type ReportAnalytics = { analyzedCalls: number; averageSentiment: number | null; topTopic: { label: string; count: number } | null };
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<DbReport[]>([]);
@@ -16,7 +17,8 @@ export default function ReportsPage() {
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduleEmail, setScheduleEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const loadReports = () => fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); } });
+  const [analytics, setAnalytics] = useState<ReportAnalytics>({ analyzedCalls: 0, averageSentiment: null, topTopic: null });
+  const loadReports = () => fetch("/api/reports", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setReports(payload.data.reports); setScheduled(payload.data.schedules); setAnalytics(payload.data.analytics); } });
   useEffect(() => { void loadReports(); fetch("/api/campaigns?limit=100", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCampaigns(payload.data.map((item: CampaignOption) => ({ id: item.id, name: item.name }))); }).catch(() => {}); }, []);
   const downloadReport = (report: DbReport) => { if (report.fileUrl) window.open(`/api/reports/${report.id}`, "_blank", "noopener,noreferrer"); };
   const generate = async () => {
@@ -170,14 +172,14 @@ export default function ReportsPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
             <div style={{ padding: "20px", background: "rgba(43,213,118,.05)", border: "1px solid rgba(43,213,118,.2)", borderRadius: "12px" }}>
                 <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Sentiment majoritaire</div>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-w45)" }}>—</div>
-                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Disponible après les premiers appels analysés.</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: sentColor(analytics.averageSentiment) }}>{analytics.averageSentiment === null ? "—" : `${analytics.averageSentiment}/10`}</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>{analytics.averageSentiment === null ? "Disponible après les premiers appels analysés." : `Calculé sur ${analytics.analyzedCalls} appel(s) analysé(s).`}</div>
             </div>
             
             <div style={{ padding: "20px", background: "rgba(255,176,46,.05)", border: "1px solid rgba(255,176,46,.2)", borderRadius: "12px" }}>
                 <div style={{ fontSize: "12px", color: "var(--sn-w62)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>Mot-clé récurrent</div>
-                <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--sn-w45)" }}>—</div>
-                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>Disponible après les premiers appels analysés.</div>
+                <div style={{ fontSize: "24px", fontWeight: 700, color: analytics.topTopic ? "var(--sn-amber)" : "var(--sn-w45)" }}>{analytics.topTopic?.label ?? "—"}</div>
+                <div style={{ fontSize: "13px", color: "var(--sn-w45)", marginTop: "8px" }}>{analytics.topTopic ? `${analytics.topTopic.count} mention(s) enregistrée(s).` : "Disponible après les premiers appels analysés."}</div>
             </div>
         </div>
       </div>

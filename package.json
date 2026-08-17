@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backfill-questions": "tsx scripts/backfill-campaign-questions.ts",
     "test-call": "tsx scripts/test-call.ts",
     "test": "vitest run",
     "test:watch": "vitest",

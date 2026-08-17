@@ -152,9 +152,14 @@ export function useLiveCalls(pollMs = 0) {
 /** Crédit + consommation de l'entreprise (KPIs page d'accueil). */
 export function useUsage() {
   return useAsync<{
-    credit: { remaining: number; estimatedMinutesRemaining: number };
+    credit: { remaining: number; referenceLimit: number; estimatedMinutesRemaining: number };
     campaigns: Record<string, number>;
-    calls: { total: number; totalCostFcfa: number };
+    calls: {
+      total: number;
+      totalCostFcfa: number;
+      thisMonth: { count: number; costFcfa: number };
+      usageThisMonth: Array<{ campaignId: string; campaign: string; calls: number; costFcfa: number; percentage: number }>;
+    };
   }>(() => api.company.usage(), []);
 }
 

@@ -193,12 +193,12 @@ export default function SettingsPage() {
 
   // Role styles from the original layout
   const getRoleStyles = (role: string) => {
-    if (role === "Admin") {
+    if (role.toLowerCase() === "admin" || role.toLowerCase() === "super_admin") {
       return {
         color: "var(--sn-blue2)",
         bg: "rgba(0,82,255,.14)",
       };
-    } else if (role === "Manager") {
+    } else if (role.toLowerCase() === "manager") {
       return {
         color: "var(--sn-green)",
         bg: "rgba(43,213,118,.11)",

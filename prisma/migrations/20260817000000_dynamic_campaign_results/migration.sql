@@ -1,0 +1,5 @@
+ALTER TABLE "campaigns"
+  ADD COLUMN IF NOT EXISTS "retry_delay_minutes" INTEGER NOT NULL DEFAULT 240;
+
+ALTER TABLE "campaigns" ALTER COLUMN "time_start" SET DEFAULT '00:00';
+ALTER TABLE "campaigns" ALTER COLUMN "time_end" SET DEFAULT '23:59';

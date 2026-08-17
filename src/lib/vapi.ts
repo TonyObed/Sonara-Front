@@ -83,6 +83,49 @@ export interface BuildAssistantParams extends VoiceSettings {
   contactSegment?: string | null;
   /** Numéro de transfert vers un agent humain (CDC D4). */
   transferNumber?: string | null;
+  questions?: Array<{
+    key: string;
+    label: string;
+    kind: string;
+    choices?: unknown;
+  }>;
+}
+
+function buildStructuredDataSchema(questions: BuildAssistantParams["questions"]) {
+  const properties: Record<string, Record<string, unknown>> = {
+    sentimentScore: {
+      type: "number",
+      minimum: 0,
+      maximum: 10,
+      description: "Sentiment ou satisfaction globale du client de 0 à 10, uniquement d'après ses propos.",
+    },
+    topics: {
+      type: "array",
+      items: { type: "string" },
+      description: "Trois à cinq thèmes courts réellement abordés pendant l'appel.",
+    },
+  };
+
+  for (const question of questions ?? []) {
+    const choices = Array.isArray(question.choices)
+      ? question.choices.filter((choice): choice is string => typeof choice === "string")
+      : [];
+    properties[question.key] = question.kind === "NPS" || question.kind === "SCALE_0_10"
+      ? { type: "number", minimum: 0, maximum: 10, description: question.label }
+      : question.kind === "BOOLEAN"
+      ? { type: "boolean", description: `${question.label} Convertir seulement une réponse explicitement affirmative ou négative.` }
+      : {
+          type: "string",
+          description: question.label,
+          ...(choices.length > 0 ? { enum: choices } : {}),
+        };
+  }
+
+  return {
+    type: "object",
+    properties,
+    required: ["sentimentScore", "topics"],
+  };
 }
 
 export function buildAssistant(params: BuildAssistantParams): Record<string, unknown> {
@@ -212,6 +255,9 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     analysisPlan: {
       summaryPrompt:
         "Résume en 3 lignes maximum les points clés de cette conversation, en français.",
+      structuredDataPrompt:
+        "Analyse uniquement les réponses réellement données par le client. Extrais le sentiment, les thèmes et les réponses aux questions selon le schéma JSON. N'invente aucune réponse : si une question n'a pas reçu de réponse exploitable, omets sa propriété.",
+      structuredDataSchema: buildStructuredDataSchema(params.questions),
     },
   };
 

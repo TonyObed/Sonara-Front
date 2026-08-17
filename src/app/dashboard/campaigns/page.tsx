@@ -10,7 +10,7 @@ import { mapApiCampaignToFront } from "@/lib/dashboard-adapters";
 export default function CampaignsPage() {
   const router = useRouter();
   const { stOver } = useDashboard();
-  // Données live (API) avec repli sur les données demo si non authentifié / erreur.
+  // Données live uniquement : une erreur API produit un état vide, jamais des données de démonstration.
   const { data: apiCampaigns } = useCampaigns(undefined, 10_000);
   const campaigns = apiCampaigns?.map(mapApiCampaignToFront) ?? [];
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "done" | "tests">("all");

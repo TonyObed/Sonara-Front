@@ -1,5 +1,5 @@
 // POST /api/calls/test — Déclenche un appel de TEST unique via Vapi.
-// Permet de valider le pipeline complet (Deepgram + GPT-4o + ElevenLabs)
+// Permet de valider le pipeline complet (Deepgram + LLM configurable + ElevenLabs)
 // avec un vrai numéro, sans créer de campagne. Réservé ADMIN / MANAGER.
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";

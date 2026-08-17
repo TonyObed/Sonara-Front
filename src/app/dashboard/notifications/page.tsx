@@ -21,9 +21,7 @@ export default function NotificationsPage() {
     markRead([id]);
 
     // Route to target page/tab
-    if (target === "campaign:c1:calls") {
-      router.push("/dashboard/campaigns/c1?tab=calls");
-    } else if (target === "billing") {
+    if (target === "billing") {
       router.push("/dashboard/billing");
     } else if (target === "contacts") {
       router.push("/dashboard/contacts");

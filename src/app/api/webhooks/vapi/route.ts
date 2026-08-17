@@ -171,7 +171,7 @@ function extractTopics(data: Record<string, unknown> | undefined): string[] | nu
   return topics.length ? topics : null;
 }
 
-// ─── GÉNÉRATION RÉSUMÉ VIA GPT-4o ─────────────────────────────────────────────
+// ─── GÉNÉRATION DE SECOURS DU RÉSUMÉ ──────────────────────────────────────────
 
 async function generateSummary(transcript: VapiTranscriptEntry[]): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
         ? usdToFcfa(cost)
         : null;
 
-      // Résumé : priorité au résumé Vapi, sinon GPT-4o
+      // Résumé : priorité au résumé Vapi, sinon modèle OpenAI configurable
       const summary =
         callPayload.analysis?.summary ??
         endTextField(callPayload, "summary") ??

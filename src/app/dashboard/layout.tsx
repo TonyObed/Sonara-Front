@@ -91,22 +91,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Route synchronization
   useEffect(() => {
-    if (pathname === "/dashboard") setViewState("home");
-    else if (pathname.startsWith("/dashboard/campaigns/new")) setViewState("new");
-    else if (pathname.startsWith("/dashboard/campaigns/")) setViewState("campaign");
-    else if (pathname.startsWith("/dashboard/campaigns")) setViewState("campaigns");
-    else if (pathname.startsWith("/dashboard/contacts")) setViewState("contacts");
-    else if (pathname.startsWith("/dashboard/reports")) setViewState("reports");
-    else if (pathname.startsWith("/dashboard/live")) setViewState("live");
-    else if (pathname.startsWith("/dashboard/settings")) setViewState("settings");
-    else if (pathname.startsWith("/dashboard/billing")) setViewState("billing");
-    else if (pathname.startsWith("/dashboard/support")) setViewState("support");
-    else if (pathname.startsWith("/dashboard/notifications")) setViewState("notifications");
-  }, [pathname]);
-
-  const setViewState = (v: string) => {
-    setView(v);
-  };
+    if (pathname === "/dashboard") setView("home");
+    else if (pathname.startsWith("/dashboard/campaigns/new")) setView("new");
+    else if (pathname.startsWith("/dashboard/campaigns/")) setView("campaign");
+    else if (pathname.startsWith("/dashboard/campaigns")) setView("campaigns");
+    else if (pathname.startsWith("/dashboard/contacts")) setView("contacts");
+    else if (pathname.startsWith("/dashboard/reports")) setView("reports");
+    else if (pathname.startsWith("/dashboard/live")) setView("live");
+    else if (pathname.startsWith("/dashboard/settings")) setView("settings");
+    else if (pathname.startsWith("/dashboard/billing")) setView("billing");
+    else if (pathname.startsWith("/dashboard/support")) setView("support");
+    else if (pathname.startsWith("/dashboard/notifications")) setView("notifications");
+  }, [pathname, setView]);
 
   // Helper functions matching original code logic
   const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
@@ -153,12 +149,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         time: apiCall.startedAt
           ? new Date(apiCall.startedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
           : "—",
+        date: apiCall.startedAt
+          ? new Date(apiCall.startedAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+          : "—",
         dur:
           apiCall.durationSec !== null && apiCall.durationSec !== undefined
             ? `${Math.floor(apiCall.durationSec / 60)}:${String(apiCall.durationSec % 60).padStart(2, "0")}`
             : null,
-        // Sentiment / humeur / action recommandée ne sont pas exposés par l'API (Phase 2).
-        sentiment: null as number | null,
+        sentiment: apiCall.sentimentScore ?? null,
         mood: null as string | null,
         summary: apiCall.summary ?? "",
         action: null as { label: string; kind: "ok" | "warn" | "alert" } | null,
@@ -251,12 +249,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       glyph: n.kind === "alert" ? "!" : n.kind === "ok" ? "✓" : n.kind === "warn" ? "◔" : "↧",
       open: () => {
         setNotifUnread((prev) => prev.filter((id) => id !== n.id));
+        void api.notifications.markRead([n.id]).catch(() => {});
         setNotifOpen(false);
         setProfileOpen(false);
         setMenuOpen(false);
-        if (n.target === "campaign:c1:calls") {
-          router.push(`/dashboard/campaigns/c1?tab=calls`);
-        } else if (n.target === "billing") {
+        if (n.target === "billing") {
           router.push(`/dashboard/billing`);
         } else if (n.target === "contacts") {
           router.push(`/dashboard/contacts`);
@@ -290,33 +287,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   };
   const as = activeCall ? actionStyles[activeCall.action?.kind || "ok"] : actionStyles.ok;
 
-  // Short transcription fallback if not id = 1
-  const shortTranscript = activeCall
-    ? [
-        { ai: true, time: "00:02", text: "Bonjour, est-ce que je parle bien à " + activeCall.name + " ?" },
-        { ai: false, time: "00:05", text: "Oui, c'est moi." },
-        {
-          ai: true,
-          time: "00:08",
-          text:
-            "Je suis Awa, j'appelle de la part de Banque Horizon pour un court sondage sur votre expérience en agence. Ça prend trois minutes — vous avez un moment ?",
-        },
-        { ai: false, time: "00:17", text: "D'accord, on peut faire ça." },
-      ]
-    : [];
-
-  // Transcription réelle si disponible ; sinon repli court (appel sans transcript stocké).
-  const rawTranscript = activeCall
-    ? activeCall.transcript && activeCall.transcript.length > 0
-      ? activeCall.transcript
-      : shortTranscript
-    : [];
+  // Une transcription absente reste vide : le drawer ne doit jamais inventer
+  // un échange client quand le webhook n'a encore rien enregistré.
+  const rawTranscript = activeCall?.transcript ?? [];
 
   const transcript = rawTranscript.map((t) => {
-    const isAi = "ai" in t ? t.ai : (t as any).speaker === "ai";
+    const isAi = t.ai;
     return {
       isAi,
-      who: isAi ? "AWA · IA" : "CLIENT",
+      who: isAi ? "IA" : "CLIENT",
       time: t.time,
       text: t.text,
       align: isAi ? "flex-start" : "flex-end",
@@ -520,7 +499,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         <div style={{ flex: 1, overflowY: "auto", padding: "6px 12px", display: "flex", flexDirection: "column", gap: "22px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w36)", padding: "8px 12px" }}>
-              VUE D'ENSEMBLE
+              VUE D’ENSEMBLE
             </div>
             <Link
               href="/dashboard"
@@ -700,7 +679,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                 <span style={{ fontSize: "12px", color: "var(--sn-w45)" }}>appels</span>
               </div>
               <div style={{ height: "5px", background: "var(--sn-w08)", borderRadius: "4px", marginTop: "12px", overflow: "hidden" }}>
-                <div style={{ width: "0%", height: "100%", borderRadius: "4px", background: "linear-gradient(90deg, #0052FF, #00D4A6)" }}></div>
+                <div style={{ width: `${company.isSandbox ? 100 : dashboard?.creditLimit ? Math.min(100, Math.round((kcr / dashboard.creditLimit) * 100)) : 0}%`, height: "100%", borderRadius: "4px", background: "linear-gradient(90deg, #0052FF, #00D4A6)" }}></div>
               </div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", color: "var(--sn-w4)", marginTop: "8px" }}>{dashboard ? "Solde synchronisé" : "Synchronisation…"}</div>
             </div>
@@ -818,7 +797,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                     <div style={{ fontSize: "14px", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.name}</div>
                     <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w45)", marginTop: "3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.email}</div>
                   </div>
-                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--sn-blue2)", background: "rgba(0,82,255,.13)", padding: "4px 9px", borderRadius: "11px" }}>Admin</span>
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--sn-blue2)", background: "rgba(0,82,255,.13)", padding: "4px 9px", borderRadius: "11px" }}>{profile.role === "SUPER_ADMIN" ? "Super admin" : profile.role === "ADMIN" ? "Admin" : profile.role === "MANAGER" ? "Manager" : "Lecteur"}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", padding: "8px" }}>
                   <div onClick={() => { setProfileModalOpen(true); setProfileOpen(false); setProfileDraft({ ...profile }); }} style={{ display: "flex", alignItems: "center", gap: "11px", padding: "10px 11px", borderRadius: "9px", cursor: "pointer", fontSize: "13.5px", fontWeight: 500, color: "var(--sn-w75)" }} className="sn-hover-w04">
@@ -901,7 +880,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "16.5px", fontWeight: 700 }}>{activeCall.name}</div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11px", color: "var(--sn-w45)", marginTop: "4px" }}>
-                  {activeCall.phone} · {activeCall.city.toUpperCase()} · 10 JUIN, {activeCall.time}
+                  {activeCall.phone} · {activeCall.city.toUpperCase()} · {activeCall.date}, {activeCall.time}
                 </div>
               </div>
               <button onClick={closeCall} style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "34px", height: "34px", borderRadius: "9px", background: "var(--sn-panel2)", border: "1px solid var(--sn-w09)", color: "var(--sn-w7)", cursor: "pointer" }} className="sn-hover-text">
@@ -1127,7 +1106,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--sn-inset)", border: "1px solid var(--sn-w06)", borderRadius: "10px", padding: "12px 14px", fontSize: "13px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Rôle</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "var(--sn-blue2)", background: "rgba(0,82,255,.13)", padding: "4px 10px", borderRadius: "11px" }}>Admin</span><span style={{ fontSize: "11.5px", color: "var(--sn-w4)" }}>géré par votre organisation</span></span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "11px", fontWeight: 700, color: "var(--sn-blue2)", background: "rgba(0,82,255,.13)", padding: "4px 10px", borderRadius: "11px" }}>{profileDraft.role === "SUPER_ADMIN" ? "Super admin" : profileDraft.role === "ADMIN" ? "Admin" : profileDraft.role === "MANAGER" ? "Manager" : "Lecteur"}</span><span style={{ fontSize: "11.5px", color: "var(--sn-w4)" }}>géré par votre organisation</span></span>
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", padding: "16px 22px", borderTop: "1px solid var(--sn-w06)" }}>

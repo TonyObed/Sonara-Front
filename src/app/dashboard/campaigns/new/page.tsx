@@ -38,11 +38,15 @@ export default function NewCampaignPage() {
   } = useDashboard();
 
   const [name, setName] = useState("");
-  const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
   const [selectedSector, setSelectedSector] = useState("Banque");
   const [brief, setBrief] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("Ingrid — chaleureuse");
   const [contactsCount, setContactsCount] = useState(0);
+  const [timeStart, setTimeStart] = useState("00:00");
+  const [timeEnd, setTimeEnd] = useState("23:59");
+  const [maxRetries, setMaxRetries] = useState(2);
+  const [retryDelayMinutes, setRetryDelayMinutes] = useState(240);
+  const [maxDuration, setMaxDuration] = useState(480);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +99,11 @@ export default function NewCampaignPage() {
       aiBrief: brief.trim(),
       sector: selectedSector,
       aiVoice: mapVoice(selectedVoice),
+      timeStart,
+      timeEnd,
+      maxRetries,
+      retryDelayMinutes,
+      maxDuration,
     });
     return data.id;
   };
@@ -175,7 +184,7 @@ export default function NewCampaignPage() {
       <div>
         <h1 style={{ margin: 0, fontSize: "27px", fontWeight: 700, letterSpacing: "-.015em" }}>Nouvelle campagne</h1>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: "var(--sn-w42)", marginTop: "7px" }}>
-          DÉCRIVEZ VOTRE OBJECTIF — L'IA CONDUIT LA CONVERSATION
+          DÉCRIVEZ VOTRE OBJECTIF — L’IA CONDUIT LA CONVERSATION
         </div>
       </div>
 
@@ -292,22 +301,26 @@ export default function NewCampaignPage() {
 
           {/* Card 4: Rules and Voice */}
           <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-            <div style={{ fontSize: "16px", fontWeight: 700 }}>Règles d'appel &amp; voix</div>
+            <div style={{ fontSize: "16px", fontWeight: 700 }}>Règles d’appel &amp; voix</div>
             <div style={{ display: "flex", flexDirection: "column", marginTop: "8px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
-                <span style={{ color: "var(--sn-w55)" }}>Plage horaire (loi CI : 8h–20h)</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>08:00 – 19:00</span>
+                <span style={{ color: "var(--sn-w55)" }}>Plage horaire</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontFamily: "'JetBrains Mono', monospace" }}><input aria-label="Début de la plage horaire" type="time" value={timeStart} onChange={(event) => setTimeStart(event.target.value)} style={{ background: "var(--sn-inset)", color: "var(--sn-text)", border: "1px solid var(--sn-w09)", borderRadius: "8px", padding: "6px" }} /><span>–</span><input aria-label="Fin de la plage horaire" type="time" value={timeEnd} onChange={(event) => setTimeEnd(event.target.value)} style={{ background: "var(--sn-inset)", color: "var(--sn-text)", border: "1px solid var(--sn-w09)", borderRadius: "8px", padding: "6px" }} /></span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Tentatives max</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>2</span>
+                <select aria-label="Tentatives maximum" value={maxRetries} onChange={(event) => setMaxRetries(Number(event.target.value))} style={{ fontFamily: "'JetBrains Mono', monospace", background: "var(--sn-inset)", color: "var(--sn-text)", border: "1px solid var(--sn-w09)", borderRadius: "8px", padding: "6px" }}><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option></select>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
+                <span style={{ color: "var(--sn-w55)" }}>Délai entre tentatives</span>
+                <select aria-label="Délai entre les tentatives" value={retryDelayMinutes} onChange={(event) => setRetryDelayMinutes(Number(event.target.value))} style={{ fontFamily: "'JetBrains Mono', monospace", background: "var(--sn-inset)", color: "var(--sn-text)", border: "1px solid var(--sn-w09)", borderRadius: "8px", padding: "6px" }}><option value={0}>Immédiat</option><option value={60}>1 h</option><option value={240}>4 h</option><option value={1440}>24 h</option></select>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
                 <span style={{ color: "var(--sn-w55)" }}>Durée max par appel</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>8 min</span>
+                <select aria-label="Durée maximum d'un appel" value={maxDuration} onChange={(event) => setMaxDuration(Number(event.target.value))} style={{ fontFamily: "'JetBrains Mono', monospace", background: "var(--sn-inset)", color: "var(--sn-text)", border: "1px solid var(--sn-w09)", borderRadius: "8px", padding: "6px" }}><option value={120}>2 min</option><option value={180}>3 min</option><option value={300}>5 min</option><option value={480}>8 min</option></select>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", padding: "12px 0", fontSize: "13.5px", flexWrap: "wrap" }}>
-                <span style={{ color: "var(--sn-w55)" }}>Voix de l'IA</span>
+                <span style={{ color: "var(--sn-w55)" }}>Voix de l’IA</span>
                 <span style={{ display: "inline-flex", gap: "7px", flexWrap: "wrap" }}>
                   {voices.map((v) => (
                     <button key={v} onClick={() => setSelectedVoice(v)} style={pillStyle(selectedVoice === v)}>
@@ -330,9 +343,7 @@ export default function NewCampaignPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
               <span style={{ color: "var(--sn-w55)" }}>Coût estimé</span>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                {contactsCount > 0 ? `${fmt(contactsCount * 60)} FCFA` : "—"}
-              </span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>Calculé après les appels</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--sn-w05)", fontSize: "13.5px" }}>
               <span style={{ color: "var(--sn-w55)" }}>Crédit disponible</span>
@@ -455,7 +466,7 @@ export default function NewCampaignPage() {
           </button>
 
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "9.5px", letterSpacing: ".06em", color: "var(--sn-w35)", marginTop: "14px", lineHeight: 1.7, textAlign: "center" }}>
-            IDENTIFICATION IA OBLIGATOIRE DÈS LE DÉBUT D'APPEL
+            IDENTIFICATION IA OBLIGATOIRE DÈS LE DÉBUT D’APPEL
             <br />
             CONFORMITÉ ARTCI · LOI 2013-450 CI
           </div>

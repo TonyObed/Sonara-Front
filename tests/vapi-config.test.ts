@@ -47,4 +47,26 @@ describe("Configuration Vapi", () => {
 
     expect(assistant.model).toMatchObject({ provider: "openai", model: "gpt-4o" });
   });
+
+  it("demande une analyse structurée alignée sur les questions de la campagne", () => {
+    const assistant = buildAssistant({
+      aiBrief: "Pose les questions une par une.", aiVoice: "awa_female_ci",
+      aiTemperature: 0.3, maxDuration: 120, callId: "analysis-test",
+      questions: [
+        { key: "q1", label: "Quelle note sur 10 ?", kind: "SCALE_0_10" },
+        { key: "q2", label: "Pourquoi ?", kind: "TEXT" },
+      ],
+    });
+
+    expect(assistant.analysisPlan).toMatchObject({
+      structuredDataSchema: {
+        type: "object",
+        required: ["sentimentScore", "topics"],
+        properties: {
+          q1: { type: "number", minimum: 0, maximum: 10 },
+          q2: { type: "string" },
+        },
+      },
+    });
+  });
 });

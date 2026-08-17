@@ -161,12 +161,33 @@ export interface LiveCall {
 
 export interface DashboardData {
   credit: number;
+  creditLimit: number;
   live: { active: number; capacity: number; queued: number };
   responseRate: number;
   calls: { launched: number; answered: number };
+  today: { launched: number; answered: number; responseRate: number };
+  lastHour: { launched: number; answered: number; responseRate: number };
   outcomes: { completed: number; unreachable: number; voicemail: number; failed: number };
   daily: Array<{ date: string; started: number; answered: number }>;
-  events: Array<{ type: string; at: string }>;
+  events: Array<{ type: string; at: string; kind: "ok" | "info" | "warn" | "alert"; text: string }>;
+}
+
+export interface NotificationRecord {
+  id: string;
+  type: "INFO" | "CAMPAIGN" | "CALL" | "CREDIT" | "SECURITY";
+  title: string;
+  message: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface CompanyMember {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  role: Role;
+  isActive: boolean;
 }
 
 // ─── FETCH WRAPPER ────────────────────────────────────────────────────────────
@@ -257,8 +278,11 @@ export const api = {
       aiVoice?: string;
       aiTemperature?: number;
       maxRetries?: number;
+      retryDelayMinutes?: number;
       timeStart?: string;
       timeEnd?: string;
+      maxDuration?: number;
+      concurrency?: number;
     } & Partial<VoiceSettingsInput>) => post<Campaign>("/campaigns", body),
     updateStatus: (id: string, status: CampaignStatus) =>
       patch<Campaign>(`/campaigns/${id}`, { status }),
@@ -286,10 +310,21 @@ export const api = {
     dashboard: () => get<DashboardData>("/company/dashboard"),
     usage: () =>
       get<{
-        credit: { remaining: number; estimatedMinutesRemaining: number };
+        credit: { remaining: number; referenceLimit: number; estimatedMinutesRemaining: number };
         campaigns: Record<string, number>;
-        calls: { total: number; totalCostFcfa: number };
+        calls: {
+          total: number;
+          totalCostFcfa: number;
+          thisMonth: { count: number; costFcfa: number };
+          usageThisMonth: Array<{ campaignId: string; campaign: string; calls: number; costFcfa: number; percentage: number }>;
+        };
       }>("/company/usage"),
+    members: () => get<CompanyMember[]>("/company/members"),
+  },
+
+  notifications: {
+    list: () => get<NotificationRecord[]>("/notifications"),
+    markRead: (ids: string[]) => patch<{ message: string }>("/notifications", { ids }),
   },
 
   leads: {

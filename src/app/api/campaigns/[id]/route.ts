@@ -15,6 +15,7 @@ import {
   handleError,
 } from "@/lib/response";
 import { ZodError } from "zod";
+import { inferCampaignQuestions } from "@/lib/campaign-questions";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -36,6 +37,24 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     });
 
     if (!campaign) return notFound("Campagne");
+
+    // Les campagnes créées avant l'introduction de CampaignQuestion sont
+    // normalisées une seule fois à partir de leur brief. Les graphiques et le
+    // schéma d'analyse Vapi utilisent ensuite exclusivement ces lignes en BDD.
+    let questions = campaign.questions;
+    if (questions.length === 0) {
+      const inferredQuestions = inferCampaignQuestions(campaign.aiBrief);
+      if (inferredQuestions.length > 0) {
+        await db.campaignQuestion.createMany({
+          data: inferredQuestions.map((question) => ({ ...question, campaignId: campaign.id })),
+          skipDuplicates: true,
+        });
+        questions = await db.campaignQuestion.findMany({
+          where: { campaignId: campaign.id },
+          orderBy: { position: "asc" },
+        });
+      }
+    }
 
     // KPIs détaillés
     const [callStats, sentimentStats, insights, avgDuration] = await Promise.all([
@@ -73,7 +92,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       if (!insight.answers || typeof insight.answers !== "object" || Array.isArray(insight.answers)) return [];
       return [insight.answers as Record<string, unknown>];
     });
-    const questionAnalytics = campaign.questions.map((question) => {
+    const questionAnalytics = questions.map((question) => {
       const counts = new Map<string, number>();
       for (const answers of answerRows) {
         const answer = answers[question.key];
@@ -94,12 +113,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const cities = new Map<string, { calls: number; sentimentTotal: number; sentimentCount: number }>();
     const topicCounts = new Map<string, number>();
     for (const insight of insights) {
-      const city = insight.call.contact.city?.trim();
-      if (!city) continue;
-      const current = cities.get(city) ?? { calls: 0, sentimentTotal: 0, sentimentCount: 0 };
-      current.calls += 1;
-      if (insight.sentimentScore !== null) { current.sentimentTotal += insight.sentimentScore; current.sentimentCount += 1; }
-      cities.set(city, current);
       if (Array.isArray(insight.topics)) {
         for (const topic of insight.topics) {
           if (typeof topic !== "string" || !topic.trim()) continue;
@@ -107,7 +120,44 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           topicCounts.set(label, (topicCounts.get(label) ?? 0) + 1);
         }
       }
+      const city = insight.call.contact.city?.trim();
+      if (!city) continue;
+      const current = cities.get(city) ?? { calls: 0, sentimentTotal: 0, sentimentCount: 0 };
+      current.calls += 1;
+      if (insight.sentimentScore !== null) { current.sentimentTotal += insight.sentimentScore; current.sentimentCount += 1; }
+      cities.set(city, current);
     }
+
+    const npsQuestion = questions.find((question) => question.kind === "NPS");
+    const npsValues = npsQuestion
+      ? answerRows.flatMap((answers) => {
+          const raw = answers[npsQuestion.key];
+          const value = typeof raw === "number"
+            ? raw
+            : typeof raw === "string"
+            ? Number(raw.replace(",", ".").match(/-?\d+(?:\.\d+)?/)?.[0])
+            : NaN;
+          return Number.isFinite(value) && value >= 0 && value <= 10 ? [value] : [];
+        })
+      : [];
+    const npsPromoters = npsValues.filter((value) => value >= 9).length;
+    const npsPassives = npsValues.filter((value) => value >= 7 && value < 9).length;
+    const npsDetractors = npsValues.filter((value) => value < 7).length;
+    const npsPercentage = (count: number) => npsValues.length
+      ? Math.round((count / npsValues.length) * 1000) / 10
+      : 0;
+    const nps = npsQuestion
+      ? {
+          questionId: npsQuestion.id,
+          key: npsQuestion.key,
+          label: npsQuestion.label,
+          responseCount: npsValues.length,
+          score: npsValues.length ? Math.round(npsPercentage(npsPromoters) - npsPercentage(npsDetractors)) : null,
+          promoters: { count: npsPromoters, percentage: npsPercentage(npsPromoters) },
+          passives: { count: npsPassives, percentage: npsPercentage(npsPassives) },
+          detractors: { count: npsDetractors, percentage: npsPercentage(npsDetractors) },
+        }
+      : null;
 
     return ok({
       id: campaign.id,
@@ -126,7 +176,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         speed: campaign.aiSpeed,
         speakerBoost: campaign.aiSpeakerBoost,
       },
-      questions: campaign.questions,
+      questions,
       insights: insights.map((insight) => ({
         callId: insight.callId,
         sentimentScore: insight.sentimentScore,
@@ -135,12 +185,14 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         city: insight.call.contact.city,
       })),
       analytics: {
+        nps,
         questions: questionAnalytics,
         cities: Array.from(cities, ([name, value]) => ({ name, calls: value.calls, sentiment: value.sentimentCount ? Math.round((value.sentimentTotal / value.sentimentCount) * 10) / 10 : null })).sort((a, b) => b.calls - a.calls),
         topics: Array.from(topicCounts, ([label, count]) => ({ label, count, percentage: insights.length ? Math.round((count / insights.length) * 1000) / 10 : 0 })).sort((a, b) => b.count - a.count).slice(0, 5),
       },
       status: campaign.status,
       maxRetries: campaign.maxRetries,
+      retryDelayMinutes: campaign.retryDelayMinutes,
       timeStart: campaign.timeStart,
       timeEnd: campaign.timeEnd,
       maxDuration: campaign.maxDuration,
@@ -227,6 +279,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         ...(input.aiSpeed !== undefined && { aiSpeed: input.aiSpeed }),
         ...(input.aiSpeakerBoost !== undefined && { aiSpeakerBoost: input.aiSpeakerBoost }),
         ...(input.maxRetries !== undefined && { maxRetries: input.maxRetries }),
+        ...(input.retryDelayMinutes !== undefined && { retryDelayMinutes: input.retryDelayMinutes }),
         ...(input.timeStart !== undefined && { timeStart: input.timeStart }),
         ...(input.timeEnd !== undefined && { timeEnd: input.timeEnd }),
         ...(input.maxDuration !== undefined && { maxDuration: input.maxDuration }),
@@ -245,6 +298,18 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         }),
       },
     });
+
+    if (input.aiBrief !== undefined && ["DRAFT", "SCHEDULED"].includes(campaign.status)) {
+      const inferredQuestions = inferCampaignQuestions(input.aiBrief);
+      await db.$transaction([
+        db.campaignQuestion.deleteMany({ where: { campaignId: id } }),
+        ...(inferredQuestions.length > 0
+          ? [db.campaignQuestion.createMany({
+              data: inferredQuestions.map((question) => ({ ...question, campaignId: id })),
+            })]
+          : []),
+      ]);
+    }
 
     return ok({
       id: updated.id,

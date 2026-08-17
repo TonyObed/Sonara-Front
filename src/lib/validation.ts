@@ -126,6 +126,7 @@ export const CreateCampaignSchema = z.object({
   aiSpeed: z.number().min(0.7).max(1.2).optional(),
   aiSpeakerBoost: z.boolean().optional(),
   maxRetries: z.number().int().min(1).max(3).default(2),
+  retryDelayMinutes: z.number().int().min(0).max(10080).default(240),
   timeStart: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Format horaire invalide (HH:MM)")

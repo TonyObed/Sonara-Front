@@ -18,6 +18,25 @@ export interface NotificationItem { id: string; group: string; kind: "ok" | "war
 export interface FaqItem { q: string; a: string; }
 export interface PlanInfo { id: string; name: string; price: number; contactSales?: boolean; desc: string; features: string[]; }
 
+const PLAN_CATALOG: PlanInfo[] = [
+  { id: "STARTER", name: "Starter", price: 80, desc: "Pour lancer les premières campagnes.", features: ["1 000 appels inclus", "Dashboard et exports", "Support standard"] },
+  { id: "BUSINESS", name: "Business", price: 60, desc: "Pour les équipes avec un volume régulier.", features: ["10 000 appels inclus", "Collaborateurs et rapports", "Support prioritaire"] },
+  { id: "ENTERPRISE", name: "Enterprise", price: 0, contactSales: true, desc: "Volume, SLA et intégrations sur mesure.", features: ["Volume personnalisé", "SLA dédié", "Intégrations avancées"] },
+];
+
+function mapNotification(item: { id: string; type: string; title: string; message: string; createdAt: string }): NotificationItem {
+  const text = `${item.title} ${item.message}`.toLowerCase();
+  return {
+    id: item.id,
+    group: new Date(item.createdAt).toLocaleDateString("fr-FR"),
+    kind: item.type === "CREDIT" ? "warn" : item.type === "SECURITY" ? "alert" : item.type === "CALL" ? "ok" : "info",
+    title: item.title,
+    desc: item.message,
+    time: new Date(item.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+    target: text.includes("rapport") ? "reports" : item.type === "CALL" || item.type === "CAMPAIGN" ? "campaigns" : item.type === "CREDIT" ? "billing" : item.type === "SECURITY" ? "settings" : null,
+  };
+}
+
 interface DashboardContextType {
   view: string; setView: (v: string) => void; tab: string; setTab: (t: string) => void; campaignId: string; setCampaignId: (id: string) => void; callId: string | null; setCallId: (id: string | null) => void; menuOpen: boolean; setMenuOpen: (o: boolean) => void;
   ka: number; kt: number; kc: number; kcr: number; tick: number; theme: "dark" | "light"; setTheme: (t: "dark" | "light") => void; toggleTheme: () => void;
@@ -37,36 +56,39 @@ export const useDashboard = () => { const c = useContext(DashboardContext); if (
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [calls, setCalls] = useState<Call[]>([]); const [liveCalls, setLiveCalls] = useState<LiveCall[]>([]); const [dashboard, setDashboard] = useState<DashboardData | null>(null); const [directory, setDirectory] = useState<Contact[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]); const [team, setTeam] = useState<TeamMember[]>([]);
   const [profile, setProfile] = useState<UserProfile>({ name: "", email: "", role: "VIEWER", photo: null }); const [company, setCompany] = useState<CompanyInfo>({ name: "", phone: "", tz: "UTC", plan: "STARTER", isSandbox: false }); const [plan, setPlan] = useState("STARTER");
   const [theme, setThemeState] = useState<"dark" | "light">("dark"); const [view, setView] = useState("home"); const [tab, setTab] = useState("overview"); const [campaignId, setCampaignId] = useState(""); const [callId, setCallId] = useState<string | null>(null); const [menuOpen, setMenuOpen] = useState(false); const [ka, setKa] = useState(0); const [kt, setKt] = useState(0); const [kc, setKc] = useState(0); const [kcr, setKcr] = useState(0); const [tick, setTick] = useState(0); const [notifOpen, setNotifOpen] = useState(false); const [profileOpen, setProfileOpen] = useState(false); const [faqOpen, setFaqOpen] = useState<number | null>(null); const [companyEdit, setCompanyEdit] = useState(false); const [companyDraft, setCompanyDraft] = useState<CompanyInfo | null>(null); const [profileModalOpen, setProfileModalOpen] = useState(false); const [profileDraft, setProfileDraft] = useState<UserProfile | null>(null); const [autoRecharge, setAutoRecharge] = useState(false); const [notifUnread, setNotifUnread] = useState<string[]>([]); const [notifFilter, setNotifFilter] = useState<"all" | "unread">("all"); const [toasts, setToasts] = useState<Toast[]>([]); const [confirm, setConfirm] = useState<ConfirmData | null>(null); const [stOver, setStOver] = useState<Record<string, Campaign["status"]>>({}); const [searchQ, setSearchQ] = useState(""); const [playing, setPlaying] = useState(false); const [playT, setPlayT] = useState(0); const [testCall, setTestCall] = useState<"idle" | "calling">("idle"); const [testNum, setTestNum] = useState(""); const [chartRange, setChartRange] = useState<7 | 14 | 30>(14);
 
   useEffect(() => { const t = setInterval(() => setTick(v => v + 1), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { document.getElementById("sn-root")?.setAttribute("data-theme", theme); }, [theme]);
   useEffect(() => { let active = true; (async () => { try {
-    const [me, cs, usage, dashboardData, live, contacts] = await Promise.all([
-      api.auth.me().catch(() => null), api.campaigns.list({ limit: 50 }).catch(() => null), api.company.usage().catch(() => null), api.company.dashboard().catch(() => null), api.calls.live().catch(() => null), api.contacts.list().catch(() => null),
+    const [me, cs, usage, dashboardData, live, contacts, notificationRows, memberRows] = await Promise.all([
+      api.auth.me().catch(() => null), api.campaigns.list({ limit: 50 }).catch(() => null), api.company.usage().catch(() => null), api.company.dashboard().catch(() => null), api.calls.live().catch(() => null), api.contacts.list().catch(() => null), api.notifications.list().catch(() => null), api.company.members().catch(() => null),
     ]);
     if (!active) return; if (!me?.data) { window.location.assign("/login"); return; }
     const { user, company: dbCompany } = me.data;
     setProfile({ name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email, role: user.role, photo: user.avatarUrl ?? null }); setCompany({ name: dbCompany.name, phone: "", tz: "UTC", plan: dbCompany.plan, isSandbox: Boolean(dbCompany.isSandbox) }); setPlan(dbCompany.plan);
-    if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront)); if (usage?.data) { setKa(usage.data.calls.total); setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); } if (dashboardData?.data) { setDashboard(dashboardData.data); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); } if (live?.data) setLiveCalls(live.data); if (contacts?.data) setDirectory(contacts.data);
+    if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront)); if (usage?.data) { setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); } if (dashboardData?.data) { setDashboard(dashboardData.data); setKa(dashboardData.data.today.launched); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); } if (live?.data) setLiveCalls(live.data); if (contacts?.data) setDirectory(contacts.data); if (notificationRows?.data) { setNotifications(notificationRows.data.map(mapNotification)); setNotifUnread(notificationRows.data.filter((item) => !item.readAt).map((item) => item.id)); } if (memberRows?.data) setTeam(memberRows.data.map((member) => ({ name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.email, email: member.email, role: member.role })));
   } finally { if (active) setIsLoading(false); } })(); return () => { active = false; }; }, []);
   // Les webhooks mettent à jour la base, puis cette synchronisation légère
   // reflète les résultats sans demander à l'utilisateur de recharger la page.
   useEffect(() => {
     const refresh = async () => {
-      const [cs, usage, dashboardData, live, contacts] = await Promise.all([
+      const [cs, usage, dashboardData, live, contacts, notificationRows] = await Promise.all([
         api.campaigns.list({ limit: 50 }).catch(() => null),
         api.company.usage().catch(() => null),
         api.company.dashboard().catch(() => null),
         api.calls.live().catch(() => null),
         api.contacts.list().catch(() => null),
+        api.notifications.list().catch(() => null),
       ]);
       if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront));
-      if (usage?.data) { setKa(usage.data.calls.total); setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); }
-      if (dashboardData?.data) { setDashboard(dashboardData.data); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); }
+      if (usage?.data) { setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); }
+      if (dashboardData?.data) { setDashboard(dashboardData.data); setKa(dashboardData.data.today.launched); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); }
       if (live?.data) setLiveCalls(live.data);
       if (contacts?.data) setDirectory(contacts.data);
+      if (notificationRows?.data) { setNotifications(notificationRows.data.map(mapNotification)); setNotifUnread(notificationRows.data.filter((item) => !item.readAt).map((item) => item.id)); }
     };
     const timer = window.setInterval(() => { void refresh(); }, 15_000);
     window.addEventListener("focus", refresh);
@@ -75,7 +97,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (t: "dark" | "light") => { setThemeState(t); localStorage.setItem("sonara-theme", t); };
   const pushToast = (text: string, kind: Toast["kind"]) => { const id = crypto.randomUUID(); setToasts(v => [...v, { id, text, kind }]); window.setTimeout(() => setToasts(v => v.filter(x => x.id !== id)), 3800); };
   const startTestCall = async (options?: { aiBrief?: string; aiVoice?: string; aiTemperature?: number }) => { if (!testNum.trim() || testCall === "calling") { if (!testNum.trim()) pushToast("Saisissez un numéro de téléphone.", "warn"); return; } setTestCall("calling"); try { const { data } = await api.calls.test({ phone: testNum.trim(), firstName: profile.name.split(" ")[0] || "Client", ...options }); pushToast(data.message, "ok"); } catch (e) { pushToast(e instanceof Error ? e.message : "Impossible de lancer l’appel test.", "warn"); } finally { setTestCall("idle"); } };
-  const accountPlan: PlanInfo = { id: plan, name: company.plan || plan, price: 0, desc: "Plan enregistré pour cette entreprise.", features: [] };
-  const value: DashboardContextType = { view, setView, tab, setTab, campaignId, setCampaignId, callId, setCallId, menuOpen, setMenuOpen, ka, kt, kc, kcr, tick, theme, setTheme, toggleTheme: () => setTheme(theme === "dark" ? "light" : "dark"), notifOpen, setNotifOpen, profileOpen, setProfileOpen, faqOpen, setFaqOpen, company, setCompany, profile, setProfile, companyEdit, setCompanyEdit, companyDraft, setCompanyDraft, profileModalOpen, setProfileModalOpen, profileDraft, setProfileDraft, plan, setPlan, autoRecharge, setAutoRecharge, toggleAutoRecharge: () => setAutoRecharge(v => !v), notifUnread, setNotifUnread, notifFilter, setNotifFilter, toasts, pushToast, confirm, setConfirm, stOver, setStOver, searchQ, setSearchQ, playing, setPlaying, playT, setPlayT, testCall, setTestCall, testNum, setTestNum, chartRange, setChartRange, go: setView, persistAccount: (c, p) => { setCompany(c); setProfile(p); }, markAllRead: () => setNotifUnread([]), startTestCall, isLoading, campaigns, setCampaigns, calls, setCalls, liveCalls, dashboard, directory, reports: [], team: [], notifications: [], faq: [], plans: [accountPlan] };
+  const value: DashboardContextType = { view, setView, tab, setTab, campaignId, setCampaignId, callId, setCallId, menuOpen, setMenuOpen, ka, kt, kc, kcr, tick, theme, setTheme, toggleTheme: () => setTheme(theme === "dark" ? "light" : "dark"), notifOpen, setNotifOpen, profileOpen, setProfileOpen, faqOpen, setFaqOpen, company, setCompany, profile, setProfile, companyEdit, setCompanyEdit, companyDraft, setCompanyDraft, profileModalOpen, setProfileModalOpen, profileDraft, setProfileDraft, plan, setPlan, autoRecharge, setAutoRecharge, toggleAutoRecharge: () => setAutoRecharge(v => !v), notifUnread, setNotifUnread, notifFilter, setNotifFilter, toasts, pushToast, confirm, setConfirm, stOver, setStOver, searchQ, setSearchQ, playing, setPlaying, playT, setPlayT, testCall, setTestCall, testNum, setTestNum, chartRange, setChartRange, go: setView, persistAccount: (c, p) => { setCompany(c); setProfile(p); }, markAllRead: () => { const ids = [...notifUnread]; setNotifUnread([]); if (ids.length) void api.notifications.markRead(ids); }, startTestCall, isLoading, campaigns, setCampaigns, calls, setCalls, liveCalls, dashboard, directory, reports: [], team, notifications, faq: [], plans: PLAN_CATALOG };
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }

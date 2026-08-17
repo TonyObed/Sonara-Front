@@ -6,6 +6,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { CreateCampaignSchema, CampaignsQuerySchema } from "@/lib/validation";
 import { ok, created, unauthorized, forbidden, zodError, handleError } from "@/lib/response";
 import { ZodError } from "zod";
+import { inferCampaignQuestions } from "@/lib/campaign-questions";
 
 // ─── GET : Liste des campagnes ────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const input = CreateCampaignSchema.parse(body);
+    const inferredQuestions = inferCampaignQuestions(input.aiBrief);
 
     const campaign = await db.campaign.create({
       data: {
@@ -148,12 +150,20 @@ export async function POST(request: NextRequest) {
         ...(input.aiSpeed !== undefined ? { aiSpeed: input.aiSpeed } : {}),
         ...(input.aiSpeakerBoost !== undefined ? { aiSpeakerBoost: input.aiSpeakerBoost } : {}),
         maxRetries: input.maxRetries,
+        retryDelayMinutes: input.retryDelayMinutes,
         timeStart: input.timeStart,
         timeEnd: input.timeEnd,
         maxDuration: input.maxDuration,
         concurrency: input.concurrency,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
         status: input.scheduledAt ? "SCHEDULED" : "DRAFT",
+        ...(inferredQuestions.length > 0
+          ? {
+              questions: {
+                create: inferredQuestions,
+              },
+            }
+          : {}),
       },
     });
 
