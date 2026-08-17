@@ -3,7 +3,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
-import { ok, unauthorized, forbidden, notFound, badRequest, handleError } from "@/lib/response";
+import { ok, unauthorized, forbidden, notFound, badRequest, internalError, handleError } from "@/lib/response";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -52,6 +52,33 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           : {}),
       },
     });
+
+    // Une reprise doit repartir immédiatement dans la file d'appels. Comme
+    // pour le lancement initial, on attend le scheduler : sur Vercel une
+    // requête non attendue peut être interrompue à la fin de cette réponse.
+    if (action === "resume") {
+      const schedulerResponse = await fetch(`${request.nextUrl.origin}/api/jobs/call-scheduler`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-key": process.env.INTERNAL_JOB_KEY ?? "dev-key",
+        },
+        body: JSON.stringify({ campaignId: id }),
+      }).catch((error) => {
+        console.error("[resume] scheduler trigger failed:", error);
+        return null;
+      });
+
+      if (!schedulerResponse?.ok) {
+        await db.campaign.update({
+          where: { id },
+          data: { status: "PAUSED" },
+        });
+        const detail = schedulerResponse ? await schedulerResponse.text() : "Erreur réseau interne.";
+        console.error("[resume] scheduler refused campaign:", detail);
+        return internalError("Le moteur d'appels n'a pas pu reprendre la campagne. Réessayez dans un instant.");
+      }
+    }
 
     const messages: Record<string, string> = {
       pause:  "Campagne mise en pause. Les appels en cours se terminent normalement.",
