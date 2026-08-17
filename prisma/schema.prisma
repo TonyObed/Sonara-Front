@@ -185,7 +185,7 @@ model Campaign {
   aiTemperature  Float          @default(0.5) @map("ai_temperature")
   // ── Réglages voix ElevenLabs (configurables par campagne) ──
   aiVoiceId      String?        @map("ai_voice_id") // voiceId ElevenLabs explicite (voix clonée) — override de aiVoice
-  aiVoiceModel   String         @default("eleven_turbo_v2_5") @map("ai_voice_model")
+  aiVoiceModel   String         @default("eleven_flash_v2_5") @map("ai_voice_model")
   aiStability    Float          @default(0.5) @map("ai_stability") // 0-1
   aiSimilarity   Float          @default(0.75) @map("ai_similarity") // 0-1
   aiStyle        Float          @default(0.0) @map("ai_style") // 0-1

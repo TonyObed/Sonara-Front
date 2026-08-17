@@ -64,7 +64,7 @@ Règles impératives (non négociables) :
 export interface VoiceSettings {
   /** voiceId ElevenLabs explicite (voix clonée). Prioritaire sur aiVoice. */
   voiceId?: string | null;
-  model?: string;          // eleven_turbo_v2_5, eleven_multilingual_v2, ...
+  model?: string;          // eleven_flash_v2_5, eleven_multilingual_v2, ...
   stability?: number;      // 0-1
   similarityBoost?: number;// 0-1
   style?: number;          // 0-1
@@ -196,18 +196,17 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // ── LLM : intelligence conversationnelle (CDC E1) ──
     model,
 
-    // ── TTS : ElevenLabs Turbo (voix naturelle FR, latence < 300ms — CDC) ──
+    // ── TTS : ElevenLabs Flash (voix naturelle FR, optimisée conversation) ──
     // Provider configurable via env (Vapi accepte "11labs" ; certaines docs "elevenlabs").
     voice: {
       provider: process.env.ELEVENLABS_PROVIDER ?? "11labs",
       voiceId,
-      model: params.model ?? process.env.ELEVENLABS_MODEL ?? "eleven_turbo_v2_5",
+      model: params.model ?? process.env.ELEVENLABS_MODEL ?? "eleven_flash_v2_5",
       stability: params.stability ?? 0.5,
       similarityBoost: params.similarityBoost ?? 0.75,
       style: params.style ?? 0.0,
       useSpeakerBoost: params.speakerBoost ?? true,
       speed: params.speed ?? 1.0,
-      optimizeStreamingLatency: 4, // max (0-4) : réduit la latence de génération voix
     },
 
     // ── STT : Deepgram (fr + vocabulaire local CI — CDC D6/E2) ──
@@ -217,9 +216,9 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       language: "fr",
       smartFormat: true,
       keywords: CI_KEYWORDS,
-      // 450 ms laisse au client le temps de respirer sans ajouter une seconde
+      // 350 ms laisse au client le temps de respirer sans ajouter une seconde
       // complète avant chaque réponse. Vapi impose une valeur <= 500 ms.
-      endpointing: Number(process.env.VAPI_ENDPOINTING_MS ?? 450),
+      endpointing: Number(process.env.VAPI_ENDPOINTING_MS ?? 350),
     },
 
     // Ouverture courte : le client peut répondre ou interrompre immédiatement.
@@ -234,10 +233,10 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // Le défaut Vapi attend 1.5s sans ponctuation (réponses courtes type "oui",
     // "trois") : c'est la principale source de latence perçue. On resserre tout.
     startSpeakingPlan: {
-      waitSeconds: Number(process.env.VAPI_START_SPEAKING_WAIT_SECONDS ?? 0.2),
+      waitSeconds: Number(process.env.VAPI_START_SPEAKING_WAIT_SECONDS ?? 0.1),
       transcriptionEndpointingPlan: {
         // Réglage Vapi recommandé pour les langues autres que l'anglais.
-        onPunctuationSeconds: Number(process.env.VAPI_PUNCTUATION_SECONDS ?? 0.15),
+        onPunctuationSeconds: Number(process.env.VAPI_PUNCTUATION_SECONDS ?? 0.1),
         onNoPunctuationSeconds: Number(process.env.VAPI_NO_PUNCTUATION_SECONDS ?? 0.9),
         onNumberSeconds: Number(process.env.VAPI_NUMBER_SECONDS ?? 0.35),
       },

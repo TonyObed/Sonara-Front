@@ -3,10 +3,16 @@ import { buildAssistant } from "@/lib/vapi";
 
 const originalProvider = process.env.LLM_PROVIDER;
 const originalModel = process.env.OPENROUTER_MODEL;
+const originalElevenLabsModel = process.env.ELEVENLABS_MODEL;
+const originalEndpointing = process.env.VAPI_ENDPOINTING_MS;
+const originalWaitSeconds = process.env.VAPI_START_SPEAKING_WAIT_SECONDS;
 
 afterEach(() => {
   process.env.LLM_PROVIDER = originalProvider;
   process.env.OPENROUTER_MODEL = originalModel;
+  process.env.ELEVENLABS_MODEL = originalElevenLabsModel;
+  process.env.VAPI_ENDPOINTING_MS = originalEndpointing;
+  process.env.VAPI_START_SPEAKING_WAIT_SECONDS = originalWaitSeconds;
 });
 
 describe("Configuration Vapi", () => {
@@ -21,7 +27,30 @@ describe("Configuration Vapi", () => {
 
     expect(assistant.model).toMatchObject({ provider: "openrouter", model: "openai/gpt-4o" });
     expect(assistant.model).toMatchObject({ maxTokens: 100 });
-    expect(assistant.transcriber).toMatchObject({ endpointing: 450 });
+    expect(assistant.transcriber).toMatchObject({ endpointing: 350 });
+  });
+
+  it("utilise le profil vocal faible latence par défaut", () => {
+    delete process.env.ELEVENLABS_MODEL;
+    delete process.env.VAPI_ENDPOINTING_MS;
+    delete process.env.VAPI_START_SPEAKING_WAIT_SECONDS;
+
+    const assistant = buildAssistant({
+      aiBrief: "Mène une conversation courte.", aiVoice: "awa_female_ci",
+      aiTemperature: 0.3, maxDuration: 120, callId: "latency-test",
+    });
+
+    expect(assistant.voice).toMatchObject({ model: "eleven_flash_v2_5" });
+    expect(assistant.voice).not.toHaveProperty("optimizeStreamingLatency");
+    expect(assistant.transcriber).toMatchObject({ endpointing: 350 });
+    expect(assistant.startSpeakingPlan).toMatchObject({
+      waitSeconds: 0.1,
+      transcriptionEndpointingPlan: {
+        onPunctuationSeconds: 0.1,
+        onNoPunctuationSeconds: 0.9,
+        onNumberSeconds: 0.35,
+      },
+    });
   });
 
   it("présente le bon prénom pour chacune des deux voix Sonara", () => {
