@@ -9,11 +9,11 @@
 const VAPI_BASE = "https://api.vapi.ai";
 
 // Map voix logique (stockée en BDD) → voiceId ElevenLabs (configurable via env).
-// Les clés historiques AWA/KOFFI sont conservées pour ne pas casser les campagnes
-// existantes, mais elles correspondent désormais à Ingrid et Loïc.
+// Les identifiants logiques historiques restent en base pour ne pas casser les
+// campagnes existantes, mais pointent désormais vers Ingrid et Loïc.
 export const VOICE_MAP: Record<string, string> = {
-  awa_female_ci: process.env.ELEVENLABS_VOICE_AWA ?? "FFXYdAYPzn8Tw8KiHZqg", // Ingrid
-  koffi_male_ci: process.env.ELEVENLABS_VOICE_KOFFI ?? "ojsdYNTmnPdf7yAl8rI5", // Loïc
+  awa_female_ci: process.env.ELEVENLABS_VOICE_INGRID ?? "FFXYdAYPzn8Tw8KiHZqg", // Ingrid
+  koffi_male_ci: process.env.ELEVENLABS_VOICE_LOIC ?? "ojsdYNTmnPdf7yAl8rI5", // Loïc
 };
 
 // Vocabulaire local CI injecté dans Deepgram pour fiabiliser la transcription
