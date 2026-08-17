@@ -115,6 +115,9 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         provider: "openrouter",
         model: process.env.OPENROUTER_MODEL ?? "openai/gpt-4o",
         temperature: params.aiTemperature,
+        // Une réponse téléphonique doit rester brève : ce plafond évite qu'un
+        // modèle récite le questionnaire au lieu d'attendre le client.
+        maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
         ...(tools ? { tools } : {}),
       }
@@ -126,6 +129,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
           "https://generativelanguage.googleapis.com/v1beta/openai/",
         model: process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite",
         temperature: params.aiTemperature,
+        maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
         metadataSendMode: "off",
         ...(tools ? { tools } : {}),
@@ -134,6 +138,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         provider: "openai",
         model: process.env.OPENAI_MODEL ?? "gpt-4o",
         temperature: params.aiTemperature,
+        maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
         ...(tools ? { tools } : {}),
       };

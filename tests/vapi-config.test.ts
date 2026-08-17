@@ -20,6 +20,7 @@ describe("Configuration Vapi", () => {
     });
 
     expect(assistant.model).toMatchObject({ provider: "openrouter", model: "openai/gpt-4o" });
+    expect(assistant.model).toMatchObject({ maxTokens: 100 });
     expect(assistant.transcriber).toMatchObject({ endpointing: 450 });
   });
 
