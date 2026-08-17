@@ -36,9 +36,21 @@ interface VapiCallEndedPayload {
     successEvaluation?: string;
   };
   artifact?: {
-    transcript?: VapiTranscriptEntry[];
+    // Vapi envoie normalement `messages`; `transcript` est conservé pour
+    // compatibilité avec les anciens événements.
+    messages?: VapiTranscriptEntry[];
+    transcript?: VapiTranscriptEntry[] | string;
     recordingUrl?: string;
   };
+  // Dans le format actuel de Vapi, ces valeurs sont portées par le message,
+  // pas nécessairement par `call`.
+  endedReason?: string;
+  durationSeconds?: number;
+  startedAt?: string;
+  endedAt?: string;
+  summary?: string;
+  recordingUrl?: string;
+  cost?: number;
 }
 
 interface VapiCallStartedPayload {
@@ -53,6 +65,47 @@ type VapiWebhookPayload =
   | VapiCallEndedPayload
   | VapiCallStartedPayload
   | { type: string; [key: string]: unknown };
+
+/**
+ * Vapi encapsule ses Server URL events dans `{ message: { ... } }`.
+ * On accepte aussi l'ancien format à plat afin de ne pas casser les appels
+ * déjà émis avec une configuration antérieure.
+ */
+function unwrapVapiMessage(raw: unknown): VapiWebhookPayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const envelope = raw as { message?: unknown };
+  const candidate = envelope.message ?? raw;
+  if (!candidate || typeof candidate !== "object") return null;
+  return candidate as VapiWebhookPayload;
+}
+
+function endTextField(payload: VapiCallEndedPayload, field: "endedReason" | "startedAt" | "endedAt" | "summary" | "recordingUrl"): string | undefined {
+  const value = payload[field] ?? payload.call[field as keyof VapiCallEndedPayload["call"]];
+  return typeof value === "string" ? value : undefined;
+}
+
+function endNumberField(payload: VapiCallEndedPayload, field: "durationSeconds" | "cost"): number | undefined {
+  const value = payload[field] ?? payload.call[field as keyof VapiCallEndedPayload["call"]];
+  return typeof value === "number" ? value : undefined;
+}
+
+function extractTranscript(payload: VapiCallEndedPayload): VapiTranscriptEntry[] {
+  const artifact = payload.artifact;
+  if (Array.isArray(artifact?.messages)) return artifact.messages;
+  if (Array.isArray(artifact?.transcript)) return artifact.transcript;
+  if (Array.isArray(payload.call.transcript)) return payload.call.transcript;
+  return [];
+}
+
+function formatTranscript(entries: VapiTranscriptEntry[]) {
+  return entries.map((entry) => ({
+    speaker: entry.role === "assistant" ? "IA (Ingrid)" : "Client",
+    text: entry.message,
+    timestamp: entry.secondsFromStart === undefined
+      ? undefined
+      : `${Math.floor(entry.secondsFromStart / 60)}:${String(Math.floor(entry.secondsFromStart % 60)).padStart(2, "0")}`,
+  }));
+}
 
 // ─── VÉRIFICATION HMAC ────────────────────────────────────────────────────────
 
@@ -185,35 +238,42 @@ export async function POST(request: NextRequest) {
       return unauthorized("Authentification webhook invalide.");
     }
 
-    let payload: VapiWebhookPayload;
+    let parsedPayload: unknown;
     try {
-      payload = JSON.parse(rawBody);
+      parsedPayload = JSON.parse(rawBody);
     } catch {
       return ok({ received: false, error: "JSON invalide" });
     }
 
+    const payload = unwrapVapiMessage(parsedPayload);
+    if (!payload) return ok({ received: false, error: "Message Vapi invalide" });
+
     const eventType = payload.type;
 
-    // ─── call-started ──────────────────────────────────────────────────────────
-    if (eventType === "call-started") {
-      const callPayload = payload as VapiCallStartedPayload;
+    // ─── Démarrage / états d'appel ─────────────────────────────────────────────
+    // Les Server URL events actuels utilisent `status-update` (ringing,
+    // in-progress, ended). `call-started` est accepté pour les anciens appels.
+    if (eventType === "call-started" || eventType === "status-update") {
+      const callPayload = payload as VapiCallStartedPayload & { status?: string };
       const vapiCallId = callPayload.call?.id;
+      const remoteStatus = `${callPayload.status ?? callPayload.call?.status ?? ""}`.toLowerCase();
+      const status = remoteStatus === "ringing" ? "RINGING" : "IN_PROGRESS";
 
       if (vapiCallId) {
         await db.call.updateMany({
           where: { vapiCallId },
           data: {
-            status: "IN_PROGRESS",
+            status,
             startedAt: new Date(),
           },
         });
         await db.testCall.updateMany({
           where: { vapiCallId },
-          data: { status: "IN_PROGRESS", startedAt: new Date() },
+          data: { status, startedAt: new Date() },
         });
       }
 
-      return ok({ received: true, event: "call-started" });
+      return ok({ received: true, event: eventType, status: remoteStatus || "in-progress" });
     }
 
     // ─── end-of-call-report ───────────────────────────────────────────────────
@@ -239,35 +299,33 @@ export async function POST(request: NextRequest) {
           return ok({ received: true, warning: "Appel non trouvé en BDD" });
         }
 
-        const reason = callPayload.call.endedReason ?? "";
+        const reason = (endTextField(callPayload, "endedReason") ?? "").toLowerCase();
         const status = reason.includes("voicemail") ? "VOICEMAIL"
           : reason.includes("no-answer") || reason.includes("no_answer") ? "NO_ANSWER"
           : reason.includes("busy") ? "BUSY"
           : reason.includes("error") || reason.includes("failed") ? "FAILED"
           : "COMPLETED";
-        const transcript = (callPayload.artifact?.transcript ?? callPayload.call.transcript ?? []).map((t) => ({
-          speaker: t.role === "assistant" ? "IA (Awa)" : "Client",
-          text: t.message,
-          timestamp: t.secondsFromStart === undefined ? undefined : `${Math.floor(t.secondsFromStart / 60)}:${String(Math.floor(t.secondsFromStart % 60)).padStart(2, "0")}`,
-        }));
-        const durationSec = callPayload.call.durationSeconds ?? (callPayload.call.startedAt && callPayload.call.endedAt
-          ? Math.round((new Date(callPayload.call.endedAt).getTime() - new Date(callPayload.call.startedAt).getTime()) / 1000)
+        const transcript = formatTranscript(extractTranscript(callPayload));
+        const startedAt = endTextField(callPayload, "startedAt");
+        const endedAt = endTextField(callPayload, "endedAt");
+        const durationSec = endNumberField(callPayload, "durationSeconds") ?? (startedAt && endedAt
+          ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
           : null);
         await db.testCall.update({
           where: { id: testCall.id },
           data: {
             status, durationSec, transcript,
-            startedAt: callPayload.call.startedAt ? new Date(callPayload.call.startedAt) : testCall.startedAt,
-            endedAt: callPayload.call.endedAt ? new Date(callPayload.call.endedAt) : new Date(),
-            summary: callPayload.analysis?.summary ?? callPayload.call.summary ?? null,
-            recordingUrl: callPayload.artifact?.recordingUrl ?? callPayload.call.recordingUrl ?? null,
+            startedAt: startedAt ? new Date(startedAt) : testCall.startedAt,
+            endedAt: endedAt ? new Date(endedAt) : new Date(),
+            summary: callPayload.analysis?.summary ?? endTextField(callPayload, "summary") ?? null,
+            recordingUrl: callPayload.artifact?.recordingUrl ?? endTextField(callPayload, "recordingUrl") ?? null,
           },
         });
         return ok({ received: true, event: "end-of-call-report", testCallId: testCall.id });
       }
 
       // Déterminer le statut final
-      const endedReason = callPayload.call.endedReason ?? "";
+      const endedReason = (endTextField(callPayload, "endedReason") ?? "").toLowerCase();
       let finalStatus: "COMPLETED" | "FAILED" | "NO_ANSWER" | "VOICEMAIL" | "BUSY" = "COMPLETED";
 
       if (endedReason.includes("voicemail") || endedReason.includes("answering-machine")) {
@@ -281,36 +339,31 @@ export async function POST(request: NextRequest) {
       }
 
       // Extraire la transcription (priorité : artifact > call.transcript)
-      const rawTranscript =
-        callPayload.artifact?.transcript ?? callPayload.call.transcript ?? [];
-
-      const formattedTranscript = rawTranscript.map((t) => ({
-        speaker: t.role === "assistant" ? "IA (Awa)" : "Client",
-        text: t.message,
-        timestamp: t.secondsFromStart !== undefined
-          ? `${Math.floor(t.secondsFromStart / 60)}:${String(Math.floor(t.secondsFromStart % 60)).padStart(2, "0")}`
-          : undefined,
-      }));
+      const rawTranscript = extractTranscript(callPayload);
+      const formattedTranscript = formatTranscript(rawTranscript);
 
       // Durée en secondes
-      const durationSec = callPayload.call.durationSeconds
-        ?? (callPayload.call.startedAt && callPayload.call.endedAt
+      const startedAt = endTextField(callPayload, "startedAt");
+      const endedAt = endTextField(callPayload, "endedAt");
+      const durationSec = endNumberField(callPayload, "durationSeconds")
+        ?? (startedAt && endedAt
             ? Math.round(
-                (new Date(callPayload.call.endedAt).getTime() -
-                  new Date(callPayload.call.startedAt).getTime()) /
+                (new Date(endedAt).getTime() -
+                  new Date(startedAt).getTime()) /
                   1000
               )
             : null);
 
       // Coût en FCFA
-      const costFcfa = callPayload.call.cost
-        ? usdToFcfa(callPayload.call.cost)
+      const cost = endNumberField(callPayload, "cost");
+      const costFcfa = cost !== undefined
+        ? usdToFcfa(cost)
         : null;
 
       // Résumé : priorité au résumé Vapi, sinon GPT-4o
       const summary =
         callPayload.analysis?.summary ??
-        callPayload.call.summary ??
+        endTextField(callPayload, "summary") ??
         (finalStatus === "COMPLETED" && formattedTranscript.length > 0
           ? await generateSummary(rawTranscript)
           : null);
@@ -354,10 +407,10 @@ export async function POST(request: NextRequest) {
             where: { id: call.id },
             data: {
               status: finalStatus, durationSec,
-              startedAt: callPayload.call.startedAt ? new Date(callPayload.call.startedAt) : call.startedAt,
-              endedAt: callPayload.call.endedAt ? new Date(callPayload.call.endedAt) : new Date(),
+              startedAt: startedAt ? new Date(startedAt) : call.startedAt,
+              endedAt: endedAt ? new Date(endedAt) : new Date(),
               transcript: formattedTranscript, summary,
-              recordingUrl: callPayload.artifact?.recordingUrl ?? callPayload.call.recordingUrl ?? null,
+              recordingUrl: callPayload.artifact?.recordingUrl ?? endTextField(callPayload, "recordingUrl") ?? null,
               costFcfa,
             },
           });

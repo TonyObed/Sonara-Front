@@ -210,8 +210,13 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
   if (appUrl) {
     assistant.server = {
       url: `${appUrl}/api/webhooks/vapi`,
+      // Demande explicitement les deux événements dont Sonara a besoin. Sans
+      // cela, Vapi peut n'envoyer qu'une partie de ses événements selon la
+      // configuration du compte ou du numéro de téléphone.
+      timeoutSeconds: 20,
       ...(webhookSecret ? { secret: webhookSecret } : {}),
     };
+    assistant.serverMessages = ["status-update", "end-of-call-report"];
   }
 
   return assistant;

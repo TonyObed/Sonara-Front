@@ -3,7 +3,7 @@
 import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useDashboard } from "../../DashboardContext";
+import { useDashboard, type Campaign as FrontCampaign } from "../../DashboardContext";
 import { useCampaignCalls } from "@/hooks/useSonara";
 import { mapApiCallToRow } from "@/lib/dashboard-adapters";
 
@@ -12,7 +12,13 @@ type CampaignAnalytics = {
   cities: Array<{ name: string; calls: number; sentiment: number | null }>;
   topics: Array<{ label: string; count: number; percentage: number }>;
 };
-type CampaignDetail = { kpis: { totalContacts: number; totalCalls: number; completed: number; failed: number; voicemail: number; transferred: number; responseRate: number; progress: number; avgDurationSec: number }; insights: Array<{ sentimentScore: number | null }> };
+type CampaignDetail = {
+  id: string; name: string; sector: string | null; aiBrief: string; aiVoice: string;
+  status: "DRAFT" | "SCHEDULED" | "RUNNING" | "PAUSED" | "COMPLETED" | "STOPPED";
+  maxRetries: number; timeStart: string; timeEnd: string; maxDuration: number; concurrency: number;
+  kpis: { totalContacts: number; totalCalls: number; completed: number; failed: number; voicemail: number; transferred: number; responseRate: number; progress: number; avgDurationSec: number };
+  insights: Array<{ sentimentScore: number | null }>;
+};
 type CampaignContact = { id: string; firstName: string | null; lastName: string | null; phone: string; city: string | null; segment: string | null; status: string; attempts: number };
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +38,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   } = useDashboard();
 
   // Appels réels de la campagne (transcription accessible via le drawer / useCall).
-  const { data: apiCalls } = useCampaignCalls(id);
+  const { data: apiCalls } = useCampaignCalls(id, 8_000);
   const callRows = (apiCalls ?? []).map(mapApiCallToRow);
   const [callFilter, setCallFilter] = useState("all");
   const filteredCallRows = callFilter === "all" ? callRows : callRows.filter((call) => call.status === callFilter);
@@ -41,12 +47,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [campaignContacts, setCampaignContacts] = useState<CampaignContact[]>([]);
   useEffect(() => {
     let mounted = true;
-    fetch(`/api/campaigns/${id}`, { credentials: "include" })
-      .then((response) => response.json())
-      .then((payload) => { if (mounted && payload.success) { setAnalytics(payload.data.analytics); setDetail(payload.data); } })
-      .catch(() => {});
-    fetch(`/api/campaigns/${id}/contacts?limit=100`, { credentials: "include" }).then((response) => response.json()).then((payload) => { if (mounted && payload.success) setCampaignContacts(payload.data); }).catch(() => {});
-    return () => { mounted = false; };
+    const load = () => {
+      fetch(`/api/campaigns/${id}`, { credentials: "include" })
+        .then((response) => response.json())
+        .then((payload) => { if (mounted && payload.success) { setAnalytics(payload.data.analytics); setDetail(payload.data); } })
+        .catch(() => {});
+      fetch(`/api/campaigns/${id}/contacts?limit=100`, { credentials: "include" }).then((response) => response.json()).then((payload) => { if (mounted && payload.success) setCampaignContacts(payload.data); }).catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, 8_000);
+    return () => { mounted = false; window.clearInterval(timer); };
   }, [id]);
 
   // Load initial tab from query string or default to 'overview'
@@ -77,8 +87,37 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     unreachable: { label: "Non joignable", color: "var(--sn-red)", bg: "rgba(255,92,92,.11)" },
   };
 
-  // Find active campaign
-  const campaign = campaigns.find((c) => c.id === id) || campaigns[0];
+  // La fiche API est la source de vérité : un brouillon récemment créé n'est
+  // jamais remplacé visuellement par la première campagne chargée en mémoire.
+  const contextCampaign = campaigns.find((c) => c.id === id);
+  const API_STATUS: Record<CampaignDetail["status"], FrontCampaign["status"]> = {
+    DRAFT: "draft", SCHEDULED: "scheduled", RUNNING: "live", PAUSED: "paused", COMPLETED: "done", STOPPED: "done",
+  };
+  const campaign: FrontCampaign | undefined = detail
+    ? {
+        id: detail.id,
+        name: detail.name,
+        sector: detail.sector ?? "—",
+        status: API_STATUS[detail.status],
+        done: detail.kpis.totalCalls,
+        total: detail.kpis.totalContacts,
+        responseRate: detail.kpis.totalCalls ? `${detail.kpis.responseRate}%` : null,
+        sentiment: null,
+        date: null,
+        brief: detail.aiBrief,
+        voice: detail.aiVoice === "koffi_male_ci" ? "Loïc — masculin" : "Ingrid — chaleureuse",
+        rules: {
+          hours: `${detail.timeStart} – ${detail.timeEnd}`,
+          maxAttempts: detail.maxRetries,
+          retryDelay: "4 h",
+          maxDuration: `${Math.round(detail.maxDuration / 60)} min`,
+          concurrency: detail.concurrency,
+        },
+      }
+    : contextCampaign;
+  if (!campaign) {
+    return <div style={{ padding: "40px", color: "var(--sn-w55)" }}>Chargement de la campagne…</div>;
+  }
   const currentStatus = stOver[campaign.id] || campaign.status;
   const st = STATUS_DICT[currentStatus] || STATUS_DICT.draft;
 

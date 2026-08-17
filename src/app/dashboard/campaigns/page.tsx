@@ -11,7 +11,7 @@ export default function CampaignsPage() {
   const router = useRouter();
   const { stOver } = useDashboard();
   // Données live (API) avec repli sur les données demo si non authentifié / erreur.
-  const { data: apiCampaigns } = useCampaigns();
+  const { data: apiCampaigns } = useCampaigns(undefined, 10_000);
   const campaigns = apiCampaigns?.map(mapApiCampaignToFront) ?? [];
   const [filter, setFilter] = useState<"all" | "live" | "scheduled" | "done" | "tests">("all");
   const [testCalls, setTestCalls] = useState<Array<{ id: string; phone: string; firstName: string | null; aiVoice: string; status: string; durationSec: number | null; createdAt: string; summary: string | null; error: string | null }>>([]);

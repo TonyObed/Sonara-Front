@@ -51,6 +51,27 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setProfile({ name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email, role: user.role, photo: user.avatarUrl ?? null }); setCompany({ name: dbCompany.name, phone: "", tz: "UTC", plan: dbCompany.plan, isSandbox: Boolean(dbCompany.isSandbox) }); setPlan(dbCompany.plan);
     if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront)); if (usage?.data) { setKa(usage.data.calls.total); setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); } if (dashboardData?.data) { setDashboard(dashboardData.data); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); } if (live?.data) setLiveCalls(live.data); if (contacts?.data) setDirectory(contacts.data);
   } finally { if (active) setIsLoading(false); } })(); return () => { active = false; }; }, []);
+  // Les webhooks mettent à jour la base, puis cette synchronisation légère
+  // reflète les résultats sans demander à l'utilisateur de recharger la page.
+  useEffect(() => {
+    const refresh = async () => {
+      const [cs, usage, dashboardData, live, contacts] = await Promise.all([
+        api.campaigns.list({ limit: 50 }).catch(() => null),
+        api.company.usage().catch(() => null),
+        api.company.dashboard().catch(() => null),
+        api.calls.live().catch(() => null),
+        api.contacts.list().catch(() => null),
+      ]);
+      if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront));
+      if (usage?.data) { setKa(usage.data.calls.total); setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); }
+      if (dashboardData?.data) { setDashboard(dashboardData.data); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); }
+      if (live?.data) setLiveCalls(live.data);
+      if (contacts?.data) setDirectory(contacts.data);
+    };
+    const timer = window.setInterval(() => { void refresh(); }, 15_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
   const setTheme = (t: "dark" | "light") => { setThemeState(t); localStorage.setItem("sonara-theme", t); };
   const pushToast = (text: string, kind: Toast["kind"]) => { const id = crypto.randomUUID(); setToasts(v => [...v, { id, text, kind }]); window.setTimeout(() => setToasts(v => v.filter(x => x.id !== id)), 3800); };
   const startTestCall = async (options?: { aiBrief?: string; aiVoice?: string; aiTemperature?: number }) => { if (!testNum.trim() || testCall === "calling") { if (!testNum.trim()) pushToast("Saisissez un numéro de téléphone.", "warn"); return; } setTestCall("calling"); try { const { data } = await api.calls.test({ phone: testNum.trim(), firstName: profile.name.split(" ")[0] || "Client", ...options }); pushToast(data.message, "ok"); } catch (e) { pushToast(e instanceof Error ? e.message : "Impossible de lancer l’appel test.", "warn"); } finally { setTestCall("idle"); } };

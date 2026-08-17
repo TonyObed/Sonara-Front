@@ -88,11 +88,18 @@ export function useMe() {
 }
 
 /** Liste paginée des campagnes (avec KPIs). */
-export function useCampaigns(params?: { page?: number; limit?: number; status?: CampaignStatus }) {
-  return useAsync<Campaign[]>(
+export function useCampaigns(params?: { page?: number; limit?: number; status?: CampaignStatus }, pollMs = 0) {
+  const state = useAsync<Campaign[]>(
     () => api.campaigns.list(params),
     [params?.page, params?.limit, params?.status]
   );
+  const { refetch } = state;
+  useEffect(() => {
+    if (!pollMs) return;
+    const timer = window.setInterval(refetch, pollMs);
+    return () => window.clearInterval(timer);
+  }, [pollMs, refetch]);
+  return state;
 }
 
 /** Détail d'une campagne (KPIs complets). */
@@ -105,12 +112,19 @@ export function useCampaign(id: string | null | undefined) {
 }
 
 /** Appels d'une campagne. */
-export function useCampaignCalls(campaignId: string | null | undefined) {
-  return useAsync<Call[]>(
+export function useCampaignCalls(campaignId: string | null | undefined, pollMs = 0) {
+  const state = useAsync<Call[]>(
     () => api.campaigns.calls(campaignId as string),
     [campaignId],
     Boolean(campaignId)
   );
+  const { refetch } = state;
+  useEffect(() => {
+    if (!pollMs) return;
+    const timer = window.setInterval(refetch, pollMs);
+    return () => window.clearInterval(timer);
+  }, [pollMs, refetch]);
+  return state;
 }
 
 /** Détail d'un appel (transcription + résumé). */
