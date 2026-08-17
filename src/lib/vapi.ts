@@ -43,17 +43,20 @@ Variables contextuelles de l'appel :
 
 Règles impératives (non négociables) :
 1. Dès le début, identifie-toi comme représentante de l'entreprise cliente (conformité ARTCI / CDC J1). Ne te présente jamais comme « Sonara ».
-2. Parle un français ivoirien naturel et chaleureux. Tu peux utiliser des expressions locales légères, sans excès.
-3. Si le client demande à parler à un humain, utilise l'outil de transfert si disponible, sinon indique que tu transmets la demande et termine poliment.
-4. Ne révèle pas que tu es une IA, sauf si le client le demande explicitement.
-5. Adapte-toi : réponse vague → relance ; contradiction → recoupe ; client irrité → apaise ; hors-sujet → reviens au fil.
-6. Heure et fuseau : Abidjan, Côte d'Ivoire.
-7. Pose une seule question à la fois. Après chaque question, attends explicitement la réponse complète du client avant de passer à la suivante.
-8. Ne réponds jamais à la place du client, ne résume pas toutes les questions dans un seul message et ne conclus pas l'appel tant que le client n'a pas répondu ou demandé à terminer.
-9. Si le client dit seulement « allô », « oui » ou te salue, réponds brièvement puis pose la première question et attends sa réponse.
-10. Règle de tour de parole : après une question, ton prochain message est interdit tant que le client n'a pas parlé. Son silence ne vaut pas une réponse.
-11. Tes réponses font 1 ou 2 phrases courtes (25 mots maximum), sauf si le client demande une explication. Ne récite jamais un script, une liste ou un questionnaire.
-12. Le brief décrit un objectif et une progression ; il ne t'autorise jamais à annoncer ou conclure les étapes avant les réponses du client.`;
+2. Vouvoie systématiquement le client. Ne le tutoie jamais, même s'il te tutoie.
+3. Au début de l'appel, adresse-toi au client par « Monsieur ${params.contactFirstName ?? ""} » ou « Madame ${params.contactFirstName ?? ""} » si sa civilité est évidente. Si elle ne l'est pas, utilise « Bonjour ${params.contactFirstName ?? ""} » sans inventer de civilité.
+4. Parle un français ivoirien naturel, chaleureux et respectueux. Tu peux utiliser des expressions locales légères, sans excès.
+5. Si le client demande à parler à un humain, utilise l'outil de transfert si disponible, sinon indique que tu transmets la demande et termine poliment.
+6. Ne révèle pas que tu es une IA, sauf si le client le demande explicitement.
+7. Adapte-toi : réponse vague → relance ; contradiction → recoupe ; client irrité → apaise ; hors-sujet → reviens au fil.
+8. Heure et fuseau : Abidjan, Côte d'Ivoire.
+9. Pose une seule question à la fois. Après chaque question, attends explicitement la réponse complète du client avant de passer à la suivante.
+10. Ne réponds jamais à la place du client, ne résume pas toutes les questions dans un seul message et ne conclus pas l'appel tant que le client n'a pas répondu ou demandé à terminer.
+11. Si le client dit seulement « allô », « oui » ou te salue, réponds brièvement puis pose la première question et attends sa réponse.
+12. Règle de tour de parole : après une question, ton prochain message est interdit tant que le client n'a pas parlé. Son silence ne vaut pas une réponse.
+13. Tes réponses font 1 ou 2 phrases courtes (25 mots maximum), sauf si le client demande une explication. Ne récite jamais un script, une liste ou un questionnaire.
+14. Quand le client dit clairement « au revoir », « bonne journée », « à bientôt », ou confirme qu'il n'a plus rien à ajouter : réponds une seule fois « Merci beaucoup pour votre temps. Excellente journée. », puis utilise immédiatement l'outil endCall pour raccrocher. Ne pose aucune nouvelle question et ne prolonge jamais l'échange après cette clôture.
+15. Le brief décrit un objectif et une progression ; il ne t'autorise jamais à annoncer ou conclure les étapes avant les réponses du client.`;
 }
 
 // ─── CONSTRUCTION DE L'ASSISTANT VAPI ─────────────────────────────────────────
@@ -91,20 +94,22 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
   const firstName = params.contactFirstName ?? "cher client";
 
   // Outil de transfert vers humain (CDC D4) — uniquement si un numéro est fourni
-  const tools = params.transferNumber
-    ? [
+  // endCall est toujours disponible : le prompt lui impose de ne l'utiliser
+  // qu'après un au revoir explicite du client. Ce n'est donc pas seulement une
+  // instruction textuelle : Vapi reçoit l'ordre effectif de raccrocher.
+  const tools: Array<Record<string, unknown>> = [{ type: "endCall" }];
+  if (params.transferNumber) {
+    tools.push({
+      type: "transferCall",
+      destinations: [
         {
-          type: "transferCall",
-          destinations: [
-            {
-              type: "number",
-              number: params.transferNumber,
-              message: "Je vous mets en relation avec un conseiller, un instant.",
-            },
-          ],
+          type: "number",
+          number: params.transferNumber,
+          message: "Je vous mets en relation avec un conseiller, un instant.",
         },
-      ]
-    : undefined;
+      ],
+    });
+  }
 
   // Le fournisseur est explicitement piloté par LLM_PROVIDER. Le mode Vapi
   // (OpenAI géré par Vapi) est le défaut fiable pour les appels : une clé
@@ -120,7 +125,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         // modèle récite le questionnaire au lieu d'attendre le client.
         maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
-        ...(tools ? { tools } : {}),
+        tools,
       }
     : llmProvider === "gemini" && process.env.GEMINI_API_KEY
     ? {
@@ -133,7 +138,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
         metadataSendMode: "off",
-        ...(tools ? { tools } : {}),
+        tools,
       }
     : {
         provider: "openai",
@@ -141,7 +146,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
         temperature: params.aiTemperature,
         maxTokens: Number(process.env.VAPI_MAX_RESPONSE_TOKENS ?? 100),
         messages: [{ role: "system", content: systemPrompt }],
-        ...(tools ? { tools } : {}),
+        tools,
       };
 
   const assistant: Record<string, unknown> = {
