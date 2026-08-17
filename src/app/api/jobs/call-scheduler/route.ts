@@ -111,8 +111,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Vérifier les plages horaires Abidjan (CDC D7)
-    if (!isWithinAllowedHours(campaign.timeStart, campaign.timeEnd)) {
+    // En phase MVP, ce flag permet de tester des campagnes à toute heure sans
+    // modifier le moteur. Avant l'ouverture au public, il suffira de le
+    // repasser à false pour appliquer les plages d'appel de chaque campagne.
+    const allowOutOfHoursCalls = process.env.ALLOW_OUT_OF_HOURS_CALLS === "true";
+
+    // Vérifier les plages horaires Abidjan (CDC D7), sauf en mode test.
+    if (!allowOutOfHoursCalls && !isWithinAllowedHours(campaign.timeStart, campaign.timeEnd)) {
       return ok({
         processed: 0,
         message: `Hors plage horaire autorisée (${campaign.timeStart}–${campaign.timeEnd} heure Abidjan).`,

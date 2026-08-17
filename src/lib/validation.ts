@@ -129,11 +129,11 @@ export const CreateCampaignSchema = z.object({
   timeStart: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Format horaire invalide (HH:MM)")
-    .default("08:00"),
+    .default("00:00"),
   timeEnd: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Format horaire invalide (HH:MM)")
-    .default("19:00"),
+    .default("23:59"),
   maxDuration: z.number().int().min(60).max(1200).default(480),
   concurrency: z.number().int().min(1).max(50).default(10),
   scheduledAt: z.string().datetime({ offset: true }).optional().nullable(),
