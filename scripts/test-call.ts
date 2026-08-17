@@ -11,7 +11,7 @@ import "dotenv/config";
 import { triggerOutboundCall } from "../src/lib/vapi";
 import { normalizePhoneCI } from "../src/lib/validation";
 
-const DEMO_BRIEF = `Tu es Awa, conseillère virtuelle d'une banque ivoirienne de démonstration.
+const DEMO_BRIEF = `Tu es Ingrid, conseillère virtuelle d'une banque ivoirienne de démonstration.
 Présente-toi chaleureusement en français ivoirien, demande comment va la personne,
 pose une courte question de satisfaction (note sur 5 sur la qualité du service en agence),
 rebondis sur la réponse, remercie et termine poliment en moins d'une minute.`;

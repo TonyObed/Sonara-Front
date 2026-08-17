@@ -8,7 +8,7 @@ import { api, ApiError } from "@/lib/api-client";
 
 // Voix UI → identifiant logique attendu par le backend (VOICE_MAP côté Vapi).
 function mapVoice(label: string): string {
-  return label.toLowerCase().startsWith("koffi") ? "koffi_male_ci" : "awa_female_ci";
+  return label.toLowerCase().startsWith("loïc") ? "koffi_male_ci" : "awa_female_ci";
 }
 
 // Upload d'un CSV de contacts vers une campagne (multipart/form-data).
@@ -41,7 +41,7 @@ export default function NewCampaignPage() {
   const fmt = (n: number) => Math.round(n).toLocaleString("fr-FR");
   const [selectedSector, setSelectedSector] = useState("Banque");
   const [brief, setBrief] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState("Awa — chaleureuse");
+  const [selectedVoice, setSelectedVoice] = useState("Ingrid — chaleureuse");
   const [contactsCount, setContactsCount] = useState(0);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,9 +63,9 @@ export default function NewCampaignPage() {
 
   const sectors = ["Banque", "Télécom", "Assurance", "Études", "Autre"];
   const voices = [
-    "Awa — chaleureuse",
-    "Awa — professionnelle",
-    "Koffi — masculin",
+    "Ingrid — chaleureuse",
+    "Ingrid — professionnelle",
+    "Loïc — masculin",
   ];
 
   const pillStyle = (active: boolean) => ({
@@ -141,7 +141,7 @@ export default function NewCampaignPage() {
     }
   };
 
-  const testBtnLabel = testCall === "calling" ? "Awa vous appelle…" : "Recevoir un appel test";
+  const testBtnLabel = testCall === "calling" ? "Ingrid vous appelle…" : "Recevoir un appel test";
   const testBtnColor = testCall === "calling" ? "var(--sn-green)" : "var(--sn-blue2)";
   const testBtnBorder = testCall === "calling" ? "rgba(43,213,118,.4)" : "rgba(0,82,255,.4)";
   const testBtnCursor = testCall === "calling" ? "default" : "pointer";

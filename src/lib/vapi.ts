@@ -9,11 +9,11 @@
 const VAPI_BASE = "https://api.vapi.ai";
 
 // Map voix logique (stockée en BDD) → voiceId ElevenLabs (configurable via env).
-// Les IDs par défaut sont des voix ElevenLabs publiques disponibles via Vapi ;
-// remplacer par des voix françaises/ivoiriennes dédiées en renseignant les env.
+// Les clés historiques AWA/KOFFI sont conservées pour ne pas casser les campagnes
+// existantes, mais elles correspondent désormais à Ingrid et Loïc.
 export const VOICE_MAP: Record<string, string> = {
-  awa_female_ci: process.env.ELEVENLABS_VOICE_AWA ?? "21m00Tcm4TlvDq8ikWAM", // Rachel (fallback)
-  koffi_male_ci: process.env.ELEVENLABS_VOICE_KOFFI ?? "pNInz6obpgDQGcFmaJgB", // Adam (fallback)
+  awa_female_ci: process.env.ELEVENLABS_VOICE_AWA ?? "FFXYdAYPzn8Tw8KiHZqg", // Ingrid
+  koffi_male_ci: process.env.ELEVENLABS_VOICE_KOFFI ?? "ojsdYNTmnPdf7yAl8rI5", // Loïc
 };
 
 // Vocabulaire local CI injecté dans Deepgram pour fiabiliser la transcription
@@ -84,9 +84,10 @@ export interface BuildAssistantParams extends VoiceSettings {
 
 export function buildAssistant(params: BuildAssistantParams): Record<string, unknown> {
   const systemPrompt = buildSystemPrompt(params);
-  // Priorité : voiceId explicite (voix clonée) > mapping logique > fallback Awa
+  // Priorité : voiceId explicite (voix clonée) > mapping logique > fallback Ingrid
   const voiceId =
     params.voiceId || VOICE_MAP[params.aiVoice] || VOICE_MAP.awa_female_ci;
+  const assistantName = params.aiVoice === "koffi_male_ci" ? "Loïc" : "Ingrid";
   const firstName = params.contactFirstName ?? "cher client";
 
   // Outil de transfert vers humain (CDC D4) — uniquement si un numéro est fourni
@@ -168,7 +169,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     },
 
     // Ouverture courte : le client peut répondre ou interrompre immédiatement.
-    firstMessage: `Bonjour ${firstName}, ici Awa. Est-ce que vous avez une minute ?`,
+    firstMessage: `Bonjour ${firstName}, ici ${assistantName}. Est-ce que vous avez une minute ?`,
     firstMessageInterruptionsEnabled: true,
     maxDurationSeconds: params.maxDuration,
     silenceTimeoutSeconds: 30,

@@ -16,7 +16,7 @@ import {
 } from "@/lib/response";
 import { ZodError } from "zod";
 
-const DEFAULT_TEST_BRIEF = `Tu es Awa, conseillère virtuelle d'une entreprise ivoirienne.
+const DEFAULT_TEST_BRIEF = `Tu es Ingrid, conseillère virtuelle d'une entreprise ivoirienne.
 Cet appel est un test de la plateforme Sonara. Après ta présentation, pose une seule
 question de satisfaction (une note sur 5), puis attends la réponse du client. Ne donne
 ni la réponse ni les remerciements avant que le client ait répondu. Après sa réponse,
