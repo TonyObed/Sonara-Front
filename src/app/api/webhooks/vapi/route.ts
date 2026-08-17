@@ -5,11 +5,12 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { ok, unauthorized, handleError } from "@/lib/response";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
+import { inferCallDisposition } from "@/lib/call-disposition";
 
 // ─── TYPES WEBHOOK VAPI ────────────────────────────────────────────────────────
 
 interface VapiTranscriptEntry {
-  role: "assistant" | "user";
+  role: string;
   message: string;
   time?: number;
   endTime?: number;
@@ -91,10 +92,16 @@ function endNumberField(payload: VapiCallEndedPayload, field: "durationSeconds" 
 
 function extractTranscript(payload: VapiCallEndedPayload): VapiTranscriptEntry[] {
   const artifact = payload.artifact;
-  if (Array.isArray(artifact?.messages)) return artifact.messages;
-  if (Array.isArray(artifact?.transcript)) return artifact.transcript;
-  if (Array.isArray(payload.call.transcript)) return payload.call.transcript;
-  return [];
+  const entries = Array.isArray(artifact?.messages)
+    ? artifact.messages
+    : Array.isArray(artifact?.transcript)
+    ? artifact.transcript
+    : Array.isArray(payload.call.transcript)
+    ? payload.call.transcript
+    : [];
+  // Les messages system/tool contiennent le prompt et ne sont pas des paroles
+  // du client. Les afficher comme « Client » polluait la transcription.
+  return entries.filter((entry) => entry.role === "assistant" || entry.role === "user");
 }
 
 function formatTranscript(entries: VapiTranscriptEntry[]) {
@@ -288,7 +295,7 @@ export async function POST(request: NextRequest) {
         where: { vapiCallId },
         include: {
           contact: true,
-          campaign: { select: { companyId: true, maxRetries: true, company: { select: { isSandbox: true } } } },
+          campaign: { select: { companyId: true, maxRetries: true, retryDelayMinutes: true, company: { select: { isSandbox: true } } } },
         },
       });
 
@@ -370,6 +377,11 @@ export async function POST(request: NextRequest) {
       const structuredData = callPayload.analysis?.structuredData;
       const sentimentScore = extractSentimentScore(structuredData);
       const topics = extractTopics(structuredData);
+      const disposition = inferCallDisposition(
+        structuredData,
+        callPayload.analysis?.successEvaluation,
+        rawTranscript
+      );
 
       // Vapi peut rejouer un webhook après un timeout. Le hash du corps brut est
       // stable pour un même événement et sa contrainte unique protège aussi les
@@ -381,6 +393,7 @@ export async function POST(request: NextRequest) {
       const contactUpdate: {
         status: "COMPLETED" | "FAILED" | "UNREACHABLE" | "VOICEMAIL";
         lastCalledAt: Date;
+        nextRetryAt: Date | null;
         attempts?: { increment: number };
       } = {
         status:
@@ -390,13 +403,19 @@ export async function POST(request: NextRequest) {
             ? "VOICEMAIL"
             : "FAILED",
         lastCalledAt: new Date(),
+        nextRetryAt: null,
       };
 
       // Vérifier si le contact doit être repassé à PENDING pour retry
       // (campaign déjà chargée via l'include — pas de requête supplémentaire)
+      const retryableDisposition = ["CALLBACK_REQUESTED", "TEMPORARILY_UNAVAILABLE", "INCOMPLETE"].includes(disposition);
       const shouldRetry =
-        finalStatus !== "COMPLETED" &&
+        (finalStatus !== "COMPLETED" || retryableDisposition) &&
+        disposition !== "REFUSED" &&
         call.contact.attempts + 1 < (call.campaign?.maxRetries ?? 2);
+      const nextRetryAt = shouldRetry
+        ? new Date(Date.now() + (call.campaign?.retryDelayMinutes ?? 240) * 60_000)
+        : null;
 
       try {
         await db.$transaction(async (tx) => {
@@ -416,12 +435,12 @@ export async function POST(request: NextRequest) {
           });
           await tx.callInsight.upsert({
             where: { callId: call.id },
-            create: { callId: call.id, sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
-            update: { sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null } as never },
+            create: { callId: call.id, sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null } as never },
+            update: { sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null } as never },
           });
           await tx.contact.update({
             where: { id: call.contactId },
-            data: { ...contactUpdate, status: shouldRetry ? "PENDING" : contactUpdate.status, attempts: { increment: 1 } },
+            data: { ...contactUpdate, status: shouldRetry ? "PENDING" : contactUpdate.status, nextRetryAt, attempts: { increment: 1 } },
           });
 
           if (!call.campaign?.companyId) return;

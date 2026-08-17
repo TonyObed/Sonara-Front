@@ -24,4 +24,14 @@ describe("inferCampaignQuestions", () => {
   it("ne crée aucune donnée fictive si le brief ne contient pas de liste numérotée", () => {
     expect(inferCampaignQuestions("Menez un entretien naturel et recueillez les attentes du client.")).toEqual([]);
   });
+
+  it("ne mélange pas les consignes finales avec la dernière question", () => {
+    const questions = inferCampaignQuestions(`
+      1. Comment évaluez-vous le service ?
+      2. Recommanderiez-vous Sonara ? Pourquoi ?
+      Ton objectif est de recueillir un retour honnête. Reste chaleureuse et concise.
+    `);
+
+    expect(questions[1].label).toBe("Recommanderiez-vous Sonara ? Pourquoi ?");
+  });
 });

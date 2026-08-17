@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboard, type Campaign as FrontCampaign } from "../../DashboardContext";
 import { useCampaignCalls } from "@/hooks/useSonara";
 import { mapApiCallToRow } from "@/lib/dashboard-adapters";
@@ -25,11 +25,12 @@ type CampaignDetail = {
   kpis: { totalContacts: number; totalCalls: number; completed: number; failed: number; voicemail: number; transferred: number; responseRate: number; progress: number; avgDurationSec: number };
   insights: Array<{ sentimentScore: number | null }>;
 };
-type CampaignContact = { id: string; firstName: string | null; lastName: string | null; phone: string; city: string | null; segment: string | null; status: string; attempts: number };
+type CampaignContact = { id: string; firstName: string | null; lastName: string | null; phone: string; city: string | null; segment: string | null; status: string; attempts: number; nextRetryAt: string | null };
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
+  const router = useRouter();
   const searchParams = useSearchParams();
   
   const {
@@ -50,6 +51,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [campaignContacts, setCampaignContacts] = useState<CampaignContact[]>([]);
   const [launching, setLaunching] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [retryingContacts, setRetryingContacts] = useState(false);
   useEffect(() => {
     let mounted = true;
     const load = () => {
@@ -63,6 +66,24 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     const timer = window.setInterval(load, 8_000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [id]);
+
+  // Sur le forfait Vercel gratuit, les crons fréquents ne sont pas disponibles.
+  // Tant que la campagne est ouverte dans le dashboard, ce battement léger
+  // réveille les relances arrivées à échéance sans forcer leur délai.
+  useEffect(() => {
+    if (detail?.status !== "RUNNING") return;
+    const dispatchDueRetries = () => {
+      void fetch(`/api/campaigns/${id}/retry`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: false }),
+      });
+    };
+    dispatchDueRetries();
+    const timer = window.setInterval(dispatchDueRetries, 60_000);
+    return () => window.clearInterval(timer);
+  }, [detail?.status, id]);
 
   // Load initial tab from query string or default to 'overview'
   const requestedTab = searchParams.get("tab");
@@ -92,6 +113,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     completed: { label: "Complété", color: "var(--sn-green)", bg: "rgba(43,213,118,.11)" },
     calling: { label: "En appel", color: "var(--sn-blue2)", bg: "rgba(0,82,255,.14)" },
     pending: { label: "En attente", color: "var(--sn-w55)", bg: "var(--sn-w07)" },
+    retry: { label: "Relance prévue", color: "var(--sn-amber)", bg: "rgba(255,176,46,.11)" },
     transferred: { label: "Transféré", color: "var(--sn-amber)", bg: "rgba(255,176,46,.11)" },
     unreachable: { label: "Non joignable", color: "var(--sn-red)", bg: "rgba(255,92,92,.11)" },
   };
@@ -181,9 +203,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   // Q1 note bars data
   const resultQuestions = analytics?.questions.filter((question) => question.kind !== "NPS") ?? [];
-  const q1 = resultQuestions[0];
-  const q2 = resultQuestions[1];
-  const remainingQuestions = resultQuestions.slice(2);
+  const answeredQuestions = resultQuestions.filter((question) => question.responseCount > 0);
+  const q1 = answeredQuestions[0] ?? resultQuestions[0];
+  const q2 = answeredQuestions.find((question) => question.id !== q1?.id)
+    ?? resultQuestions.find((question) => question.id !== q1?.id);
+  const remainingQuestions = resultQuestions.filter((question) => question.id !== q1?.id && question.id !== q2?.id);
+  const q1Number = q1 ? resultQuestions.findIndex((question) => question.id === q1.id) + 1 : 1;
+  const q2Number = q2 ? resultQuestions.findIndex((question) => question.id === q2.id) + 1 : 2;
   const q1Max = Math.max(...(q1?.distribution.map((item) => item.percentage) ?? [1]));
   const q1Bars = (q1?.distribution ?? []).map((item, index) => ({
     note: item.label,
@@ -216,12 +242,39 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     window.location.assign(`/api/campaigns/${campaign.id}/export?format=csv`);
   };
   const generateCampaignReport = async () => {
+    if (generatingReport) return;
+    setGeneratingReport(true);
     try {
       const response = await fetch("/api/reports", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaignId: campaign.id }) });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Génération impossible.");
-      pushToast("Rapport généré. Il est disponible dans l'onglet Rapports.", "ok");
-    } catch (error) { pushToast(error instanceof Error ? error.message : "Génération impossible.", "warn"); }
+      pushToast("Rapport généré. Ouverture de l'onglet Rapports…", "ok");
+      router.push(`/dashboard/reports?report=${encodeURIComponent(payload.data.id)}`);
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Génération impossible.", "warn");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  const retryPendingContacts = async () => {
+    if (retryingContacts) return;
+    setRetryingContacts(true);
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.id}/retry`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error?.message ?? "Relance impossible.");
+      pushToast(payload.data.message, payload.data.processed > 0 ? "ok" : "warn");
+    } catch (error) {
+      pushToast(error instanceof Error ? error.message : "Relance impossible.", "warn");
+    } finally {
+      setRetryingContacts(false);
+    }
   };
 
   const launchCampaign = async () => {
@@ -264,6 +317,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const pauseLabel = currentStatus === "live" ? "Pause" : "Reprendre";
   const campCanPause = currentStatus === "live" || currentStatus === "paused";
   const campCanLaunch = currentStatus === "draft" || currentStatus === "scheduled";
+  const retryableContacts = campaignContacts.filter((contact) => contact.status === "PENDING" && contact.attempts > 0);
 
   return (
     <div data-screen-label="Détail campagne" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "snFadeUp .45s ease both" }}>
@@ -302,12 +356,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               {pauseLabel}
             </button>
           )}
+          {currentStatus === "live" && retryableContacts.length > 0 && (
+            <button disabled={retryingContacts} onClick={() => { void retryPendingContacts(); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: retryingContacts ? "wait" : "pointer", opacity: retryingContacts ? .65 : 1 }} className="sn-hover-border">
+              {retryingContacts ? "Relance…" : `Relancer (${retryableContacts.length})`}
+            </button>
+          )}
           <button onClick={exportCampaignCsv} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--sn-panel2)", color: "var(--sn-text)", border: "1px solid var(--sn-w12)", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 600, cursor: "pointer" }} className="sn-hover-border">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4v11M7 10l5 5 5-5"></path><path d="M4 19h16"></path></svg>
             Export CSV
           </button>
-          <button onClick={() => { void generateCampaignReport(); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: "pointer" }} className="sn-hover-btn-primary">
-            Générer le rapport
+          <button disabled={generatingReport} onClick={() => { void generateCampaignReport(); }} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#0052FF", color: "#fff", border: "none", borderRadius: "11px", padding: "10px 16px", fontFamily: "'Satoshi', sans-serif", fontSize: "13.5px", fontWeight: 700, cursor: generatingReport ? "wait" : "pointer", opacity: generatingReport ? .65 : 1 }} className="sn-hover-btn-primary">
+            {generatingReport ? "Génération…" : "Générer le rapport"}
           </button>
         </div>
       </div>
@@ -418,7 +477,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
             {/* Histogram Notes Q1 */}
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q1 ? `Q1 — ${q1.label}` : "Question structurée"}</div>
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q1 ? `Q${q1Number} — ${q1.label}` : "Question structurée"}</div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>{q1 ? `${q1.responseCount} RÉPONSES ENREGISTRÉES` : "AUCUNE QUESTION CONFIGURÉE"}</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", marginTop: "18px" }}>
                 {q1Bars.map((b, idx) => (
@@ -428,15 +487,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "9.5px", color: "var(--sn-w45)" }}>{b.note}</span>
                   </div>
                 ))}
+                {q1Bars.length === 0 && <div style={{ width: "100%", alignSelf: "center", textAlign: "center", color: "var(--sn-w45)", fontSize: "12px" }}>Le graphique apparaîtra après une réponse exploitable.</div>}
               </div>
             </div>
           </div>
 
           {remainingQuestions.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "14px" }}>
-              {remainingQuestions.map((question, questionIndex) => (
+              {remainingQuestions.map((question) => (
                 <div key={question.id} style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 700 }}>{`Q${questionIndex + 3} — ${question.label}`}</div>
+                  <div style={{ fontSize: "16px", fontWeight: 700 }}>{`Q${resultQuestions.findIndex((item) => item.id === question.id) + 1} — ${question.label}`}</div>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>{question.responseCount} RÉPONSE(S) ENREGISTRÉE(S)</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "13px", marginTop: "18px" }}>
                     {question.distribution.slice(0, 8).map((answer, answerIndex) => (
@@ -461,7 +521,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             
             {/* Q2 wait time percipient */}
             <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px" }}>
-              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q2 ? `Q2 — ${q2.label}` : "Question structurée"}</div>
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>{q2 ? `Q${q2Number} — ${q2.label}` : "Question structurée"}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "13px", marginTop: "18px" }}>
                 {q2Rows.map((r, idx) => (
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -602,7 +662,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               <span style={{ textAlign: "center" }}>TENTATIVES</span>
             </div>
             {campaignContacts.map((ct) => {
-              const statusKey = ct.status.toLowerCase() as keyof typeof CONTACT_STATUS_DICT;
+              const statusKey = (ct.status === "PENDING" && ct.attempts > 0 ? "retry" : ct.status.toLowerCase()) as keyof typeof CONTACT_STATUS_DICT;
               const cst = CONTACT_STATUS_DICT[statusKey] ?? CONTACT_STATUS_DICT.pending;
               const name = [ct.firstName, ct.lastName].filter(Boolean).join(" ") || "—";
               return (

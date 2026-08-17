@@ -11,7 +11,7 @@ function cleanQuestion(value: string): string {
     .replace(/[>*_`]/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/\s+(?:Questions?|Objectif|Ton objectif|Reste)\s*:.*$/i, "")
+    .replace(/\s+(?:Questions?\s*:|Objectif\s*:|Ton objectif\b|Reste\s+(?:chaleureuse|professionnelle|concis)|Si la personne\b|À la fin\b|A la fin\b|Après cette\b|Apres cette\b).*$/i, "")
     .trim();
 }
 

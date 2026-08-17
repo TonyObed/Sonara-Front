@@ -57,8 +57,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     // KPIs détaillés
-    const [callStats, sentimentStats, insights, avgDuration] = await Promise.all([
+    const [callStats, contactStats, sentimentStats, insights, avgDuration] = await Promise.all([
       db.call.groupBy({
+        by: ["status"],
+        where: { campaignId: id },
+        _count: { status: true },
+      }),
+      db.contact.groupBy({
         by: ["status"],
         where: { campaignId: id },
         _count: { status: true },
@@ -81,12 +86,17 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const statMap = Object.fromEntries(
       callStats.map((s: { status: string; _count: { status: number } }) => [s.status, s._count.status])
     );
+    const contactStatMap = Object.fromEntries(
+      contactStats.map((s: { status: string; _count: { status: number } }) => [s.status, s._count.status])
+    );
 
     const totalCalls = campaign._count.calls;
-    const completed = statMap["COMPLETED"] ?? 0;
-    const failed = (statMap["FAILED"] ?? 0) + (statMap["NO_ANSWER"] ?? 0) + (statMap["BUSY"] ?? 0);
-    const voicemail = statMap["VOICEMAIL"] ?? 0;
-    const transferred = statMap["TRANSFERRED"] ?? 0;
+    // La progression est calculée sur l'état final des contacts, pas sur le
+    // nombre d'appels : une relance ne doit jamais faire dépasser 100 %.
+    const completed = contactStatMap["COMPLETED"] ?? 0;
+    const failed = (contactStatMap["FAILED"] ?? 0) + (contactStatMap["UNREACHABLE"] ?? 0);
+    const voicemail = contactStatMap["VOICEMAIL"] ?? 0;
+    const transferred = contactStatMap["TRANSFERRED"] ?? 0;
     const inProgress = (statMap["IN_PROGRESS"] ?? 0) + (statMap["RINGING"] ?? 0);
     const answerRows = insights.flatMap((insight) => {
       if (!insight.answers || typeof insight.answers !== "object" || Array.isArray(insight.answers)) return [];
@@ -210,7 +220,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         voicemail,
         transferred,
         inProgress,
-        responseRate: totalCalls > 0 ? Math.round((completed / totalCalls) * 1000) / 10 : 0,
+        responseRate: campaign._count.contacts > 0 ? Math.round((completed / campaign._count.contacts) * 1000) / 10 : 0,
         progress:
           campaign._count.contacts > 0
             ? Math.round((completed / campaign._count.contacts) * 1000) / 10

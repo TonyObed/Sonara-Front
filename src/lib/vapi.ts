@@ -33,10 +33,11 @@ function buildSystemPrompt(params: {
   contactSegment?: string | null;
   callId: string;
 }): string {
+  const contactName = formatContactName(params.contactFirstName);
   return `${params.aiBrief}
 
 Variables contextuelles de l'appel :
-- Prénom du contact : ${params.contactFirstName ?? "Client"}
+- Nom à prononcer exactement : ${contactName}
 - Ville : ${params.contactCity ?? "non renseignée"}
 - Segment : ${params.contactSegment ?? "non renseigné"}
 - Référence interne de l'appel : ${params.callId}
@@ -44,7 +45,7 @@ Variables contextuelles de l'appel :
 Règles impératives (non négociables) :
 1. Dès le début, identifie-toi comme représentante de l'entreprise cliente (conformité ARTCI / CDC J1). Ne te présente jamais comme « Sonara ».
 2. Vouvoie systématiquement le client. Ne le tutoie jamais, même s'il te tutoie.
-3. Au début de l'appel, adresse-toi au client par « Monsieur ${params.contactFirstName ?? ""} » ou « Madame ${params.contactFirstName ?? ""} » si sa civilité est évidente. Si elle ne l'est pas, utilise « Bonjour ${params.contactFirstName ?? ""} » sans inventer de civilité.
+3. Utilise exactement le nom « ${contactName} » sans le corriger, le traduire ou en inventer une variante. N'ajoute jamais « Monsieur » ou « Madame » sans civilité explicitement fournie. Si le nom est composé, prononce distinctement chaque partie.
 4. Parle un français ivoirien naturel, chaleureux et respectueux. Tu peux utiliser des expressions locales légères, sans excès.
 5. Si le client demande à parler à un humain, utilise l'outil de transfert si disponible, sinon indique que tu transmets la demande et termine poliment.
 6. Ne révèle pas que tu es une IA, sauf si le client le demande explicitement.
@@ -56,7 +57,25 @@ Règles impératives (non négociables) :
 12. Règle de tour de parole : après une question, ton prochain message est interdit tant que le client n'a pas parlé. Son silence ne vaut pas une réponse.
 13. Tes réponses font 1 ou 2 phrases courtes (25 mots maximum), sauf si le client demande une explication. Ne récite jamais un script, une liste ou un questionnaire.
 14. Quand le client dit clairement « au revoir », « bonne journée », « à bientôt », ou confirme qu'il n'a plus rien à ajouter : réponds une seule fois « Merci beaucoup pour votre temps. Excellente journée. », puis utilise immédiatement l'outil endCall pour raccrocher. Ne pose aucune nouvelle question et ne prolonge jamais l'échange après cette clôture.
-15. Le brief décrit un objectif et une progression ; il ne t'autorise jamais à annoncer ou conclure les étapes avant les réponses du client.`;
+15. Le brief décrit un objectif et une progression ; il ne t'autorise jamais à annoncer ou conclure les étapes avant les réponses du client.
+16. Si le client est temporairement indisponible, demande une seule fois s'il accepte d'être rappelé. S'il accepte, remercie-le et termine l'appel. S'il refuse définitivement l'enquête, respecte son choix et ne propose pas de rappel.`;
+}
+
+export function formatContactName(value: string | null | undefined): string {
+  const normalized = (value ?? "")
+    .replace(/[^\p{L}\p{M}'’\-\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "cher client";
+  return normalized
+    .split(" ")
+    .map((part) => part
+      .split(/([-'’])/)
+      .map((piece) => /[-'’]/.test(piece)
+        ? piece
+        : piece.charAt(0).toLocaleUpperCase("fr-FR") + piece.slice(1).toLocaleLowerCase("fr-FR"))
+      .join(""))
+    .join(" ");
 }
 
 // ─── CONSTRUCTION DE L'ASSISTANT VAPI ─────────────────────────────────────────
@@ -93,6 +112,11 @@ export interface BuildAssistantParams extends VoiceSettings {
 
 function buildStructuredDataSchema(questions: BuildAssistantParams["questions"]) {
   const properties: Record<string, Record<string, unknown>> = {
+    callDisposition: {
+      type: "string",
+      enum: ["COMPLETED", "CALLBACK_REQUESTED", "TEMPORARILY_UNAVAILABLE", "REFUSED", "INCOMPLETE"],
+      description: "Issue réelle de l'appel : enquête terminée, rappel accepté, indisponibilité temporaire, refus définitif ou échange incomplet.",
+    },
     sentimentScore: {
       type: "number",
       minimum: 0,
@@ -124,7 +148,7 @@ function buildStructuredDataSchema(questions: BuildAssistantParams["questions"])
   return {
     type: "object",
     properties,
-    required: ["sentimentScore", "topics"],
+    required: ["callDisposition", "sentimentScore", "topics"],
   };
 }
 
@@ -134,7 +158,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
   const voiceId =
     params.voiceId || VOICE_MAP[params.aiVoice] || VOICE_MAP.awa_female_ci;
   const assistantName = params.aiVoice === "koffi_male_ci" ? "Loïc" : "Ingrid";
-  const firstName = params.contactFirstName ?? "cher client";
+  const firstName = formatContactName(params.contactFirstName);
 
   // Outil de transfert vers humain (CDC D4) — uniquement si un numéro est fourni
   // endCall est toujours disponible : le prompt lui impose de ne l'utiliser
@@ -255,7 +279,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       summaryPrompt:
         "Résume en 3 lignes maximum les points clés de cette conversation, en français.",
       structuredDataPrompt:
-        "Analyse uniquement les réponses réellement données par le client. Extrais le sentiment, les thèmes et les réponses aux questions selon le schéma JSON. N'invente aucune réponse : si une question n'a pas reçu de réponse exploitable, omets sa propriété.",
+        "Analyse uniquement les réponses réellement données par le client. Détermine callDisposition : COMPLETED seulement si l'enquête a réellement abouti ; CALLBACK_REQUESTED si le client accepte un rappel ; TEMPORARILY_UNAVAILABLE s'il est occupé ou indisponible ; REFUSED s'il refuse définitivement ; INCOMPLETE si l'échange s'arrête sans résultat. Extrais ensuite le sentiment, les thèmes et les réponses selon le schéma JSON. N'invente aucune réponse : si une question n'a pas reçu de réponse exploitable, omets sa propriété.",
       structuredDataSchema: buildStructuredDataSchema(params.questions),
     },
   };

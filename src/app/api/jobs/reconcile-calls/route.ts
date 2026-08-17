@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       where: { status: { in: [...ACTIVE_CALL_STATUSES] } },
       include: {
         contact: { select: { id: true, attempts: true } },
-        campaign: { select: { id: true, maxRetries: true, maxDuration: true } },
+        campaign: { select: { id: true, maxRetries: true, retryDelayMinutes: true, maxDuration: true } },
       },
       take: 100,
     });
@@ -89,6 +89,9 @@ export async function POST(request: NextRequest) {
           status: retry ? "PENDING" : "FAILED",
           attempts: { increment: 1 },
           lastCalledAt: new Date(),
+          nextRetryAt: retry
+            ? new Date(Date.now() + call.campaign.retryDelayMinutes * 60_000)
+            : null,
         },
       });
       recovered++;

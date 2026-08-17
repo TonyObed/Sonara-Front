@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildAssistant } from "@/lib/vapi";
+import { buildAssistant, formatContactName } from "@/lib/vapi";
 
 const originalProvider = process.env.LLM_PROVIDER;
 const originalModel = process.env.OPENROUTER_MODEL;
@@ -90,12 +90,22 @@ describe("Configuration Vapi", () => {
     expect(assistant.analysisPlan).toMatchObject({
       structuredDataSchema: {
         type: "object",
-        required: ["sentimentScore", "topics"],
+        required: ["callDisposition", "sentimentScore", "topics"],
         properties: {
+          callDisposition: {
+            type: "string",
+            enum: ["COMPLETED", "CALLBACK_REQUESTED", "TEMPORARILY_UNAVAILABLE", "REFUSED", "INCOMPLETE"],
+          },
           q1: { type: "number", minimum: 0, maximum: 10 },
           q2: { type: "string" },
         },
       },
     });
+  });
+
+  it("normalise les noms sans en inventer une variante", () => {
+    expect(formatContactName("  marie christelle ")).toBe("Marie Christelle");
+    expect(formatContactName("anassé")).toBe("Anassé");
+    expect(formatContactName("n'guessan jean-paul")).toBe("N'Guessan Jean-Paul");
   });
 });

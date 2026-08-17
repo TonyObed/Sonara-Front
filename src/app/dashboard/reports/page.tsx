@@ -132,7 +132,7 @@ export default function ReportsPage() {
                   borderRadius: "12px",
                 }}
               >
-                SENT. {r.summary?.sentiment !== undefined ? r.summary.sentiment.toFixed(1) : "—"}
+                SENT. {typeof r.summary?.sentiment === "number" ? r.summary.sentiment.toFixed(1) : "—"}
               </span>
             </div>
             <button
@@ -164,6 +164,11 @@ export default function ReportsPage() {
             </button>
           </div>
         ))}
+        {reports.length === 0 && (
+          <div style={{ gridColumn: "1 / -1", border: "1px dashed var(--sn-w14)", borderRadius: "16px", padding: "44px 20px", textAlign: "center", color: "var(--sn-w45)", fontSize: "13px" }}>
+            Aucun rapport généré pour le moment.
+          </div>
+        )}
       </div>
 
       {/* Analytics IA Card */}

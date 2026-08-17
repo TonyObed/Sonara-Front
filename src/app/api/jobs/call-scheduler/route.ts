@@ -13,6 +13,7 @@ type ClaimedContact = {
   id: string;
   phone: string;
   firstName: string | null;
+  lastName: string | null;
   city: string | null;
   segment: string | null;
   attempts: number;
@@ -174,8 +175,8 @@ export async function POST(request: NextRequest) {
           AND attempts < ${campaign.maxRetries}
           AND (
             attempts = 0
-            OR last_called_at IS NULL
-            OR last_called_at <= NOW() - (${campaign.retryDelayMinutes} * INTERVAL '1 minute')
+            OR next_retry_at IS NULL
+            OR next_retry_at <= NOW()
           )
         ORDER BY created_at ASC
         FOR UPDATE SKIP LOCKED
@@ -184,6 +185,7 @@ export async function POST(request: NextRequest) {
       UPDATE contacts
       SET status = 'CALLING',
           last_called_at = NOW(),
+          next_retry_at = NULL,
           updated_at = NOW()
       FROM candidates
       WHERE contacts.id = candidates.id
@@ -191,6 +193,7 @@ export async function POST(request: NextRequest) {
       RETURNING contacts.id,
                 contacts.phone,
                 contacts.first_name AS "firstName",
+                contacts.last_name AS "lastName",
                 contacts.city,
                 contacts.segment,
                 contacts.attempts
@@ -252,7 +255,7 @@ export async function POST(request: NextRequest) {
         style: campaign.aiStyle,
         speed: campaign.aiSpeed,
         speakerBoost: campaign.aiSpeakerBoost,
-        contactFirstName: contact.firstName,
+        contactFirstName: [contact.firstName, contact.lastName].filter(Boolean).join(" ") || null,
         contactCity: contact.city,
         contactSegment: contact.segment,
         transferNumber: process.env.TRANSFER_AGENT_NUMBER ?? null,
@@ -290,6 +293,7 @@ export async function POST(request: NextRequest) {
           data: {
             status: "PENDING",
             attempts: { increment: 1 },
+            nextRetryAt: new Date(Date.now() + campaign.retryDelayMinutes * 60_000),
           },
         });
       }

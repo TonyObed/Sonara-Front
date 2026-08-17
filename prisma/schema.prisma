@@ -229,6 +229,7 @@ model Contact {
   status       ContactStatus @default(PENDING)
   attempts     Int           @default(0) // nombre de tentatives effectuées
   lastCalledAt DateTime?     @map("last_called_at")
+  nextRetryAt  DateTime?     @map("next_retry_at")
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -237,6 +238,7 @@ model Contact {
   calls    Call[]
 
   @@index([campaignId, status])
+  @@index([campaignId, nextRetryAt])
   @@map("contacts")
 }
 
