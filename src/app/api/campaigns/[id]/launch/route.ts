@@ -62,9 +62,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     // L'appel au scheduler doit être attendu. Une requête "fire-and-forget"
     // est souvent interrompue par Vercel dès que cette route répond : la
     // campagne restait alors RUNNING mais aucun contact n'était envoyé à Vapi.
-    // request.nextUrl.origin désigne exactement le déploiement qui a reçu le
-    // lancement, y compris en Preview ou en production.
-    const schedulerResponse = await fetch(`${request.nextUrl.origin}/api/jobs/call-scheduler`, {
+    // Une Preview Vercel peut être protégée par SSO : un appel interne vers
+    // request.nextUrl.origin reçoit alors un 401 « Protected deployment ».
+    // L'URL publique APP_URL permet aux previews et à la production de lancer
+    // le même scheduler, avec la même base et la même clé interne.
+    const schedulerOrigin = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
+    const schedulerResponse = await fetch(`${schedulerOrigin}/api/jobs/call-scheduler`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-key": process.env.INTERNAL_JOB_KEY ?? "dev-key" },
       body: JSON.stringify({ campaignId: id }),

@@ -57,7 +57,10 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     // pour le lancement initial, on attend le scheduler : sur Vercel une
     // requête non attendue peut être interrompue à la fin de cette réponse.
     if (action === "resume") {
-      const schedulerResponse = await fetch(`${request.nextUrl.origin}/api/jobs/call-scheduler`, {
+      // Les previews Vercel peuvent être protégées par SSO. Utiliser APP_URL
+      // évite que la relance interne soit rejetée par cette protection.
+      const schedulerOrigin = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;
+      const schedulerResponse = await fetch(`${schedulerOrigin}/api/jobs/call-scheduler`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
