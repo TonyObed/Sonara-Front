@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { handleError, ok, unauthorized } from "@/lib/response";
+import { getLiveCallCutoff } from "@/lib/live-calls";
 
 const ANSWERED = ["IN_PROGRESS", "COMPLETED", "TRANSFERRED"] as const;
 const ACTIVE = ["RINGING", "IN_PROGRESS"] as const;
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     const since = new Date();
     since.setDate(since.getDate() - 29);
     since.setHours(0, 0, 0, 0);
+    const liveCutoff = getLiveCallCutoff();
 
     const baseWhere = { campaign: { companyId: auth.companyId } };
     const [company, settings, calls, live, queued, events, creditPeak] = await Promise.all([
@@ -30,7 +32,14 @@ export async function GET(request: NextRequest) {
         select: { status: true, createdAt: true, startedAt: true },
       }),
       db.call.findMany({
-        where: { ...baseWhere, status: { in: [...ACTIVE] } },
+        where: {
+          campaign: { companyId: auth.companyId, status: "RUNNING" },
+          status: { in: [...ACTIVE] },
+          OR: [
+            { startedAt: { gte: liveCutoff } },
+            { startedAt: null, createdAt: { gte: liveCutoff } },
+          ],
+        },
         select: { id: true },
       }),
       db.contact.count({

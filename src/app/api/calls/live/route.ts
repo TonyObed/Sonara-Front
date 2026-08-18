@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
 import { ok, unauthorized, handleError } from "@/lib/response";
+import { getLiveCallCutoff } from "@/lib/live-calls";
 
 interface LiveCall {
   name: string;
@@ -21,10 +22,17 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (!auth) return unauthorized();
 
+    const cutoff = getLiveCallCutoff();
     const calls = await db.call.findMany({
       where: {
-        campaign: { companyId: auth.companyId },
+        // Le monitoring ne montre que les campagnes encore lancées et les
+        // appels suffisamment récents pour être réellement en cours.
+        campaign: { companyId: auth.companyId, status: "RUNNING" },
         status: { in: ["RINGING", "IN_PROGRESS"] },
+        OR: [
+          { startedAt: { gte: cutoff } },
+          { startedAt: null, createdAt: { gte: cutoff } },
+        ],
       },
       orderBy: { startedAt: "asc" },
       take: 50,
