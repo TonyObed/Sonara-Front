@@ -19,10 +19,19 @@ export const VOICE_MAP: Record<string, string> = {
 // Vocabulaire local CI injecté dans Deepgram pour fiabiliser la transcription
 // (toponymes, opérateurs, expressions nouchi). CDC E2 / D6.
 const CI_KEYWORDS = [
-  "Abidjan", "Cocody", "Yopougon", "Angré", "Plateau", "Treichville", "Marcory",
-  "Bouaké", "Yamoussoukro", "Orange", "MTN", "Moov", "Wave", "FCFA",
+  "Sonara", "Côte d'Ivoire", "Abidjan", "Cocody", "Yopougon", "Angré", "Plateau", "Treichville", "Marcory",
+  "Bouaké", "Yamoussoukro", "Orange", "MTN", "Moov", "Wave", "Wave Money", "FCFA",
   "nouchi", "yako", "djaah", "enjaillé", "gbô", "deh", "ô",
 ];
+
+function buildTranscriberTerms(contactName: string): string[] {
+  // Nova-3 accepte les termes prioritaires (keyterm). Le nom exact du client
+  // est ajouté à chaque appel afin d'éviter qu'il soit remplacé par un nom
+  // approchant dans la transcription.
+  return Array.from(new Set([...CI_KEYWORDS, contactName]))
+    .filter((term) => term && term !== "cher client")
+    .slice(0, 100);
+}
 
 // ─── SYSTEM PROMPT ────────────────────────────────────────────────────────────
 
@@ -159,6 +168,8 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     params.voiceId || VOICE_MAP[params.aiVoice] || VOICE_MAP.awa_female_ci;
   const assistantName = params.aiVoice === "koffi_male_ci" ? "Loïc" : "Ingrid";
   const firstName = formatContactName(params.contactFirstName);
+  const transcriberModel = process.env.DEEPGRAM_MODEL ?? "nova-3";
+  const usesNova3 = transcriberModel.startsWith("nova-3");
 
   // Outil de transfert vers humain (CDC D4) — uniquement si un numéro est fourni
   // endCall est toujours disponible : le prompt lui impose de ne l'utiliser
@@ -236,10 +247,14 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // ── STT : Deepgram (fr + vocabulaire local CI — CDC D6/E2) ──
     transcriber: {
       provider: "deepgram",
-      model: process.env.DEEPGRAM_MODEL ?? "nova-2",
-      language: "fr",
+      model: transcriberModel,
+      // `multi` couvre le français ivoirien et les alternances locales sans
+      // devoir deviner une autre langue au début de chaque phrase.
+      language: process.env.DEEPGRAM_LANGUAGE ?? (usesNova3 ? "multi" : "fr"),
       smartFormat: true,
-      keywords: CI_KEYWORDS,
+      ...(usesNova3
+        ? { keyterm: buildTranscriberTerms(firstName) }
+        : { keywords: CI_KEYWORDS }),
       // 350 ms laisse au client le temps de respirer sans ajouter une seconde
       // complète avant chaque réponse. Vapi impose une valeur <= 500 ms.
       endpointing: Number(process.env.VAPI_ENDPOINTING_MS ?? 350),
@@ -277,9 +292,9 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
     // ── Analyse post-appel : résumé automatique (CDC F2) ──
     analysisPlan: {
       summaryPrompt:
-        "Résume en 3 lignes maximum les points clés de cette conversation, en français.",
+        "Rédige en français un résumé fidèle de 3 à 4 phrases maximum. Décris uniquement ce que le client a réellement déclaré : disponibilité, avis ou note, difficulté évoquée, amélioration demandée et prochaine action éventuelle. N'invente aucun détail et n'attribue jamais à tort une phrase de l'assistante au client. S'il n'y a aucun retour exploitable, écris exactement : Aucun retour exploitable.",
       structuredDataPrompt:
-        "Analyse uniquement les réponses réellement données par le client. Détermine callDisposition : COMPLETED seulement si l'enquête a réellement abouti ; CALLBACK_REQUESTED si le client accepte un rappel ; TEMPORARILY_UNAVAILABLE s'il est occupé ou indisponible ; REFUSED s'il refuse définitivement ; INCOMPLETE si l'échange s'arrête sans résultat. Extrais ensuite le sentiment, les thèmes et les réponses selon le schéma JSON. N'invente aucune réponse : si une question n'a pas reçu de réponse exploitable, omets sa propriété.",
+        "Analyse uniquement les réponses réellement données par le client, jamais les phrases de l'assistante. Détermine callDisposition : COMPLETED seulement si l'enquête a réellement abouti ; CALLBACK_REQUESTED si le client accepte un rappel ; TEMPORARILY_UNAVAILABLE s'il est occupé ou indisponible ; REFUSED s'il refuse définitivement ; INCOMPLETE si l'échange s'arrête sans résultat. Extrais ensuite le sentiment, les thèmes et les réponses selon le schéma JSON. N'invente, ne déduis et ne reformule pas une réponse incertaine : si une question n'a pas reçu de réponse exploitable, omets sa propriété.",
       structuredDataSchema: buildStructuredDataSchema(params.questions),
     },
   };

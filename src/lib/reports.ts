@@ -5,6 +5,48 @@ const REPORT_BUCKET = "sonara-reports";
 
 type ReportScope = { companyId: string; campaignId?: string | null };
 
+type ReportQuestion = { key: string; label: string; position: number };
+
+const CALL_STATUS_LABELS: Record<string, string> = {
+  INITIATED: "Initialisé",
+  RINGING: "En sonnerie",
+  IN_PROGRESS: "En cours",
+  COMPLETED: "Enquête terminée",
+  FAILED: "Échec technique",
+  VOICEMAIL: "Messagerie vocale",
+  NO_ANSWER: "Sans réponse",
+  TRANSFERRED: "Transféré",
+  BUSY: "Ligne occupée",
+};
+
+function formatDuration(seconds: number | null): string {
+  if (seconds == null || seconds < 0) return "—";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes > 0 ? `${minutes} min ${remainingSeconds.toString().padStart(2, "0")} s` : `${remainingSeconds} s`;
+}
+
+function formatDate(date: Date | null): string {
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Africa/Abidjan",
+  }).format(date);
+}
+
+function formatAnswers(answers: unknown, questions: ReportQuestion[]): string {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) return "";
+  const values = answers as Record<string, unknown>;
+  const labels = new Map(questions.map((question) => [question.key, question.label]));
+  const metadata = new Set(["callDisposition", "sentimentScore", "topics"]);
+
+  return Object.entries(values)
+    .filter(([key, value]) => !metadata.has(key) && value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => `${labels.get(key) ?? key} : ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+    .join(" | ");
+}
+
 function csvEscape(value: unknown): string {
   const text = String(value ?? "").replace(/\r?\n/g, " ");
   // Empêche l'interprétation d'une valeur comme formule dans Excel.
@@ -81,7 +123,16 @@ export async function generateReport(scope: ReportScope) {
   try {
     const calls = await db.call.findMany({
       where: { campaign: { companyId: scope.companyId }, ...(scope.campaignId ? { campaignId: scope.campaignId } : {}) },
-      include: { campaign: { select: { name: true } }, contact: true, insight: true },
+      include: {
+        campaign: {
+          select: {
+            name: true,
+            questions: { select: { key: true, label: true, position: true }, orderBy: { position: "asc" } },
+          },
+        },
+        contact: true,
+        insight: true,
+      },
       orderBy: { createdAt: "asc" },
     });
     const totalCalls = calls.length;
@@ -100,7 +151,8 @@ export async function generateReport(scope: ReportScope) {
     const rows: Record<string, unknown>[] = [
       { "Type": "Synthèse", "Indicateur": "Appels passés", "Valeur": totalCalls },
       { "Type": "Synthèse", "Indicateur": "Taux de réponse", "Valeur": `${responseRate}%` },
-      { "Type": "Synthèse", "Indicateur": "Durée moyenne (sec)", "Valeur": averageDuration },
+      { "Type": "Synthèse", "Indicateur": "Appels terminés", "Valeur": completedCalls.length },
+      { "Type": "Synthèse", "Indicateur": "Durée moyenne", "Valeur": formatDuration(averageDuration) },
       { "Type": "Synthèse", "Indicateur": "Sentiment moyen (/10)", "Valeur": sentiment ?? "" },
       { "Type": "Synthèse", "Indicateur": "Coût total (FCFA)", "Valeur": totalCostFcfa },
       ...calls.map((call) => ({
@@ -111,13 +163,13 @@ export async function generateReport(scope: ReportScope) {
         "Téléphone": call.contact.phone,
         "Ville": call.contact.city ?? "",
         "Segment": call.contact.segment ?? "",
-        "Statut": call.status,
-        "Durée (sec)": call.durationSec ?? "",
-        "Date": call.startedAt?.toISOString() ?? "",
+        "Statut": CALL_STATUS_LABELS[call.status] ?? call.status,
+        "Durée": formatDuration(call.durationSec),
+        "Date et heure": formatDate(call.startedAt),
         "Sentiment (/10)": call.insight?.sentimentScore ?? "",
-        "Réponses": call.insight?.answers ? JSON.stringify(call.insight.answers) : "",
+        "Réponses clés": formatAnswers(call.insight?.answers, call.campaign.questions),
         "Thèmes": Array.isArray(call.insight?.topics) ? call.insight?.topics.join(", ") : "",
-        "Résumé": call.summary ?? "",
+        "Résumé de l'échange": call.summary?.trim() || "Aucun retour exploitable.",
       })),
     ];
     const content = `\uFEFF${toCsv(rows)}`;
