@@ -136,7 +136,9 @@ export const CreateCampaignSchema = z.object({
     .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Format horaire invalide (HH:MM)")
     .default("23:59"),
   maxDuration: z.number().int().min(60).max(1200).default(480),
-  concurrency: z.number().int().min(1).max(50).default(10),
+  // Une vague de deux appels évite de saturer le pipeline voix au démarrage.
+  // Une limite supérieure reste configurable pour les comptes validés.
+  concurrency: z.number().int().min(1).max(50).default(2),
   scheduledAt: z.string().datetime({ offset: true }).optional().nullable(),
 });
 

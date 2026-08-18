@@ -8,6 +8,7 @@ import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
 import { inferCampaignQuestions } from "@/lib/campaign-questions";
+import { getEffectiveCallConcurrency } from "@/lib/call-concurrency";
 
 type ClaimedContact = {
   id: string;
@@ -146,58 +147,79 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Compter les appels en cours
-    const inProgressCount = await db.call.count({
-      where: {
-        campaignId,
-        status: { in: ["INITIATED", "RINGING", "IN_PROGRESS"] },
-      },
+    const settings = await db.companySetting.findUnique({
+      where: { companyId: campaign.companyId },
+      select: { maxConcurrentCalls: true },
+    });
+    const effectiveConcurrency = getEffectiveCallConcurrency(
+      campaign.concurrency,
+      settings?.maxConcurrentCalls,
+    );
+
+    // Verrouiller la campagne pendant le comptage + la réservation. Sans ce
+    // verrou, deux invocations simultanées peuvent chacune voir zéro appel et
+    // réserver une vague complète. `CALLING` est compté sur les contacts (et
+    // non seulement les appels) pour couvrir l'intervalle avant la création du
+    // record Call et l'envoi vers Vapi.
+    const claim = await db.$transaction(async (tx) => {
+      const lock = await tx.$queryRaw<Array<{ locked: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(hashtext(${campaignId})) AS locked
+      `;
+      if (!lock[0]?.locked) return { locked: false, inProgressCount: 0, slotsAvailable: 0, contacts: [] as ClaimedContact[] };
+
+      const inProgressCount = await tx.contact.count({
+        where: { campaignId, status: "CALLING" },
+      });
+      const slotsAvailable = effectiveConcurrency - inProgressCount;
+      if (slotsAvailable <= 0) return { locked: true, inProgressCount, slotsAvailable, contacts: [] as ClaimedContact[] };
+
+      const contacts = await tx.$queryRaw<ClaimedContact[]>`
+        WITH candidates AS (
+          SELECT id
+          FROM contacts
+          WHERE campaign_id = ${campaignId}
+            AND status = 'PENDING'
+            AND attempts < ${campaign.maxRetries}
+            AND (
+              attempts = 0
+              OR next_retry_at IS NULL
+              OR next_retry_at <= NOW()
+            )
+          ORDER BY created_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${slotsAvailable}
+        )
+        UPDATE contacts
+        SET status = 'CALLING',
+            last_called_at = NOW(),
+            next_retry_at = NULL,
+            updated_at = NOW()
+        FROM candidates
+        WHERE contacts.id = candidates.id
+          AND contacts.status = 'PENDING'
+        RETURNING contacts.id,
+                  contacts.phone,
+                  contacts.first_name AS "firstName",
+                  contacts.last_name AS "lastName",
+                  contacts.city,
+                  contacts.segment,
+                  contacts.attempts
+      `;
+      return { locked: true, inProgressCount, slotsAvailable, contacts };
     });
 
-    const slotsAvailable = campaign.concurrency - inProgressCount;
+    if (!claim.locked) {
+      return ok({ processed: 0, message: "Une autre vague de cette campagne est déjà en préparation." });
+    }
 
-    if (slotsAvailable <= 0) {
+    if (claim.slotsAvailable <= 0) {
       return ok({
         processed: 0,
-        message: `Concurrence maximale atteinte (${campaign.concurrency} appels simultanés).`,
+        message: `Concurrence maximale atteinte (${effectiveConcurrency} appels simultanés).`,
       });
     }
 
-    // Réclamer les contacts en une seule opération atomique. Le verrou
-    // `SKIP LOCKED` évite qu'un second scheduler lise les mêmes PENDING entre
-    // la sélection et le passage à CALLING.
-    const pendingContacts = await db.$queryRaw<ClaimedContact[]>`
-      WITH candidates AS (
-        SELECT id
-        FROM contacts
-        WHERE campaign_id = ${campaignId}
-          AND status = 'PENDING'
-          AND attempts < ${campaign.maxRetries}
-          AND (
-            attempts = 0
-            OR next_retry_at IS NULL
-            OR next_retry_at <= NOW()
-          )
-        ORDER BY created_at ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT ${slotsAvailable}
-      )
-      UPDATE contacts
-      SET status = 'CALLING',
-          last_called_at = NOW(),
-          next_retry_at = NULL,
-          updated_at = NOW()
-      FROM candidates
-      WHERE contacts.id = candidates.id
-        AND contacts.status = 'PENDING'
-      RETURNING contacts.id,
-                contacts.phone,
-                contacts.first_name AS "firstName",
-                contacts.last_name AS "lastName",
-                contacts.city,
-                contacts.segment,
-                contacts.attempts
-    `;
+    const pendingContacts = claim.contacts;
 
     if (pendingContacts.length === 0) {
       // Si un autre scheduler détient des lignes PENDING, elles ne sont pas
@@ -302,7 +324,7 @@ export async function POST(request: NextRequest) {
     return ok({
       processed,
       slotsUsed: processed,
-      slotsAvailable: slotsAvailable - processed,
+      slotsAvailable: claim.slotsAvailable - processed,
       message: `${processed} appel(s) déclenchés.`,
     });
   } catch (error) {
