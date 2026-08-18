@@ -44,6 +44,7 @@ const CALL_STATUS_MAP: Record<string, FrontCallStatus> = {
 /** Forme d'une ligne du tableau « Appels » (onglet détail campagne). */
 export interface CampaignCallRow {
   id: string;
+  contactId: string;
   name: string;
   city: string;
   time: string;
@@ -68,6 +69,7 @@ function callerName(c: ApiCall): string {
 export function mapApiCallToRow(c: ApiCall): CampaignCallRow {
   return {
     id: c.id,
+    contactId: c.contact.id,
     name: callerName(c),
     city: c.contact.city ?? "—",
     time: c.startedAt

@@ -47,6 +47,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const callRows = (apiCalls ?? []).map(mapApiCallToRow);
   const [callFilter, setCallFilter] = useState("all");
   const filteredCallRows = callFilter === "all" ? callRows : callRows.filter((call) => call.status === callFilter);
+  // L'API trie les appels par date décroissante : le premier retenu est donc
+  // bien le dernier échange du contact, sans mélanger deux personnes.
+  const latestCallByContact = new Map<string, typeof callRows[number]>();
+  for (const row of callRows) {
+    if (!latestCallByContact.has(row.contactId)) latestCallByContact.set(row.contactId, row);
+  }
   const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [campaignContacts, setCampaignContacts] = useState<CampaignContact[]>([]);
@@ -665,8 +671,20 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               const statusKey = (ct.status === "PENDING" && ct.attempts > 0 ? "retry" : ct.status.toLowerCase()) as keyof typeof CONTACT_STATUS_DICT;
               const cst = CONTACT_STATUS_DICT[statusKey] ?? CONTACT_STATUS_DICT.pending;
               const name = [ct.firstName, ct.lastName].filter(Boolean).join(" ") || "—";
+              const latestCall = latestCallByContact.get(ct.id);
               return (
-                <div key={ct.id} style={{ display: "grid", gridTemplateColumns: "1.8fr 160px 130px 110px 110px 90px", gap: "12px", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--sn-w04)" }} className="sn-hover-w03">
+                <div
+                  key={ct.id}
+                  onClick={() => { if (latestCall) setCallId(latestCall.id); }}
+                  role={latestCall ? "button" : undefined}
+                  tabIndex={latestCall ? 0 : undefined}
+                  onKeyDown={(event) => {
+                    if (latestCall && (event.key === "Enter" || event.key === " ")) setCallId(latestCall.id);
+                  }}
+                  aria-label={latestCall ? `Ouvrir le détail de l'appel de ${name}` : undefined}
+                  style={{ display: "grid", gridTemplateColumns: "1.8fr 160px 130px 110px 110px 90px", gap: "12px", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--sn-w04)", cursor: latestCall ? "pointer" : "default" }}
+                  className={latestCall ? "sn-hover-w03" : ""}
+                >
                   <span style={{ fontSize: "14px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--sn-text)" }}>{name}</span>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "var(--sn-w6)" }}>{ct.phone}</span>
                   <span style={{ fontSize: "13px", color: "var(--sn-w6)" }}>{ct.city ?? "—"}</span>

@@ -138,7 +138,7 @@ export interface Call {
   summary: string | null;
   sentimentScore?: number | null;
   transcript: TranscriptEntry[];
-  contact: { firstName: string | null; lastName: string | null; phone: string; city?: string | null };
+  contact: { id: string; firstName: string | null; lastName: string | null; phone: string; city?: string | null };
 }
 
 /** Entrée de l'annuaire global (agrégée par numéro, toutes campagnes). */
@@ -198,6 +198,9 @@ async function request<T>(
 ): Promise<{ data: T; meta?: ApiMeta }> {
   const res = await fetch(`/api${path}`, {
     credentials: "include",
+    // Les états d'appel et les transcriptions évoluent après les webhooks :
+    // ne jamais réutiliser une réponse navigateur/Vercel obsolète.
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers ?? {}),

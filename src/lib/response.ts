@@ -25,7 +25,9 @@ export interface ApiError {
 export function ok<T>(data: T, meta?: Record<string, unknown>, status = 200) {
   return NextResponse.json<ApiSuccess<T>>(
     { success: true, data, ...(meta ? { meta } : {}) },
-    { status }
+    // Une API authentifiée qui retourne des états d'appel ne doit pas être
+    // mise en cache par un CDN ou par le navigateur.
+    { status, headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }
 

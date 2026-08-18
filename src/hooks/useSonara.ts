@@ -129,7 +129,14 @@ export function useCampaignCalls(campaignId: string | null | undefined, pollMs =
 
 /** Détail d'un appel (transcription + résumé). */
 export function useCall(id: string | null | undefined) {
-  return useAsync<Call>(() => api.calls.get(id as string), [id], Boolean(id));
+  const state = useAsync<Call>(() => api.calls.get(id as string), [id], Boolean(id));
+  // Ne jamais afficher le détail précédent pendant que l'appel nouvellement
+  // sélectionné est en cours de chargement. C'est particulièrement important
+  // pour les clics successifs dans la liste d'une même campagne.
+  return {
+    ...state,
+    data: state.data?.id === id ? state.data : null,
+  };
 }
 
 /** Annuaire global de l'entreprise (toutes campagnes, dédupliqué par numéro). */

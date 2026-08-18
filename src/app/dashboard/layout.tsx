@@ -137,7 +137,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 
   // Détail d'appel réel (transcription + résumé) via l'API ; null si aucun appel ouvert.
-  const { data: apiCall } = useCall(callId);
+  const { data: apiCall, loading: loadingCall } = useCall(callId);
   const activeCall = apiCall
     ? {
         id: apiCall.id,
@@ -963,6 +963,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </>
+        )}
+        {callId !== null && !activeCall && (
+          <div style={{ padding: "26px 22px", color: "var(--sn-w55)", fontSize: "13.5px" }}>
+            {loadingCall ? "Chargement du détail de l’appel…" : "Le détail de cet appel est indisponible."}
+          </div>
         )}
       </aside>
 
