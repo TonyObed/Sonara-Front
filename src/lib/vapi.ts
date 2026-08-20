@@ -41,8 +41,13 @@ function buildSystemPrompt(params: {
   contactCity?: string | null;
   contactSegment?: string | null;
   callId: string;
+  questions?: Array<{ key: string; label: string; kind: string }>;
 }): string {
   const contactName = formatContactName(params.contactFirstName);
+  const npsQuestions = (params.questions ?? []).filter((question) => question.kind === "NPS");
+  const npsGuidance = npsQuestions.length
+    ? `\nRègle NPS : pour chaque question de recommandation (${npsQuestions.map((question) => `« ${question.label} »`).join(", ")}), demande explicitement une note de 0 à 10. Une réponse « oui » ou « non » seule n'est pas une note NPS ; invite poliment le client à donner son chiffre avant de poursuivre.\n`
+    : "";
   return `${params.aiBrief}
 
 Variables contextuelles de l'appel :
@@ -50,6 +55,7 @@ Variables contextuelles de l'appel :
 - Ville : ${params.contactCity ?? "non renseignée"}
 - Segment : ${params.contactSegment ?? "non renseigné"}
 - Référence interne de l'appel : ${params.callId}
+${npsGuidance}
 
 Règles impératives (non négociables) :
 1. Dès le début, identifie-toi comme représentante de l'entreprise cliente (conformité ARTCI / CDC J1). Ne te présente jamais comme « Sonara ».
@@ -144,7 +150,14 @@ function buildStructuredDataSchema(questions: BuildAssistantParams["questions"])
       ? question.choices.filter((choice): choice is string => typeof choice === "string")
       : [];
     properties[question.key] = question.kind === "NPS" || question.kind === "SCALE_0_10"
-      ? { type: "number", minimum: 0, maximum: 10, description: question.label }
+      ? {
+          type: "number",
+          minimum: 0,
+          maximum: 10,
+          description: question.kind === "NPS"
+            ? `${question.label} Enregistrer uniquement la note explicite de 0 à 10 donnée par le client.`
+            : question.label,
+        }
       : question.kind === "BOOLEAN"
       ? { type: "boolean", description: `${question.label} Convertir seulement une réponse explicitement affirmative ou négative.` }
       : {

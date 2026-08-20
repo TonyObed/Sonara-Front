@@ -15,7 +15,7 @@ import {
   handleError,
 } from "@/lib/response";
 import { ZodError } from "zod";
-import { inferCampaignQuestions } from "@/lib/campaign-questions";
+import { inferCampaignQuestions, isNpsQuestionLabel } from "@/lib/campaign-questions";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -54,6 +54,20 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           orderBy: { position: "asc" },
         });
       }
+    }
+
+    // Anciennes campagnes : une question de recommandation était autrefois
+    // enregistrée comme booléenne si le brief omettait « 0 à 10 ». On la
+    // normalise en NPS afin que les prochains appels collectent une vraie note.
+    const legacyNpsIds = questions
+      .filter((question) => question.kind !== "NPS" && isNpsQuestionLabel(question.label))
+      .map((question) => question.id);
+    if (legacyNpsIds.length > 0) {
+      await db.campaignQuestion.updateMany({
+        where: { id: { in: legacyNpsIds } },
+        data: { kind: "NPS" },
+      });
+      questions = questions.map((question) => legacyNpsIds.includes(question.id) ? { ...question, kind: "NPS" } : question);
     }
 
     // KPIs détaillés

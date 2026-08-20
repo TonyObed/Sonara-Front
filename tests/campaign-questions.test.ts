@@ -16,7 +16,7 @@ describe("inferCampaignQuestions", () => {
       expect.objectContaining({ key: "q1", kind: "SCALE_0_10", position: 0 }),
       expect.objectContaining({ key: "q2", kind: "BOOLEAN", position: 1 }),
       expect.objectContaining({ key: "q3", kind: "TEXT", position: 2 }),
-      expect.objectContaining({ key: "q4", kind: "BOOLEAN", position: 3 }),
+      expect.objectContaining({ key: "q4", kind: "NPS", position: 3 }),
       expect.objectContaining({ key: "q5", kind: "NPS", position: 4 }),
     ]);
   });

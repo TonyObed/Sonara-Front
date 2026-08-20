@@ -31,6 +31,20 @@ export default function DashboardHome() {
   const outcomeTotal = Object.values(outcomes).reduce((sum, value) => sum + value, 0);
   const outcomePct = (value: number) => outcomeTotal ? Math.round((value / outcomeTotal) * 100) : 0;
   const completedPct = outcomePct(outcomes.completed);
+  const donutCircumference = 2 * Math.PI * 58;
+  const outcomeSegments = [
+    { value: outcomes.completed, color: "#0052FF" },
+    { value: outcomes.unreachable, color: "#5E5E68" },
+    { value: outcomes.voicemail, color: "var(--sn-amber)" },
+    { value: outcomes.failed, color: "var(--sn-red)" },
+  ];
+  let donutOffset = 0;
+  const donutArcs = outcomeSegments.map((segment) => {
+    const length = outcomeTotal ? (segment.value / outcomeTotal) * donutCircumference : 0;
+    const arc = { ...segment, length, offset: donutOffset };
+    donutOffset += length;
+    return arc;
+  });
 
   // Waveform canvas animation on mount (runs at ~25fps / 40ms)
   useEffect(() => {
@@ -337,6 +351,19 @@ export default function DashboardHome() {
             <svg viewBox="0 0 160 160" style={{ width: "158px", height: "158px" }}>
               <g transform="rotate(-90 80 80)" fill="none" strokeWidth="15">
                 <circle cx="80" cy="80" r="58" style={{ stroke: "var(--sn-w06)" }}></circle>
+                {donutArcs.map((arc, index) => arc.length > 0 && (
+                  <circle
+                    key={index}
+                    cx="80"
+                    cy="80"
+                    r="58"
+                    stroke={arc.color}
+                    strokeDasharray={`${arc.length} ${donutCircumference - arc.length}`}
+                    strokeDashoffset={-arc.offset}
+                    strokeLinecap="butt"
+                    style={{ transition: "stroke-dasharray .6s ease, stroke-dashoffset .6s ease" }}
+                  />
+                ))}
               </g>
             </svg>
             <div style={{ position: "absolute", textAlign: "center" }}>

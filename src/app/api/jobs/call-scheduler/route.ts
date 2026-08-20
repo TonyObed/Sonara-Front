@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
-import { inferCampaignQuestions } from "@/lib/campaign-questions";
+import { inferCampaignQuestions, isNpsQuestionLabel } from "@/lib/campaign-questions";
 import { getEffectiveCallConcurrency } from "@/lib/call-concurrency";
 
 type ClaimedContact = {
@@ -131,6 +131,20 @@ export async function POST(request: NextRequest) {
         if (!campaign || campaign.status !== "RUNNING") {
           return ok({ processed: 0, message: "Campagne non active ou introuvable." });
         }
+      }
+    }
+
+    const legacyNpsIds = campaign.questions
+      .filter((question) => question.kind !== "NPS" && isNpsQuestionLabel(question.label))
+      .map((question) => question.id);
+    if (legacyNpsIds.length > 0) {
+      await db.campaignQuestion.updateMany({ where: { id: { in: legacyNpsIds } }, data: { kind: "NPS" } });
+      campaign = await db.campaign.findUnique({
+        where: { id: campaignId },
+        include: { questions: { orderBy: { position: "asc" } } },
+      });
+      if (!campaign || campaign.status !== "RUNNING") {
+        return ok({ processed: 0, message: "Campagne non active ou introuvable." });
       }
     }
 

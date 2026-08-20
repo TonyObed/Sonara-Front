@@ -15,10 +15,17 @@ function cleanQuestion(value: string): string {
     .trim();
 }
 
+export function isNpsQuestionLabel(label: string): boolean {
+  const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /recommand/.test(normalized);
+}
+
 function questionKind(label: string): InferredCampaignQuestion["kind"] {
   const normalized = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const requestsScore = /note|evaluer|evaluation|0\s*(?:a|-)\s*10|sur\s*10/.test(normalized);
-  if (/recommand/.test(normalized) && requestsScore) return "NPS";
+  // Une question de recommandation est un NPS : même si le brief ne précise
+  // pas l'échelle, l'assistante demandera la note 0–10 avant de la stocker.
+  if (isNpsQuestionLabel(label)) return "NPS";
   if (requestsScore) return "SCALE_0_10";
   if (/^(?:avez-vous|est-ce que|pensez-vous|souhaitez-vous|acceptez-vous|recommanderiez-vous)\b/.test(normalized)) return "BOOLEAN";
   return "TEXT";
