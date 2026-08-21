@@ -2,12 +2,14 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Flux de Campagne E2E', () => {
   test('Devrait permettre à un utilisateur de se connecter et de créer une campagne', async ({ page }) => {
+    const email = process.env.E2E_ADMIN_EMAIL;
+    const password = process.env.E2E_ADMIN_PASSWORD;
+    test.skip(!email || !password, 'Identifiants E2E absents de l’environnement sécurisé.');
     // 1. Login
     await page.goto('/login');
     
-    // On utilise les credentials de test (admin@banquexyz.ci / Sonara2026!)
-    await page.fill('input[type="email"]', 'admin@banquexyz.ci');
-    await page.fill('input[type="password"]', 'Sonara2026!');
+    await page.fill('input[type="email"]', email!);
+    await page.fill('input[type="password"]', password!);
     await page.click('button[type="submit"]');
 
     // Vérifie qu'on arrive sur le dashboard

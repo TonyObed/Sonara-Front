@@ -81,6 +81,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const filename = `sonara-${campaignSlug}-${dateStr}`;
 
+    // Trace persistante de l'export sans conserver le contenu du fichier.
+    await db.notification.create({
+      data: { companyId: auth.companyId, userId: auth.sub, type: "SECURITY", title: "Données exportées", message: `Export CSV de la campagne « ${campaign.name} » (${calls.length} appel(s)).` },
+    });
+
     return new NextResponse(`\uFEFF${toCsv(rows)}`, {
       status: 200,
       headers: {

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ok, unauthorized, handleError } from "@/lib/response";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
 import { inferCallDisposition } from "@/lib/call-disposition";
+import { getAnalysisQuality, measureConversationLatency } from "@/lib/call-quality";
 
 // ─── TYPES WEBHOOK VAPI ────────────────────────────────────────────────────────
 
@@ -382,6 +383,12 @@ export async function POST(request: NextRequest) {
         callPayload.analysis?.successEvaluation,
         rawTranscript
       );
+      const conversationLatency = measureConversationLatency(rawTranscript);
+      const analysisQuality = getAnalysisQuality({
+        summary,
+        structuredData,
+        transcriptEntries: formattedTranscript.length,
+      });
 
       // Vapi peut rejouer un webhook après un timeout. Le hash du corps brut est
       // stable pour un même événement et sa contrainte unique protège aussi les
@@ -435,8 +442,8 @@ export async function POST(request: NextRequest) {
           });
           await tx.callInsight.upsert({
             where: { callId: call.id },
-            create: { callId: call.id, sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null } as never },
-            update: { sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null } as never },
+            create: { callId: call.id, sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null, analysisQuality, conversationLatency, source: "vapi-webhook" } as never },
+            update: { sentimentScore, topics: topics as never, answers: (structuredData ?? undefined) as never, providerMeta: { successEvaluation: callPayload.analysis?.successEvaluation ?? null, disposition, nextRetryAt: nextRetryAt?.toISOString() ?? null, analysisQuality, conversationLatency, source: "vapi-webhook" } as never },
           });
           await tx.contact.update({
             where: { id: call.contactId },

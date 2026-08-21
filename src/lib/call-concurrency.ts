@@ -17,3 +17,7 @@ export function getEffectiveCallConcurrency(
   const companyCap = validLimit(companyMaxConcurrentCalls, hardCap);
   return Math.max(1, Math.min(validLimit(campaignConcurrency, 1), companyCap, hardCap));
 }
+
+export function getServerCallConcurrencyCap(companyMaxConcurrentCalls?: number | null): number {
+  return getEffectiveCallConcurrency(Number.MAX_SAFE_INTEGER, companyMaxConcurrentCalls);
+}

@@ -34,6 +34,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
         data: { isActive: false, inviteToken: null, inviteExpiry: null },
       }),
       db.refreshToken.deleteMany({ where: { userId: member.id, companyId: auth.companyId } }),
+      db.notification.create({ data: { companyId: auth.companyId, userId: auth.sub, type: "SECURITY", title: "Collaborateur retiré", message: `Le collaborateur ${member.id.slice(0, 8)}… a été désactivé et ses sessions ont été révoquées.` } }),
     ]);
 
     return ok({ id: member.id, revoked: true });

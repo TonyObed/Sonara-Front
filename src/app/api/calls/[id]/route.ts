@@ -33,6 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             createdAt: true,
           },
         },
+        insight: true,
       },
     });
 
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         sector: call.campaign.sector,
       },
       events: call.events,
+      insight: call.insight,
     });
   } catch (error) {
     return handleError(error);

@@ -135,16 +135,29 @@ Ne jamais coller de secrets dans Git, les documents ou les captures d'écran.
 - Clé ElevenLabs et voix configurées si cette voix est utilisée.
 - `INTERNAL_JOB_KEY` : jobs internes.
 - `CRON_SECRET` : nécessaire pour une exécution Vercel Cron/cron externe sécurisée.
+- `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` : rate limiting partagé entre les fonctions Vercel.
+- `RESEND_API_KEY` et `REPORT_EMAIL_FROM` : envoi des notifications de rapports programmés. Le lien renvoie vers le dashboard authentifié ; aucune donnée client n'est jointe à l'email.
+- `E2E_ADMIN_EMAIL` et `E2E_ADMIN_PASSWORD` : uniquement dans l'environnement sécurisé des tests Playwright, jamais dans Git.
+
+## Optimisations fiabilité — 21 août 2026
+
+- Si le webhook final Vapi manque, la réconciliation consulte désormais l'appel distant et restaure le statut, la transcription, le résumé et les insights de la campagne.
+- Les analyses incomplètes des sept derniers jours peuvent être réparées depuis Vapi sans redébiter le crédit ni incrémenter une seconde fois les tentatives.
+- `CallInsight.providerMeta` conserve la qualité de l'analyse (`COMPLETE`, `PARTIAL`, `MISSING`), sa source et la latence conversationnelle mesurée.
+- Le live monitoring affiche la capacité réellement imposée par le serveur et une latence moyenne uniquement lorsqu'elle repose sur des échantillons horodatés.
+- Les rapports programmés peuvent envoyer un email via Resend ; sans configuration email, ils restent disponibles dans le dashboard.
+- Les appels test et imports CSV ont un rate limit dédié. Les créations/révocations de clés, suppressions de membres et exports créent une trace de sécurité persistante.
+- Les anciens composants et fichiers de démonstration non utilisés ont été supprimés. Les identifiants E2E sont chargés depuis l'environnement.
 
 ## Limites connues et prochaines étapes
 
 ### À faire avant commercialisation
 
-- Brancher un fournisseur d'email transactionnel (ex. Resend) pour envoyer réellement les rapports programmés.
+- Configurer et valider le domaine d'envoi Resend pour activer les emails de rapports programmés en production.
 - Ajouter un vrai système de paiement Mobile Money/abonnement : le module de paiement actuel est une simulation.
 - Mettre en place les limites de crédits selon le plan, une fois le paiement défini.
 - Ajouter une politique de conservation/suppression des transcriptions et enregistrements, consentement et export/suppression des données client.
-- Ajouter Redis/Upstash pour un rate limit partagé entre les instances Vercel.
+- Configurer les variables Upstash sur Vercel pour activer le rate limit partagé ; un fallback local reste actif en développement.
 - Ajouter suivi d'erreurs et alertes (Sentry ou équivalent).
 
 ### À faire après passage à Vercel payant

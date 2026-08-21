@@ -10,7 +10,8 @@ export default function LiveMonitoringPage() {
   const liveCalls = data && !error ? data : [];
 
   const inProgress = liveCalls.length;
-  const liveSlots = dashboard?.live.capacity ?? 10;
+  const liveSlots = dashboard?.live.capacity ?? 2;
+  const averageLatencyMs = dashboard?.quality.averageLatencyMs ?? null;
   const slotsPct = Math.min(100, Math.round((inProgress / liveSlots) * 100));
   const liveEvents = (dashboard?.events ?? []).map((event) => ({
     time: new Date(event.at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
@@ -96,10 +97,10 @@ export default function LiveMonitoringPage() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "18px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>LATENCE MOYENNE</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "5px", marginTop: "8px" }}>
-            <span style={{ fontSize: "28px", fontWeight: 700, color: "var(--sn-green)" }}>—</span>
+            <span style={{ fontSize: "28px", fontWeight: 700, color: averageLatencyMs == null ? "var(--sn-w45)" : averageLatencyMs < 1200 ? "var(--sn-green)" : "var(--sn-amber)" }}>{averageLatencyMs ?? "—"}</span>
             <span style={{ fontSize: "14px", color: "var(--sn-w45)" }}>ms</span>
           </div>
-          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>objectif &lt; 800 ms</div>
+          <div style={{ fontSize: "12px", color: "var(--sn-w45)", marginTop: "4px" }}>{averageLatencyMs == null ? "mesure disponible après un appel transcrit" : `${dashboard?.quality.latencySamples ?? 0} appel(s) mesuré(s)`}</div>
         </div>
 
         {/* KPI 4: Taux décroché */}

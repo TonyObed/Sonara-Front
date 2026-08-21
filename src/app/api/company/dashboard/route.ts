@@ -3,6 +3,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { handleError, ok, unauthorized } from "@/lib/response";
 import { getLiveCallCutoff } from "@/lib/live-calls";
+import { getServerCallConcurrencyCap } from "@/lib/call-concurrency";
 
 const ANSWERED = ["IN_PROGRESS", "COMPLETED", "TRANSFERRED"] as const;
 const ACTIVE = ["RINGING", "IN_PROGRESS"] as const;
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const liveCutoff = getLiveCallCutoff();
 
     const baseWhere = { campaign: { companyId: auth.companyId } };
-    const [company, settings, calls, live, queued, events, creditPeak] = await Promise.all([
+    const [company, settings, calls, live, queued, events, creditPeak, recentInsights] = await Promise.all([
       db.company.findUnique({
         where: { id: auth.companyId },
         select: { apiCredit: true },
@@ -66,6 +67,12 @@ export async function GET(request: NextRequest) {
         where: { companyId: auth.companyId },
         _max: { balanceAfter: true },
       }),
+      db.callInsight.findMany({
+        where: { call: { campaign: { companyId: auth.companyId }, createdAt: { gte: since } } },
+        orderBy: { createdAt: "desc" },
+        take: 250,
+        select: { providerMeta: true },
+      }),
     ]);
     if (!company) return unauthorized("Compte introuvable.");
 
@@ -93,14 +100,24 @@ export async function GET(request: NextRequest) {
     const todayAnswered = answeredCount(todayCalls);
     const lastHourAnswered = answeredCount(lastHourCalls);
     const countStatus = (statuses: readonly string[]) => calls.filter((call) => statuses.includes(call.status)).length;
+    const latencySamples = recentInsights.flatMap((insight) => {
+      if (!insight.providerMeta || typeof insight.providerMeta !== "object" || Array.isArray(insight.providerMeta)) return [];
+      const latency = (insight.providerMeta as Record<string, unknown>).conversationLatency;
+      if (!latency || typeof latency !== "object" || Array.isArray(latency)) return [];
+      const average = (latency as Record<string, unknown>).averageResponseMs;
+      return typeof average === "number" && Number.isFinite(average) ? [average] : [];
+    });
+    const averageLatencyMs = latencySamples.length
+      ? Math.round(latencySamples.reduce((sum, value) => sum + value, 0) / latencySamples.length)
+      : null;
 
     return ok({
       credit: company.apiCredit,
       creditLimit: Math.max(company.apiCredit, creditPeak._max.balanceAfter ?? 0),
-      // La limite sera lue depuis CompanySetting dès que la migration de ce
-      // modèle aura été appliquée. En attendant, aucune donnée client n'est
-      // inventée : 10 est la capacité technique MVP déjà appliquée au scheduler.
-      live: { active: live.length, capacity: settings?.maxConcurrentCalls ?? 10, queued },
+      // Affiche le même plafond effectif que le moteur d'appels. Une entreprise
+      // configurée à 10 ne doit pas voir 10 slots si le garde-fou MVP est à 2.
+      live: { active: live.length, capacity: getServerCallConcurrencyCap(settings?.maxConcurrentCalls), queued },
+      quality: { averageLatencyMs, latencySamples: latencySamples.length },
       responseRate: launched ? Math.round((answered / launched) * 100) : 0,
       calls: { launched, answered },
       today: {

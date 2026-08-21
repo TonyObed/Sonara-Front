@@ -13,8 +13,10 @@ import {
   forbidden,
   zodError,
   handleError,
+  tooManyRequests,
 } from "@/lib/response";
 import { ZodError } from "zod";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const DEFAULT_TEST_BRIEF = `Tu es Ingrid, conseillère virtuelle d'une entreprise ivoirienne.
 Cet appel est un test de la plateforme Sonara. Après ta présentation, pose une seule
@@ -31,6 +33,9 @@ export async function POST(request: NextRequest) {
     if (auth.role === "VIEWER") {
       return forbidden("Les utilisateurs en lecture seule ne peuvent pas lancer d'appels.");
     }
+
+    const rl = await rateLimit(`test-call:${auth.companyId}:${auth.sub}`, RATE_LIMITS.TEST_CALL.limit, RATE_LIMITS.TEST_CALL.windowSec);
+    if (!rl.allowed) return tooManyRequests(`Trop d'appels test. Réessayez dans ${rl.retryAfterSec} secondes.`);
 
     const body = await request.json();
     const input = TestCallSchema.parse(body);

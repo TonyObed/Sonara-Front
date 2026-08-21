@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { generateReport } from "@/lib/reports";
 import { handleError, ok, unauthorized } from "@/lib/response";
+import { sendReportReadyEmail } from "@/lib/report-email";
 
 function isAuthorized(request: NextRequest) {
   const expected = process.env.INTERNAL_JOB_KEY;
@@ -25,18 +26,26 @@ export async function POST(request: NextRequest) {
     if (!isAuthorized(request)) return unauthorized("Tâche interne non autorisée.");
     const schedules = await db.reportSchedule.findMany({ where: { isActive: true }, take: 25 });
     let generated = 0;
+    let emailed = 0;
+    let emailSkipped = 0;
     for (const schedule of schedules) {
       const lastRun = schedule.lastSentAt?.getTime() ?? 0;
       if (Date.now() - lastRun < intervalMs(schedule.frequency)) continue;
       try {
-        await generateReport({ companyId: schedule.companyId, campaignId: schedule.campaignId });
+        const report = await generateReport({ companyId: schedule.companyId, campaignId: schedule.campaignId });
+        const recipients = Array.isArray(schedule.recipients)
+          ? schedule.recipients.filter((value): value is string => typeof value === "string" && value.includes("@"))
+          : [];
+        const email = await sendReportReadyEmail({ recipients, reportName: report.name });
+        if (email.status === "sent") emailed += 1;
+        else emailSkipped += 1;
         await db.reportSchedule.update({ where: { id: schedule.id }, data: { lastSentAt: new Date() } });
         generated++;
       } catch (error) {
         console.error("[Report scheduler]", schedule.id, error);
       }
     }
-    return ok({ checked: schedules.length, generated });
+    return ok({ checked: schedules.length, generated, emailed, emailSkipped });
   } catch (error) {
     return handleError(error);
   }

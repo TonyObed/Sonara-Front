@@ -13,7 +13,9 @@ import {
   notFound,
   badRequest,
   handleError,
+  tooManyRequests,
 } from "@/lib/response";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -70,6 +72,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     if (!auth) return unauthorized();
 
     if (auth.role === "VIEWER") return forbidden("Accès refusé.");
+
+    const rl = await rateLimit(`csv-import:${auth.companyId}:${auth.sub}`, RATE_LIMITS.CSV_IMPORT.limit, RATE_LIMITS.CSV_IMPORT.windowSec);
+    if (!rl.allowed) return tooManyRequests(`Trop d'imports rapprochés. Réessayez dans ${rl.retryAfterSec} secondes.`);
 
     const { id } = await params;
 

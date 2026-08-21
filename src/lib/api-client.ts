@@ -163,6 +163,7 @@ export interface DashboardData {
   credit: number;
   creditLimit: number;
   live: { active: number; capacity: number; queued: number };
+  quality: { averageLatencyMs: number | null; latencySamples: number };
   responseRate: number;
   calls: { launched: number; answered: number };
   today: { launched: number; answered: number; responseRate: number };

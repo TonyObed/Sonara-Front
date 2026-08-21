@@ -107,4 +107,6 @@ export const RATE_LIMITS = {
   PUBLIC: { limit: 100, windowSec: 60 },
   // Routes authentifiées : 1000 req/min par JWT
   AUTHENTICATED: { limit: 1000, windowSec: 60 },
+  TEST_CALL: { limit: 10, windowSec: 10 * 60 },
+  CSV_IMPORT: { limit: 10, windowSec: 60 },
 } as const;
