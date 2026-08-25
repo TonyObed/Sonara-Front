@@ -17,10 +17,10 @@ const TUTORIALS: Record<TutorialKey, {
     duration: "2 min",
     description: "Vérifiez la voix, le brief et la qualité de la conversation avant de contacter vos clients.",
     steps: [
-      { title: "Ouvrez une nouvelle campagne", text: "Dans le menu, cliquez sur Campagnes, puis sur Nouvelle campagne. Le test se prépare depuis ce même formulaire.", image: "/support/tutorials/campagne-informations.png" },
-      { title: "Préparez l’assistante", text: "Saisissez un nom, choisissez le secteur et décrivez clairement l’objectif dans le Brief IA. Sélectionnez ensuite Ingrid ou Loïc.", image: "/support/tutorials/campagne-informations.png" },
-      { title: "Saisissez votre numéro", text: "Dans Tester avant de lancer, entrez le numéro qui doit recevoir l’appel. Utilisez de préférence le format complet +225XXXXXXXXXX.", image: "/support/tutorials/appel-test.png" },
-      { title: "Lancez et vérifiez", text: "Cliquez sur Recevoir un appel test. Répondez naturellement, puis consultez l’historique des tests pour vérifier le statut, la durée, le résumé et la transcription.", image: "/support/tutorials/appel-test.png" },
+      { title: "Ouvrez une nouvelle campagne", text: "Dans le menu, cliquez sur Campagnes, puis sur Nouvelle campagne. Le test se prépare depuis ce même formulaire.", image: "/support/tutorials/test-01-ouvrir-campagnes.png" },
+      { title: "Préparez l’assistante", text: "Saisissez un nom, choisissez le secteur et décrivez clairement l’objectif dans le Brief IA. Sélectionnez ensuite Ingrid ou Loïc.", image: "/support/tutorials/test-02-preparer-assistante.png" },
+      { title: "Saisissez votre numéro", text: "Dans Tester avant de lancer, entrez le numéro qui doit recevoir l’appel. Utilisez de préférence le format complet +225XXXXXXXXXX.", image: "/support/tutorials/test-03-saisir-numero.png" },
+      { title: "Lancez et vérifiez", text: "Cliquez sur Recevoir un appel test. Répondez naturellement, puis consultez l’historique des tests pour vérifier le statut, la durée, le résumé et la transcription.", image: "/support/tutorials/test-04-lancer-test.png" },
     ],
   },
   campaign: {
@@ -28,11 +28,11 @@ const TUTORIALS: Record<TutorialKey, {
     duration: "5 min",
     description: "Configurez l’enquête, importez les contacts et lancez les appels en quelques étapes.",
     steps: [
-      { title: "Nommez la campagne", text: "Indiquez un nom reconnaissable et sélectionnez le secteur correspondant à votre activité.", image: "/support/tutorials/campagne-informations.png" },
-      { title: "Rédigez le Brief IA", text: "Expliquez l’objectif, les questions à poser, le ton attendu et la manière de terminer l’appel. L’assistante doit poser les questions une par une.", image: "/support/tutorials/campagne-informations.png" },
-      { title: "Importez le fichier CSV", text: "Déposez un CSV contenant au minimum les colonnes prénom, nom et téléphone. Sonara normalise automatiquement les numéros ivoiriens au format +225.", image: "/support/tutorials/campagne-lancement.png" },
-      { title: "Réglez les appels", text: "Choisissez la plage horaire, le nombre de tentatives, le délai de relance, la durée maximale et la voix de l’assistante.", image: "/support/tutorials/campagne-lancement.png" },
-      { title: "Testez puis lancez", text: "Effectuez d’abord un appel test. Si la conversation est correcte, cliquez sur Lancer la campagne. Vous pouvez aussi enregistrer le travail comme brouillon.", image: "/support/tutorials/campagne-lancement.png" },
+      { title: "Nommez la campagne", text: "Indiquez un nom reconnaissable et sélectionnez le secteur correspondant à votre activité.", image: "/support/tutorials/campagne-01-nommer.png" },
+      { title: "Rédigez le Brief IA", text: "Expliquez l’objectif, les questions à poser, le ton attendu et la manière de terminer l’appel. L’assistante doit poser les questions une par une.", image: "/support/tutorials/campagne-02-brief.png" },
+      { title: "Importez le fichier CSV", text: "Déposez un CSV contenant au minimum les colonnes prénom, nom et téléphone. Sonara normalise automatiquement les numéros ivoiriens au format +225.", image: "/support/tutorials/campagne-03-importer-csv.png" },
+      { title: "Réglez les appels", text: "Choisissez la plage horaire, le nombre de tentatives, le délai de relance, la durée maximale et la voix de l’assistante.", image: "/support/tutorials/campagne-04-regles-appel.png" },
+      { title: "Testez puis lancez", text: "Effectuez d’abord un appel test. Si la conversation est correcte, cliquez sur Lancer la campagne. Vous pouvez aussi enregistrer le travail comme brouillon.", image: "/support/tutorials/campagne-05-lancer.png" },
     ],
   },
 };
