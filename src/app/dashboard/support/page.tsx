@@ -1,12 +1,48 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { useDashboard } from "../DashboardContext";
+
+type TutorialKey = "test-call" | "campaign";
+
+const TUTORIALS: Record<TutorialKey, {
+  title: string;
+  duration: string;
+  description: string;
+  steps: Array<{ title: string; text: string; image: string }>;
+}> = {
+  "test-call": {
+    title: "Recevoir un appel test",
+    duration: "2 min",
+    description: "Vérifiez la voix, le brief et la qualité de la conversation avant de contacter vos clients.",
+    steps: [
+      { title: "Ouvrez une nouvelle campagne", text: "Dans le menu, cliquez sur Campagnes, puis sur Nouvelle campagne. Le test se prépare depuis ce même formulaire.", image: "/support/tutorials/campagne-informations.png" },
+      { title: "Préparez l’assistante", text: "Saisissez un nom, choisissez le secteur et décrivez clairement l’objectif dans le Brief IA. Sélectionnez ensuite Ingrid ou Loïc.", image: "/support/tutorials/campagne-informations.png" },
+      { title: "Saisissez votre numéro", text: "Dans Tester avant de lancer, entrez le numéro qui doit recevoir l’appel. Utilisez de préférence le format complet +225XXXXXXXXXX.", image: "/support/tutorials/appel-test.png" },
+      { title: "Lancez et vérifiez", text: "Cliquez sur Recevoir un appel test. Répondez naturellement, puis consultez l’historique des tests pour vérifier le statut, la durée, le résumé et la transcription.", image: "/support/tutorials/appel-test.png" },
+    ],
+  },
+  campaign: {
+    title: "Créer et lancer une campagne",
+    duration: "5 min",
+    description: "Configurez l’enquête, importez les contacts et lancez les appels en quelques étapes.",
+    steps: [
+      { title: "Nommez la campagne", text: "Indiquez un nom reconnaissable et sélectionnez le secteur correspondant à votre activité.", image: "/support/tutorials/campagne-informations.png" },
+      { title: "Rédigez le Brief IA", text: "Expliquez l’objectif, les questions à poser, le ton attendu et la manière de terminer l’appel. L’assistante doit poser les questions une par une.", image: "/support/tutorials/campagne-informations.png" },
+      { title: "Importez le fichier CSV", text: "Déposez un CSV contenant au minimum les colonnes prénom, nom et téléphone. Sonara normalise automatiquement les numéros ivoiriens au format +225.", image: "/support/tutorials/campagne-lancement.png" },
+      { title: "Réglez les appels", text: "Choisissez la plage horaire, le nombre de tentatives, le délai de relance, la durée maximale et la voix de l’assistante.", image: "/support/tutorials/campagne-lancement.png" },
+      { title: "Testez puis lancez", text: "Effectuez d’abord un appel test. Si la conversation est correcte, cliquez sur Lancer la campagne. Vous pouvez aussi enregistrer le travail comme brouillon.", image: "/support/tutorials/campagne-lancement.png" },
+    ],
+  },
+};
 
 export default function SupportPage() {
   const { faq, faqOpen, setFaqOpen, pushToast } = useDashboard();
   const [services, setServices] = useState<Array<{ serviceKey: string; label: string; status: string }>>([]);
   const [latestIncident, setLatestIncident] = useState<{ title: string; status: string; startedAt: string; resolvedAt: string | null } | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState<TutorialKey | null>(null);
+  const [tutorialStep, setTutorialStep] = useState(0);
   useEffect(() => { fetch("/api/support", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) { setServices(payload.data.services); setLatestIncident(payload.data.latestIncident); } }).catch(() => {}); }, []);
   const service = (key: string) => services.find((item) => item.serviceKey === key);
   const serviceLabel = (key: string) => service(key)?.status === "OPERATIONAL" ? "Opérationnel" : service(key)?.status ?? "Non renseigné";
@@ -23,6 +59,13 @@ export default function SupportPage() {
     pushToast(response.ok ? "Ticket support créé." : "Impossible de créer le ticket.", response.ok ? "ok" : "warn");
   };
 
+  const openTutorial = (tutorial: TutorialKey) => {
+    setTutorialStep(0);
+    setTutorialOpen(tutorial);
+  };
+
+  const activeTutorial = tutorialOpen ? TUTORIALS[tutorialOpen] : null;
+
   return (
     <div data-screen-label="Aide et support" style={{ display: "flex", flexDirection: "column", gap: "20px", animation: "snFadeUp .45s ease both" }}>
       {/* Header */}
@@ -32,6 +75,30 @@ export default function SupportPage() {
           SUPPORT 7J/7 — 08:00–20:00 GMT · RÉPONSE &lt; 2 H EN JOURNÉE
         </div>
       </div>
+
+      {/* Guided tutorials */}
+      <section style={{ background: "linear-gradient(135deg, rgba(0,82,255,.12), rgba(0,212,166,.055))", border: "1px solid rgba(0,82,255,.22)", borderRadius: "18px", padding: "22px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "14px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".13em", color: "var(--sn-blue3)" }}>GUIDES PAS À PAS</div>
+            <div style={{ fontSize: "19px", fontWeight: 700, marginTop: "6px" }}>Bien démarrer avec Sonara</div>
+            <div style={{ fontSize: "13px", color: "var(--sn-w55)", marginTop: "5px" }}>Suivez les écrans réels du dashboard, étape par étape.</div>
+          </div>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>2 TUTORIELS VISUELS</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: "12px", marginTop: "18px" }}>
+          {(Object.entries(TUTORIALS) as Array<[TutorialKey, typeof TUTORIALS[TutorialKey]]>).map(([key, tutorial], index) => (
+            <button key={key} onClick={() => openTutorial(key)} className="sn-hover-support-card" style={{ display: "flex", alignItems: "center", gap: "14px", textAlign: "left", background: "var(--sn-panel)", border: "1px solid var(--sn-w09)", borderRadius: "14px", padding: "16px", color: "var(--sn-text)", cursor: "pointer" }}>
+              <span style={{ width: "42px", height: "42px", minWidth: "42px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", background: index === 0 ? "rgba(0,82,255,.15)" : "rgba(0,212,166,.12)", color: index === 0 ? "var(--sn-blue3)" : "#00D4A6", fontWeight: 800 }}>{index + 1}</span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block", fontSize: "14.5px", fontWeight: 700 }}>{tutorial.title}</span>
+                <span style={{ display: "block", fontSize: "12px", color: "var(--sn-w5)", marginTop: "4px", lineHeight: 1.45 }}>{tutorial.description}</span>
+              </span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)" }}>{tutorial.duration} →</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* Search Input */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "var(--sn-panel)", border: "1px solid var(--sn-w08)", borderRadius: "14px", padding: "0 18px", height: "52px", maxWidth: "640px" }}>
@@ -247,6 +314,47 @@ export default function SupportPage() {
           </div>
         </div>
       </div>
+
+      {activeTutorial && tutorialOpen && (
+        <div className="sn-tutorial-overlay" onClick={() => setTutorialOpen(null)} role="presentation" style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(2,5,10,.82)", backdropFilter: "blur(8px)", padding: "24px", overflowY: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div role="dialog" aria-modal="true" aria-label={activeTutorial.title} onClick={(event) => event.stopPropagation()} style={{ width: "min(1120px, 100%)", maxHeight: "min(820px, calc(100vh - 48px))", overflowY: "auto", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "20px", boxShadow: "0 32px 100px rgba(0,0,0,.55)" }}>
+            <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--sn-panel)", borderBottom: "1px solid var(--sn-w07)", padding: "18px 22px", display: "flex", alignItems: "center", gap: "14px" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "18px", fontWeight: 750 }}>{activeTutorial.title}</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", color: "var(--sn-w4)", marginTop: "4px" }}>ÉTAPE {tutorialStep + 1} SUR {activeTutorial.steps.length} · {activeTutorial.duration}</div>
+              </div>
+              <button onClick={() => setTutorialOpen(null)} aria-label="Fermer le tutoriel" style={{ width: "36px", height: "36px", borderRadius: "10px", border: "1px solid var(--sn-w1)", background: "var(--sn-inset)", color: "var(--sn-text)", cursor: "pointer", fontSize: "19px" }}>×</button>
+            </div>
+
+            <div className="sn-tutorial-grid" style={{ padding: "22px", display: "grid", gridTemplateColumns: "minmax(230px, .72fr) minmax(420px, 1.8fr)", gap: "20px" }}>
+              <div className="sn-tutorial-step-list" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {activeTutorial.steps.map((step, index) => (
+                  <button key={step.title} onClick={() => setTutorialStep(index)} style={{ textAlign: "left", border: tutorialStep === index ? "1px solid rgba(0,82,255,.45)" : "1px solid var(--sn-w07)", background: tutorialStep === index ? "rgba(0,82,255,.12)" : "var(--sn-inset)", color: "var(--sn-text)", borderRadius: "12px", padding: "12px", cursor: "pointer", display: "flex", gap: "10px" }}>
+                    <span style={{ width: "24px", height: "24px", minWidth: "24px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", background: tutorialStep === index ? "#0052FF" : "var(--sn-w09)", color: tutorialStep === index ? "#fff" : "var(--sn-w6)", fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", fontWeight: 700 }}>{index + 1}</span>
+                    <span style={{ fontSize: "13px", fontWeight: 650, lineHeight: 1.4 }}>{step.title}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <div style={{ position: "relative", overflow: "hidden", border: "1px solid var(--sn-w09)", borderRadius: "14px", background: "#080a0e" }}>
+                  <Image src={activeTutorial.steps[tutorialStep].image} alt={`Capture Sonara — ${activeTutorial.steps[tutorialStep].title}`} width={1280} height={720} priority style={{ display: "block", width: "100%", height: "auto" }} />
+                </div>
+                <h2 style={{ margin: "17px 0 7px", fontSize: "19px" }}>{activeTutorial.steps[tutorialStep].title}</h2>
+                <p style={{ margin: 0, color: "var(--sn-w6)", fontSize: "13.5px", lineHeight: 1.65 }}>{activeTutorial.steps[tutorialStep].text}</p>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", marginTop: "18px" }}>
+                  <button disabled={tutorialStep === 0} onClick={() => setTutorialStep((step) => Math.max(0, step - 1))} style={{ border: "1px solid var(--sn-w1)", background: "var(--sn-inset)", color: "var(--sn-text)", borderRadius: "10px", padding: "10px 15px", cursor: tutorialStep === 0 ? "default" : "pointer", opacity: tutorialStep === 0 ? .4 : 1 }}>← Précédent</button>
+                  {tutorialStep < activeTutorial.steps.length - 1 ? (
+                    <button onClick={() => setTutorialStep((step) => Math.min(activeTutorial.steps.length - 1, step + 1))} style={{ border: 0, background: "#0052FF", color: "#fff", borderRadius: "10px", padding: "10px 16px", cursor: "pointer", fontWeight: 700 }}>Étape suivante →</button>
+                  ) : (
+                    <button onClick={() => setTutorialOpen(null)} style={{ border: 0, background: "#00B98E", color: "#04110d", borderRadius: "10px", padding: "10px 16px", cursor: "pointer", fontWeight: 800 }}>Tutoriel terminé ✓</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

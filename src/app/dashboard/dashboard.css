@@ -139,3 +139,19 @@
   color: var(--sn-text);
 }
 
+@media (max-width: 760px) {
+  .sn-tutorial-overlay {
+    padding: 10px !important;
+    align-items: flex-start !important;
+  }
+
+  .sn-tutorial-grid {
+    grid-template-columns: 1fr !important;
+    padding: 14px !important;
+  }
+
+  .sn-tutorial-step-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
