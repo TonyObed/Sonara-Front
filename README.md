@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sonara
+
+SaaS de campagnes d'appels téléphoniques assistés par IA.
+
+> **Reprise du projet :** consulter en priorité [`docs/PASSATION_COMPLETE_SONARA_2026-09-01.md`](docs/PASSATION_COMPLETE_SONARA_2026-09-01.md). Ce document contient l'état fonctionnel, les ajouts, les suppressions, les tests, les variables à transférer et la feuille de route.
 
 ## Getting Started
 
