@@ -71,7 +71,7 @@ export function UseCasesSection() {
               maxWidth: "560px",
             }}
           >
-            Chaque secteur a ses questions. Sonara les pose, à l'échelle.
+            Chaque secteur a ses questions. Sonara les pose, à l&apos;échelle.
           </p>
         </Reveal>
 

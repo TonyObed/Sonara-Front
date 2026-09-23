@@ -160,7 +160,7 @@ export function CallSimulatorSection() {
               maxWidth: "560px",
             }}
           >
-            Choisissez un scénario et regardez Awa mener l'appel — pendant que l'analyse se construit en temps réel.
+            Choisissez un scénario et regardez Awa mener l&apos;appel — pendant que l&apos;analyse se construit en temps réel.
           </p>
         </Reveal>
 
@@ -570,7 +570,7 @@ export function CallSimulatorSection() {
               </div>
               {activePoints.length === 0 && (
                 <div style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                  Les insights apparaîtront pendant l'appel…
+                  Les insights apparaîtront pendant l&apos;appel…
                 </div>
               )}
               {activePoints.map((p, idx) => (

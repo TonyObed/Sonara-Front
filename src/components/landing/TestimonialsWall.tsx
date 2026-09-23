@@ -202,7 +202,7 @@ export function TestimonialsWall() {
               color: "var(--text-primary, #ffffff)",
             }}
           >
-            Ce qu'en disent les équipes.
+            Ce qu&apos;en disent les équipes.
           </h2>
           <p
             style={{
@@ -212,7 +212,7 @@ export function TestimonialsWall() {
               color: "var(--text-secondary, rgba(255,255,255,0.65))",
             }}
           >
-            Banques, télécoms, instituts d'études — voici ce qui change quand l'IA prend les appels.
+            Banques, télécoms, instituts d&apos;études — voici ce qui change quand l&apos;IA prend les appels.
           </p>
         </Reveal>
 

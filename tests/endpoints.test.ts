@@ -37,17 +37,18 @@ describe("Endpoints Unit Tests", () => {
         companyId: "comp-1",
         role: "ADMIN",
         sub: "user-1",
+        type: "access",
       });
   
       vi.mocked(db.contact.findMany).mockResolvedValueOnce([
         { phone: "0708", firstName: "Jean", lastName: "K", city: "Abidjan", segment: null, status: "ACTIVE", lastCalledAt: new Date("2026-07-06T10:00:00Z"), campaignId: "c1" },
         { phone: "0708", firstName: "Jean", lastName: "K", city: "Abidjan", segment: null, status: "ACTIVE", lastCalledAt: new Date("2026-07-05T10:00:00Z"), campaignId: "c2" }, // doublon téléphonique
         { phone: "0505", firstName: null, lastName: null, city: null, segment: null, status: "BLACKLISTED", lastCalledAt: null, campaignId: "c1" }
-      ] as any);
+      ] as never);
   
       vi.mocked(db.blacklist.findMany).mockResolvedValueOnce([
         { phone: "0708" } // 0708 est dans la blacklist globale
-      ] as any);
+      ] as never);
   
       const req = new NextRequest("http://localhost/api/contacts");
       const res = await getContacts(req);
@@ -57,11 +58,11 @@ describe("Endpoints Unit Tests", () => {
       expect(json.success).toBe(true);
       expect(json.data.length).toBe(2);
       
-      const jean = json.data.find((c: any) => c.phone === "0708");
+      const jean = json.data.find((c: { phone: string }) => c.phone === "0708");
       expect(jean.campaigns).toBe(2); // a participé à 2 campagnes
       expect(jean.optout).toBe(true); // car dans blacklist
   
-      const inconnu = json.data.find((c: any) => c.phone === "0505");
+      const inconnu = json.data.find((c: { phone: string }) => c.phone === "0505");
       expect(inconnu.optout).toBe(true); // car statut BLACKLISTED
     });
   });
@@ -72,6 +73,7 @@ describe("Endpoints Unit Tests", () => {
           companyId: "comp-1",
           role: "ADMIN",
           sub: "user-1",
+          type: "access",
         });
 
         const now = Date.now();
@@ -84,7 +86,7 @@ describe("Endpoints Unit Tests", () => {
                 contact: { firstName: "Ali", lastName: "Bamba", phone: "0102" },
                 campaign: { name: "Campagne Test" }
             }
-        ] as any);
+        ] as never);
     
         const req = new NextRequest("http://localhost/api/calls/live");
         const res = await getLiveCalls(req);

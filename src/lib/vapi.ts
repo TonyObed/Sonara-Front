@@ -10,10 +10,17 @@ const VAPI_BASE = "https://api.vapi.ai";
 
 // Map voix logique (stockée en BDD) → voiceId ElevenLabs (configurable via env).
 // Les identifiants logiques historiques restent en base pour ne pas casser les
-// campagnes existantes, mais pointent désormais vers Ingrid et Loïc.
+// campagnes existantes. Les noms de variables Awa/Koffi sont prioritaires ;
+// Ingrid/Loïc restent acceptés pour les anciennes installations.
 export const VOICE_MAP: Record<string, string> = {
-  awa_female_ci: process.env.ELEVENLABS_VOICE_INGRID ?? "FFXYdAYPzn8Tw8KiHZqg", // Ingrid
-  koffi_male_ci: process.env.ELEVENLABS_VOICE_LOIC ?? "ojsdYNTmnPdf7yAl8rI5", // Loïc
+  awa_female_ci:
+    process.env.ELEVENLABS_VOICE_AWA ??
+    process.env.ELEVENLABS_VOICE_INGRID ??
+    "FFXYdAYPzn8Tw8KiHZqg",
+  koffi_male_ci:
+    process.env.ELEVENLABS_VOICE_KOFFI ??
+    process.env.ELEVENLABS_VOICE_LOIC ??
+    "ojsdYNTmnPdf7yAl8rI5",
 };
 
 // Vocabulaire local CI injecté dans Deepgram pour fiabiliser la transcription
@@ -30,6 +37,16 @@ function buildTranscriberTerms(contactName: string): string[] {
   // approchant dans la transcription.
   return Array.from(new Set([...CI_KEYWORDS, contactName]))
     .filter((term) => term && term !== "cher client")
+    .slice(0, 100);
+}
+
+function buildLegacyKeywords(contactName: string): string[] {
+  // Vapi impose `word` ou `word:number` pour Nova-2 : aucune espace ni
+  // ponctuation n'est acceptée. On décompose donc les expressions locales en
+  // mots ASCII plutôt que d'envoyer une configuration rejetée en HTTP 400.
+  return Array.from(new Set([...CI_KEYWORDS, contactName]
+    .flatMap((term) => term.normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/i))
+    .filter(Boolean)))
     .slice(0, 100);
 }
 
@@ -267,7 +284,7 @@ export function buildAssistant(params: BuildAssistantParams): Record<string, unk
       smartFormat: true,
       ...(usesNova3
         ? { keyterm: buildTranscriberTerms(firstName) }
-        : { keywords: CI_KEYWORDS }),
+        : { keywords: buildLegacyKeywords(firstName) }),
       // 350 ms laisse au client le temps de respirer sans ajouter une seconde
       // complète avant chaque réponse. Vapi impose une valeur <= 500 ms.
       endpointing: Number(process.env.VAPI_ENDPOINTING_MS ?? 350),

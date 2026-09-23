@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDashboard } from "./DashboardContext";
 
 export default function DashboardHome() {
-  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const {
@@ -188,7 +186,7 @@ export default function DashboardHome() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(225px, 1fr))", gap: "14px" }}>
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "20px", animation: "snFadeUp .5s ease both" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>APPELS AUJOURD'HUI</div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".12em", color: "var(--sn-w45)" }}>APPELS AUJOURD&apos;HUI</div>
             <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "rgba(0,82,255,.13)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--sn-blue2)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l1.5 4.5L8 10a12 12 0 0 0 6 6l1.5-2.5L20 15v4a1.5 1.5 0 0 1-1.7 1.5C10 19.6 4.4 14 3.5 5.7A1.5 1.5 0 0 1 5 4z"></path></svg>
             </div>
@@ -238,7 +236,7 @@ export default function DashboardHome() {
         <div style={{ background: "var(--sn-panel)", border: "1px solid var(--sn-w07)", borderRadius: "16px", padding: "22px", minWidth: 0, animation: "snFadeUp .6s ease both" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: "16px", fontWeight: 700 }}>Volume d'appels</div>
+              <div style={{ fontSize: "16px", fontWeight: 700 }}>Volume d&apos;appels</div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10.5px", letterSpacing: ".1em", color: "var(--sn-w4)", marginTop: "5px" }}>{activeChart.chartSub}</div>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>

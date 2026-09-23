@@ -97,7 +97,7 @@ export function IntegrationsSection() {
               maxWidth: "560px",
             }}
           >
-            Sonara s'appuie sur les meilleures technologies vocales du monde — et renvoie vos résultats dans les outils que vous utilisez déjà, de Wave à votre CRM.
+            Sonara s&apos;appuie sur les meilleures technologies vocales du monde — et renvoie vos résultats dans les outils que vous utilisez déjà, de Wave à votre CRM.
           </p>
         </Reveal>
       </div>

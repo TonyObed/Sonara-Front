@@ -245,6 +245,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   };
 
   const exportCampaignCsv = () => {
+    // Navigation complète requise pour déclencher le téléchargement du fichier.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/api/campaigns/${campaign.id}/export?format=csv`);
   };
   const generateCampaignReport = async () => {

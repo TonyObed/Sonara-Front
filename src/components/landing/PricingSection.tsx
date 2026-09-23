@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Reveal } from "./Reveal";
 
 // Testimonial types & data for the carousel in Business Plan card
 interface BusinessTestimonial {
@@ -197,47 +196,6 @@ export function PricingSection() {
     );
   };
 
-  // Generate final CTA equalizer bars (72 bars)
-  const renderCtaWave = () => {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "140px",
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          gap: "3px",
-          opacity: 0.45,
-          pointerEvents: "none",
-          overflow: "hidden",
-          WebkitMaskImage: "linear-gradient(to right, transparent, #000 12%, #000 88%, transparent)",
-          maskImage: "linear-gradient(to right, transparent, #000 12%, #000 88%, transparent)",
-        }}
-      >
-        {Array.from({ length: 72 }).map((_, i) => {
-          const h = 10 + Math.abs(Math.cos(i * 0.44)) * 75 + ((i * 29) % 18);
-          return (
-            <span
-              key={i}
-              style={{
-                width: "3px",
-                height: `${h}px`,
-                background: "linear-gradient(to top, #ffffff, transparent)",
-                transformOrigin: "bottom",
-                animation: `scWave ${1.5 + (i % 4) * 0.26}s ease-in-out infinite`,
-                animationDelay: `${i * 0.065}s`,
-              }}
-            />
-          );
-        })}
-      </div>
-    );
-  };
-
   const testimonialBlock = BUSINESS_TESTIMONIALS[tIndex];
 
   return (
@@ -345,7 +303,7 @@ export function PricingSection() {
           </div>
           <div style={{ maxWidth: "470px", display: "flex", flexDirection: "column", gap: "26px" }}>
             <p style={{ margin: 0, fontSize: "17px", lineHeight: 1.65, color: "var(--text-secondary, #B5B5B5)", textWrap: "pretty" }}>
-              Un agent d'enquête coûte 150 000 à 300 000 FCFA par mois. Sonara mène les mêmes appels en français ivoirien, livre les premiers résultats en moins de 10 minutes — pour une fraction du coût.
+              Un agent d&apos;enquête coûte 150 000 à 300 000 FCFA par mois. Sonara mène les mêmes appels en français ivoirien, livre les premiers résultats en moins de 10 minutes — pour une fraction du coût.
             </p>
             
             {/* Toggle Switch */}
@@ -448,7 +406,7 @@ export function PricingSection() {
               </span>
             </div>
             <h3 style={{ margin: "0 0 8px", fontSize: "30px", fontWeight: 900, letterSpacing: "-0.01em", color: "#121212" }}>
-              L'IA qui appelle pour vous
+              L&apos;IA qui appelle pour vous
             </h3>
             <p style={{ margin: "0 0 28px", fontSize: "15.5px", lineHeight: 1.6, color: "#5C5C5C", textWrap: "pretty" }}>
               Pour les équipes qui interrogent des milliers de clients chaque mois — banques, télécoms, assurances, instituts.
@@ -632,7 +590,7 @@ export function PricingSection() {
                 ))}
               </div>
               <p style={{ margin: 0, fontSize: "13.5px", fontStyle: "italic", lineHeight: 1.5, color: "#444" }}>
-                "{testimonialBlock.quote}"
+                &quot;{testimonialBlock.quote}&quot;
               </p>
             </div>
             
@@ -694,7 +652,7 @@ export function PricingSection() {
               </span>
             </div>
             <p style={{ margin: "14px 0 22px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--text-secondary, #9C9C9C)", textWrap: "pretty" }}>
-              Pour tester l'IA vocale sur vos premières campagnes.
+              Pour tester l&apos;IA vocale sur vos premières campagnes.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "11px", marginBottom: "28px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>1 000 appels inclus / mois</span></div>
@@ -794,7 +752,7 @@ export function PricingSection() {
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Appels illimités, tarif négocié</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Analyse IA personnalisée</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>API + Webhooks, intégrations CRM</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Données hébergées en Côte d'Ivoire</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Données hébergées en Côte d&apos;Ivoire</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}><span style={{ color: "var(--brand-accent-h, #4D82FF)", fontSize: "13px" }}>✓</span><span style={{ fontSize: "14px", color: "var(--text-primary, #C9C9C9)" }}>Support dédié à Abidjan + SLA</span></div>
             </div>
             <a
@@ -810,7 +768,7 @@ export function PricingSection() {
                 background: "var(--brand-accent, #0052FF)",
               }}
             >
-              Contacter l'équipe
+              Contacter l&apos;équipe
             </a>
           </div>
         </div>
@@ -951,10 +909,10 @@ export function PricingSection() {
               ESTIMEZ VOTRE BUDGET
             </span>
             <h3 style={{ margin: "0 0 10px", fontSize: "clamp(26px, 3.4vw, 36px)", fontWeight: 900, letterSpacing: "-0.02em", color: "var(--text-primary, #fff)", lineHeight: 1.05 }}>
-              Combien d'appels par&nbsp;mois&nbsp;?
+              Combien d&apos;appels par&nbsp;mois&nbsp;?
             </h3>
             <p style={{ margin: "0 0 34px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--text-secondary, #9C9C9C)", textWrap: "pretty" }}>
-              Déplacez le curseur — on vous recommande le plan le plus économique et on le compare au coût d'un centre d'appels classique.
+              Déplacez le curseur — on vous recommande le plan le plus économique et on le compare au coût d&apos;un centre d&apos;appels classique.
             </p>
             <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: "18px" }}>
               <span
@@ -1039,7 +997,7 @@ export function PricingSection() {
               </div>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "14px", color: "var(--text-secondary, #9C9C9C)" }}>Centre d'appels classique</span>
+                  <span style={{ fontSize: "14px", color: "var(--text-secondary, #9C9C9C)" }}>Centre d&apos;appels classique</span>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "13px", color: "var(--text-secondary, #9C9C9C)" }}>
                     ~{formatNumber(centerCost)} FCFA/mois
                   </span>
@@ -1063,7 +1021,7 @@ export function PricingSection() {
                 −{savingsPct}%
               </span>
               <span style={{ fontSize: "13.5px", lineHeight: 1.5, color: "var(--text-secondary, #9C9C9C)" }}>
-                d'économie estimée, soit <strong style={{ color: "var(--text-primary, #fff)" }}>{formatNumber(centerCost - calcCostVal)} FCFA</strong> par mois
+                d&apos;économie estimée, soit <strong style={{ color: "var(--text-primary, #fff)" }}>{formatNumber(centerCost - calcCostVal)} FCFA</strong> par mois
                 <br />
                 (équivaut à {agents} agent{agents > 1 ? "s" : ""} dédié{agents > 1 ? "s" : ""})
               </span>
@@ -1089,7 +1047,7 @@ export function PricingSection() {
               <RoiCounter start={0} end={80} prefix="−" suffix="%" />
             </span>
             <span style={{ fontSize: "14px", color: "var(--text-secondary, #999)", lineHeight: 1.5 }}>
-              de coûts vs un centre d'appels classique
+              de coûts vs un centre d&apos;appels classique
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1097,7 +1055,7 @@ export function PricingSection() {
               <RoiCounter start={0} end={10} prefix="< " suffix=" min" />
             </span>
             <span style={{ fontSize: "14px", color: "var(--text-secondary, #999)", lineHeight: 1.5 }}>
-              pour obtenir les premiers résultats d'une campagne
+              pour obtenir les premiers résultats d&apos;une campagne
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1105,7 +1063,7 @@ export function PricingSection() {
               <RoiCounter start={60} end={2} prefix="< " suffix=" min" />
             </span>
             <span style={{ fontSize: "14px", color: "var(--text-secondary, #999)", lineHeight: 1.5 }}>
-              entre la fin d'un appel et son rapport complet
+              entre la fin d&apos;un appel et son rapport complet
             </span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1139,7 +1097,7 @@ export function PricingSection() {
               fréquentes
             </h3>
             <p style={{ margin: "0 0 26px", fontSize: "15px", lineHeight: 1.65, color: "var(--text-secondary, #9C9C9C)", maxWidth: "360px", textWrap: "pretty" }}>
-              Une question spécifique sur les volumes, la conformité ARTCI ou l'intégration ? L'équipe est à Abidjan.
+              Une question spécifique sur les volumes, la conformité ARTCI ou l&apos;intégration ? L&apos;équipe est à Abidjan.
             </p>
             <a
               href="mailto:contact@sonara.ci"
@@ -1152,7 +1110,7 @@ export function PricingSection() {
                 fontWeight: 700,
               }}
             >
-              Parler à l'équipe →
+              Parler à l&apos;équipe →
             </a>
           </div>
 

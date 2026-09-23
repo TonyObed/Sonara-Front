@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api, type DashboardData } from "@/lib/api-client";
 import { mapApiCampaignToFront } from "@/lib/dashboard-adapters";
+import { useRouter } from "next/navigation";
 
 export interface UserProfile { name: string; email: string; role: string; photo: string | null; }
 export interface CompanyInfo { name: string; phone: string; tz: string; plan: string; isSandbox: boolean; }
@@ -41,7 +42,7 @@ interface DashboardContextType {
   view: string; setView: (v: string) => void; tab: string; setTab: (t: string) => void; campaignId: string; setCampaignId: (id: string) => void; callId: string | null; setCallId: (id: string | null) => void; menuOpen: boolean; setMenuOpen: (o: boolean) => void;
   ka: number; kt: number; kc: number; kcr: number; tick: number; theme: "dark" | "light"; setTheme: (t: "dark" | "light") => void; toggleTheme: () => void;
   notifOpen: boolean; setNotifOpen: (o: boolean) => void; profileOpen: boolean; setProfileOpen: (o: boolean) => void; faqOpen: number | null; setFaqOpen: (i: number | null) => void;
-  company: CompanyInfo; setCompany: (c: CompanyInfo) => void; profile: UserProfile; setProfile: (p: UserProfile) => void;
+  company: CompanyInfo; setCompany: React.Dispatch<React.SetStateAction<CompanyInfo>>; profile: UserProfile; setProfile: (p: UserProfile) => void;
   companyEdit: boolean; setCompanyEdit: (e: boolean) => void; companyDraft: CompanyInfo | null; setCompanyDraft: (c: CompanyInfo | null) => void; profileModalOpen: boolean; setProfileModalOpen: (o: boolean) => void; profileDraft: UserProfile | null; setProfileDraft: (p: UserProfile | null) => void;
   plan: string; setPlan: (p: string) => void; autoRecharge: boolean; setAutoRecharge: (r: boolean) => void; toggleAutoRecharge: () => void;
   notifUnread: string[]; setNotifUnread: React.Dispatch<React.SetStateAction<string[]>>; notifFilter: "all" | "unread"; setNotifFilter: (f: "all" | "unread") => void;
@@ -55,6 +56,7 @@ const DashboardContext = createContext<DashboardContextType | null>(null);
 export const useDashboard = () => { const c = useContext(DashboardContext); if (!c) throw new Error("useDashboard must be used within a DashboardProvider"); return c; };
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true); const [campaigns, setCampaigns] = useState<Campaign[]>([]); const [calls, setCalls] = useState<Call[]>([]); const [liveCalls, setLiveCalls] = useState<LiveCall[]>([]); const [dashboard, setDashboard] = useState<DashboardData | null>(null); const [directory, setDirectory] = useState<Contact[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]); const [team, setTeam] = useState<TeamMember[]>([]);
   const [profile, setProfile] = useState<UserProfile>({ name: "", email: "", role: "VIEWER", photo: null }); const [company, setCompany] = useState<CompanyInfo>({ name: "", phone: "", tz: "UTC", plan: "STARTER", isSandbox: false }); const [plan, setPlan] = useState("STARTER");
@@ -66,11 +68,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [me, cs, usage, dashboardData, live, contacts, notificationRows, memberRows] = await Promise.all([
       api.auth.me().catch(() => null), api.campaigns.list({ limit: 50 }).catch(() => null), api.company.usage().catch(() => null), api.company.dashboard().catch(() => null), api.calls.live().catch(() => null), api.contacts.list().catch(() => null), api.notifications.list().catch(() => null), api.company.members().catch(() => null),
     ]);
-    if (!active) return; if (!me?.data) { window.location.assign("/login"); return; }
+    if (!active) return; if (!me?.data) { router.replace("/login"); return; }
     const { user, company: dbCompany } = me.data;
     setProfile({ name: [user.firstName, user.lastName].filter(Boolean).join(" "), email: user.email, role: user.role, photo: user.avatarUrl ?? null }); setCompany({ name: dbCompany.name, phone: "", tz: "UTC", plan: dbCompany.plan, isSandbox: Boolean(dbCompany.isSandbox) }); setPlan(dbCompany.plan);
     if (cs?.data) setCampaigns(cs.data.map(mapApiCampaignToFront)); if (usage?.data) { setKc(usage.data.campaigns.active); setKcr(usage.data.credit.remaining); } if (dashboardData?.data) { setDashboard(dashboardData.data); setKa(dashboardData.data.today.launched); setKt(dashboardData.data.responseRate); setKcr(dashboardData.data.credit); } if (live?.data) setLiveCalls(live.data); if (contacts?.data) setDirectory(contacts.data); if (notificationRows?.data) { setNotifications(notificationRows.data.map(mapNotification)); setNotifUnread(notificationRows.data.filter((item) => !item.readAt).map((item) => item.id)); } if (memberRows?.data) setTeam(memberRows.data.map((member) => ({ name: [member.firstName, member.lastName].filter(Boolean).join(" ") || member.email, email: member.email, role: member.role })));
-  } finally { if (active) setIsLoading(false); } })(); return () => { active = false; }; }, []);
+  } finally { if (active) setIsLoading(false); } })(); return () => { active = false; }; }, [router]);
   // Les webhooks mettent à jour la base, puis cette synchronisation légère
   // reflète les résultats sans demander à l'utilisateur de recharger la page.
   useEffect(() => {

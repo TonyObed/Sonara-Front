@@ -4,20 +4,9 @@ import { db } from "@/lib/db";
 import { authenticateRequest } from "@/lib/auth";
 import { unauthorized, forbidden, notFound, badRequest, handleError } from "@/lib/response";
 import { NextResponse } from "next/server";
+import { toExcelCsv } from "@/lib/csv";
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-function toCsv(rows: Record<string, unknown>[]) {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
-  const escape = (value: unknown) => {
-    const text = String(value ?? "").replace(/\r?\n/g, " ");
-    // Neutralise les formules à l'ouverture dans Excel/LibreOffice.
-    const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
-    return `"${safe.replace(/"/g, '""')}"`;
-  };
-  return [headers.map(escape).join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\r\n");
-}
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
@@ -86,7 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       data: { companyId: auth.companyId, userId: auth.sub, type: "SECURITY", title: "Données exportées", message: `Export CSV de la campagne « ${campaign.name} » (${calls.length} appel(s)).` },
     });
 
-    return new NextResponse(`\uFEFF${toCsv(rows)}`, {
+    return new NextResponse(toExcelCsv(rows), {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

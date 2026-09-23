@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api-client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -15,15 +14,10 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // Lecture du token depuis l'URL (évite le besoin de <Suspense> pour useSearchParams).
-  useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("token");
-    setToken(t);
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const token = new URLSearchParams(window.location.search).get("token");
     if (!token) {
       setError("Lien invalide ou expiré. Refaites une demande de réinitialisation.");
       return;

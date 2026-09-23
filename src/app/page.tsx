@@ -93,13 +93,14 @@ export default function Home() {
   // ─── THEME SYNC WITH CLASS ────────────────────────────────────
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
+    const isLight = savedTheme === "light";
     if (savedTheme === "light") {
-      setIsLightMode(true);
       document.body.classList.add("light-mode");
     } else {
-      setIsLightMode(false);
       document.body.classList.remove("light-mode");
     }
+    const timer = window.setTimeout(() => setIsLightMode(isLight), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const toggleTheme = () => {
@@ -135,9 +136,9 @@ export default function Home() {
 
     function loadHlsFallback(v: HTMLVideoElement) {
       const videoSrc = "https://stream.mux.com/T6oQJQ02cQ6N01TR6iHwZkKFkbepS34dkkIc9iukgy400g.m3u8";
-      // @ts-ignore
+      // @ts-expect-error -- Hls est injecté par le script CDN au runtime.
       if (typeof window !== "undefined" && window.Hls) {
-        // @ts-ignore
+        // @ts-expect-error -- Hls est injecté par le script CDN au runtime.
         const hls = new window.Hls({
           enableWorker: true,
           lowLatencyMode: true
@@ -188,7 +189,7 @@ export default function Home() {
       <ul className="nav-ai-links">
         <li><a href="#platform">Fonctionnalités</a></li>
         <li><a href="#how-it-works">Fonctionnement</a></li>
-        <li><a href="#usecases">Cas d'usage</a></li>
+        <li><a href="#usecases">Cas d&apos;usage</a></li>
         <li><a href="#testimonials-wall">Témoignages</a></li>
         <li><a href="#pricing">Tarifs</a></li>
       </ul>

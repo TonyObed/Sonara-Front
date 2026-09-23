@@ -25,12 +25,17 @@ export function PlatformShowcase() {
   }, []);
 
   useEffect(() => {
-    setIsLight(document.body.classList.contains("light-mode"));
+    const timer = window.setTimeout(() => {
+      setIsLight(document.body.classList.contains("light-mode"));
+    }, 0);
     const observer = new MutationObserver(() => {
       setIsLight(document.body.classList.contains("light-mode"));
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
   }, []);
 
   return (
@@ -240,7 +245,7 @@ export function PlatformShowcase() {
                         marginBottom: "6px",
                       }}
                     >
-                      APPELS AUJOURD'HUI
+                      APPELS AUJOURD&apos;HUI
                     </div>
                     <div style={{ fontSize: "18px", fontWeight: 900 }}>1 248</div>
                     <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--brand-accent)", marginTop: "3px" }}>

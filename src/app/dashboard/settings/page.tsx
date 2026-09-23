@@ -34,18 +34,24 @@ export default function SettingsPage() {
   const [twoFactorSetup, setTwoFactorSetup] = useState<{ qrCodeUrl: string } | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
-  useEffect(() => { fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()).then((payload) => { if (payload.success) setCompany({ ...company, phone: payload.data.displayPhone ?? "", tz: payload.data.timezone }); }).catch(() => {}); }, []);
   useEffect(() => {
     let mounted = true;
     Promise.all([fetch("/api/company/members", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/api-keys", { credentials: "include" }).then((r) => r.json()), fetch("/api/company/settings", { credentials: "include" }).then((r) => r.json()), fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json())]).then(([members, keys, settings, me]) => {
       if (!mounted) return;
       if (members.success) setTeamMembers(members.data.map((user: { id: string; firstName: string | null; lastName: string | null; email: string; role: string; avatarUrl: string | null; isActive: boolean }) => ({ id: user.id, name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Invitation en attente", email: user.email, role: user.role.toLowerCase(), avatarUrl: user.avatarUrl, isActive: user.isActive })));
       if (keys.success) { setApiKeys(keys.data); setApiKeyPrefix(keys.data.find((key: { revokedAt: string | null }) => !key.revokedAt)?.prefix ?? null); }
-      if (settings.success) setWebhookUrl(settings.data.webhookUrl ?? null);
+      if (settings.success) {
+        setWebhookUrl(settings.data.webhookUrl ?? null);
+        setCompany((current) => ({
+          ...current,
+          phone: settings.data.displayPhone ?? "",
+          tz: settings.data.timezone,
+        }));
+      }
       if (me.success) { setTwoFactorEnabled(Boolean(me.data.company.twoFactorEnabled)); setCurrentUserId(me.data.user.id); }
     }).catch(() => {});
     return () => { mounted = false; };
-  }, []);
+  }, [setCompany]);
 
   const saveCompanyToDatabase = async () => {
     if (!companyDraft) return;
@@ -357,7 +363,7 @@ export default function SettingsPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {teamMembers.map((u, index) => {
+              {teamMembers.map((u) => {
                 // Highlight active profile settings locally
                 const isSelf = u.id === currentUserId;
                 const displayName = isSelf ? profile.name : u.name;
@@ -444,7 +450,7 @@ export default function SettingsPage() {
         <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.62)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
           <div style={{ width: "min(390px, 100%)", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "16px", padding: "22px", boxShadow: "0 24px 60px rgba(0,0,0,.35)" }}>
             <div style={{ fontSize: "17px", fontWeight: 700 }}>Activer la double authentification</div>
-            <p style={{ fontSize: "13px", color: "var(--sn-w6)", lineHeight: 1.5 }}>Scanne ce QR code avec une application d'authentification, puis entre le code à six chiffres.</p>
+            <p style={{ fontSize: "13px", color: "var(--sn-w6)", lineHeight: 1.5 }}>Scanne ce QR code avec une application d&apos;authentification, puis entre le code à six chiffres.</p>
             <img src={twoFactorSetup.qrCodeUrl} alt="QR code 2FA Sonara" style={{ display: "block", width: "190px", height: "190px", margin: "14px auto", background: "#fff", padding: "8px", borderRadius: "10px" }} />
             <input value={twoFactorCode} onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="Code à 6 chiffres" style={{ width: "100%", boxSizing: "border-box", background: "var(--sn-inset)", border: "1px solid var(--sn-w09)", borderRadius: "10px", padding: "11px 13px", color: "var(--sn-text)", fontSize: "14px", outline: "none" }} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "9px", marginTop: "16px" }}>

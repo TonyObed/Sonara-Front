@@ -63,7 +63,7 @@ export function DashboardSidebar({ theme, menuOpen, onCloseMenu }: DashboardSide
         {/* VUE D'ENSEMBLE */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "10px", letterSpacing: ".14em", color: "var(--sn-w36)", padding: "8px 12px" }}>
-            VUE D'ENSEMBLE
+            VUE D&apos;ENSEMBLE
           </div>
           <Link href="/dashboard" onClick={onCloseMenu} style={navStyle(isActive("/dashboard"))} className="sn-hover-w05">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>

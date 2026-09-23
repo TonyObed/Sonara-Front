@@ -87,10 +87,12 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (previewMode) {
-      setFullName("Koffi N'Guessan");
-      setCompanyName("Banque Horizon");
-      setReady(true);
-      return;
+      const timer = window.setTimeout(() => {
+        setFullName("Koffi N'Guessan");
+        setCompanyName("Banque Horizon");
+        setReady(true);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
 
     Promise.all([
@@ -248,7 +250,7 @@ export default function OnboardingPage() {
                 <>
                   <span className={styles.kicker}>Bienvenue sur Sonara</span>
                   <h1>Créons votre profil.</h1>
-                  <p className={styles.description}>Votre nom vient de l'inscription. Vérifiez-le et ajoutez une photo si vous le souhaitez.</p>
+                  <p className={styles.description}>Votre nom vient de l&apos;inscription. Vérifiez-le et ajoutez une photo si vous le souhaitez.</p>
                   <label className={styles.fieldLabel} htmlFor="onboarding-name">Votre nom complet</label>
                   <div className={styles.textField}>
                     <span>♙</span>
@@ -304,7 +306,6 @@ export default function OnboardingPage() {
         )}
 
         <ProductPreview
-          step={step}
           fullName={fullName}
           companyName={companyName}
           avatar={avatarPreview}
@@ -315,7 +316,7 @@ export default function OnboardingPage() {
   );
 }
 
-function ProductPreview({ step, fullName, companyName, avatar, answers }: { step: number; fullName: string; companyName: string; avatar: string | null; answers: Answers }) {
+function ProductPreview({ fullName, companyName, avatar, answers }: { fullName: string; companyName: string; avatar: string | null; answers: Answers }) {
   const initials = fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S";
   const goal = answers.primaryGoal || "Objectif de campagne";
   const volume = answers.contactVolume || "Contacts à importer";

@@ -7,8 +7,6 @@ describe("Dashboard Adapters", () => {
     it("convertit un appel API vers le format du tableau frontend (avec nom complet)", () => {
       const apiCall: Call = {
         id: "call-1",
-        campaignId: "camp-1",
-        contactId: "contact-1",
         contact: {
           id: "contact-1",
           phone: "+2250708234567",
@@ -18,11 +16,11 @@ describe("Dashboard Adapters", () => {
         },
         status: "COMPLETED",
         durationSec: 125, // 2 minutes 5 secondes
+        costFcfa: null,
         startedAt: "2026-07-06T10:00:00Z",
         endedAt: "2026-07-06T10:02:05Z",
         summary: "Client intéressé",
-        recordingUrl: null,
-        transcript: null
+        transcript: []
       };
       
       const row = mapApiCallToRow(apiCall);
@@ -37,8 +35,6 @@ describe("Dashboard Adapters", () => {
     it("utilise le numéro de téléphone si le nom n'est pas fourni", () => {
         const apiCall: Call = {
             id: "call-2",
-            campaignId: "camp-1",
-            contactId: "contact-1",
             contact: {
               id: "contact-1",
               phone: "+2250708234567",
@@ -48,11 +44,11 @@ describe("Dashboard Adapters", () => {
             },
             status: "VOICEMAIL",
             durationSec: 10,
+            costFcfa: null,
             startedAt: null,
             endedAt: null,
             summary: null,
-            recordingUrl: null,
-            transcript: null
+            transcript: []
           };
           
           const row = mapApiCallToRow(apiCall);
@@ -68,13 +64,12 @@ describe("Dashboard Adapters", () => {
     it("convertit une campagne API au format frontend de liste", () => {
       const apiCamp: Campaign = {
         id: "camp-1",
-        companyId: "comp-1",
         name: "Sondage Satisfaction",
         sector: "Finance",
-        brief: "...",
         aiVoice: "eleven_monolingual_v1",
-        aiPrompt: "prompt",
-        language: "fr-FR",
+        maxRetries: 2,
+        timeStart: "08:00",
+        timeEnd: "18:00",
         status: "RUNNING",
         createdAt: "2026-07-06T10:00:00Z",
         updatedAt: "2026-07-06T10:00:00Z",
@@ -84,10 +79,11 @@ describe("Dashboard Adapters", () => {
         stats: {
           totalContacts: 100,
           totalCalls: 50,
-          completedCalls: 40,
-          failedCalls: 10,
-          totalDurationMin: 120,
-          responseRate: 80
+          completed: 40,
+          failed: 10,
+          voicemail: 0,
+          responseRate: 80,
+          progress: 50
         }
       };
 

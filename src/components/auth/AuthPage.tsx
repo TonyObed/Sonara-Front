@@ -147,7 +147,7 @@ function validateForm(
 /* ════════════════════════════════════════════════════ */
 export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode] = useState<Mode>(initialMode);
   const [values, setValues] = useState({
     name: "",
     company: "",
@@ -187,7 +187,10 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get("error");
     if (err) {
-      setErrors({ form: OAUTH_ERRORS[err] ?? "La connexion a échoué. Réessayez." });
+      const timer = window.setTimeout(() => {
+        setErrors({ form: OAUTH_ERRORS[err] ?? "La connexion a échoué. Réessayez." });
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, []);
 
@@ -204,6 +207,8 @@ export default function AuthPage({ initialMode = "login" }: AuthPageProps) {
 
   // Démarre un flux OAuth (redirection pleine page vers le provider).
   const handleOAuth = (provider: "google" | "microsoft") => {
+    // Navigation complète requise : cette route redirige ensuite vers le fournisseur externe.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/auth/oauth/${provider}`;
   };
 

@@ -20,44 +20,26 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const {
     view,
     setView,
-    tab,
-    setTab,
-    campaignId,
-    setCampaignId,
     callId,
     setCallId,
     menuOpen,
     setMenuOpen,
     kcr,
-    tick,
     theme,
     toggleTheme,
     notifOpen,
     setNotifOpen,
     profileOpen,
     setProfileOpen,
-    faqOpen,
-    setFaqOpen,
     company,
-    setCompany,
     profile,
     setProfile,
-    companyEdit,
-    setCompanyEdit,
-    companyDraft,
-    setCompanyDraft,
     profileModalOpen,
     setProfileModalOpen,
     profileDraft,
     setProfileDraft,
-    plan,
-    setPlan,
-    autoRecharge,
-    toggleAutoRecharge,
     notifUnread,
     setNotifUnread,
-    notifFilter,
-    setNotifFilter,
     toasts,
     pushToast,
     confirm,
@@ -69,24 +51,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setPlaying,
     playT,
     setPlayT,
-    testCall,
-    testNum,
-    setTestNum,
-    chartRange,
-    setChartRange,
-    go,
     persistAccount,
     markAllRead,
-    startTestCall,
     
     campaigns,
     liveCalls,
     dashboard,
     directory,
-    reports,
-    team,
     notifications,
-    plans,
   } = useDashboard();
 
   // Route synchronization
@@ -114,7 +86,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       .slice(0, 2)
       .toUpperCase();
 
-  const avBgOf = (_photo: string | null) => "linear-gradient(135deg, #0052FF, #00D4A6)";
+  const avBgOf = () => "linear-gradient(135deg, #0052FF, #00D4A6)";
   const avatarSrc = (photo: string | null) => photo ? "/api/auth/avatar/image" : undefined;
 
   const closeCall = () => {
@@ -132,9 +104,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   const mmssP = (s: number) =>
     Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
-
-  const mmss = (s: number) =>
-    Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 
   // Détail d'appel réel (transcription + résumé) via l'API ; null si aucun appel ouvert.
   const { data: apiCall, loading: loadingCall } = useCall(callId);
@@ -314,43 +283,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     };
   };
 
-  // Profile pick photo
-  const handlePhotoPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const size = 256;
-        const cv = document.createElement("canvas");
-        cv.width = size;
-        cv.height = size;
-        const ctx = cv.getContext("2d");
-        if (ctx) {
-          const s = Math.min(img.width, img.height);
-          ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-          const url = cv.toDataURL("image/jpeg", 0.85);
-          if (profileDraft) {
-            setProfileDraft({ ...profileDraft, photo: url });
-          }
-        }
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(f);
-    e.target.value = "";
-  };
-
-  const handleProfileSave = () => {
-    if (profileDraft) {
-      setProfile(profileDraft);
-      persistAccount(company, profileDraft);
-      pushToast("Profil mis à jour", "ok");
-    }
-    setProfileModalOpen(false);
-  };
-
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -401,15 +333,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       /* ignore — on redirige quand même */
     }
     router.push("/login");
-  };
-
-  const handleCompanySave = () => {
-    if (companyDraft) {
-      setCompany(companyDraft);
-      persistAccount(companyDraft, profile);
-      pushToast("Informations entreprise enregistrées", "ok");
-    }
-    setCompanyEdit(false);
   };
 
   return (
@@ -783,14 +706,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
           
           <div style={{ position: "relative" }}>
-            <div onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} style={{ width: "36px", height: "36px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", overflow: "hidden" }}>
+            <div onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} style={{ width: "36px", height: "36px", borderRadius: "50%", background: avBgOf(), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "13px", cursor: "pointer", overflow: "hidden" }}>
               {profile.photo ? <img src={avatarSrc(profile.photo)} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profile.name || "A")}
             </div>
             
             {profileOpen && (
               <div style={{ position: "absolute", top: "47px", right: 0, width: "290px", background: "var(--sn-panel)", border: "1px solid var(--sn-w12)", borderRadius: "16px", boxShadow: "0 24px 60px rgba(0,0,0,.35)", zIndex: 70, overflow: "hidden", animation: "snFadeUp .22s ease both" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 18px", borderBottom: "1px solid var(--sn-w06)" }}>
-                  <div style={{ width: "42px", height: "42px", minWidth: "42px", borderRadius: "50%", background: avBgOf(profile.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "14px", overflow: "hidden" }}>
+                  <div style={{ width: "42px", height: "42px", minWidth: "42px", borderRadius: "50%", background: avBgOf(), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "14px", overflow: "hidden" }}>
                     {profile.photo ? <img src={avatarSrc(profile.photo)} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profile.name || "A")}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1086,7 +1009,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
             <div style={{ padding: "22px", display: "flex", flexDirection: "column", gap: "18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div style={{ width: "76px", height: "76px", minWidth: "76px", borderRadius: "50%", background: avBgOf(profileDraft.photo), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "24px", border: "2px solid var(--sn-w09)", overflow: "hidden" }}>
+                <div style={{ width: "76px", height: "76px", minWidth: "76px", borderRadius: "50%", background: avBgOf(), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "24px", border: "2px solid var(--sn-w09)", overflow: "hidden" }}>
                   {profileDraft.photo ? <img src={avatarSrc(profileDraft.photo)} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials(profileDraft.name || "A")}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-start" }}>

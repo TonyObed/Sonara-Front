@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useDashboard } from "../DashboardContext";
 import { useCampaigns, useContacts } from "@/hooks/useSonara";
+import { toExcelCsv } from "@/lib/csv";
 
 export default function ContactsPage() {
   // Données réelles via l'API ; repli sur l'annuaire démo si non authentifié / erreur.
@@ -68,7 +69,14 @@ export default function ContactsPage() {
   });
 
   const handleCsvDownload = () => {
-    const content = "first_name,last_name,phone,city,segment,notes\nAwa,Koné,0700000000,Abidjan,Premium,Client pilote\n";
+    const content = toExcelCsv([{
+      first_name: "Awa",
+      last_name: "Koné",
+      phone: "0700000000",
+      city: "Abidjan",
+      segment: "Premium",
+      notes: "Client pilote",
+    }]);
     const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -179,7 +187,7 @@ export default function ContactsPage() {
             {importableCampaigns.map((campaign) => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
           </select>
           <button onClick={handleCsvUpload} disabled={!selectedCampaignId || importing} style={{ background: "#0052FF", color: "#fff", border: "none", borderRadius: "9px", padding: "9px 13px", fontWeight: 600, cursor: "pointer", opacity: !selectedCampaignId || importing ? 0.6 : 1 }}>Choisir le fichier</button>
-          {importableCampaigns.length === 0 && <span style={{ fontSize: "12px", color: "var(--sn-amber)" }}>Créez d'abord une campagne brouillon ou planifiée.</span>}
+          {importableCampaigns.length === 0 && <span style={{ fontSize: "12px", color: "var(--sn-amber)" }}>Créez d&apos;abord une campagne brouillon ou planifiée.</span>}
         </div>
       )}
 

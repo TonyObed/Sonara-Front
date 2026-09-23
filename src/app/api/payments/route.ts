@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest } from "@/lib/auth";
 import { createPaymentSession } from "@/lib/payments";
 import { ok, unauthorized, handleError } from "@/lib/response";
-import { db } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {

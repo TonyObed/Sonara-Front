@@ -65,7 +65,7 @@ export function HowItWorksSection() {
               maxWidth: "560px",
             }}
           >
-            Aucun script rigide, aucun code. Vous décrivez l'objectif, Sonara s'occupe du reste.
+            Aucun script rigide, aucun code. Vous décrivez l&apos;objectif, Sonara s&apos;occupe du reste.
           </p>
         </Reveal>
 

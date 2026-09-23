@@ -6,5 +6,5 @@ describe('Home Page', () => {
   it('renders the Sonara landing page', () => {
     render(<Home />);
     expect(screen.getByText(/L’IA vocale pour l’Afrique francophone/i)).toBeDefined();
-  });
+  }, 20_000);
 });

@@ -61,6 +61,22 @@ describe("Configuration Vapi", () => {
     });
   });
 
+  it("envoie à Nova-2 uniquement des keywords acceptés par Vapi", () => {
+    process.env.DEEPGRAM_MODEL = "nova-2";
+
+    const assistant = buildAssistant({
+      aiBrief: "Mène une conversation courte.", aiVoice: "awa_female_ci",
+      aiTemperature: 0.3, maxDuration: 120, callId: "nova-2-test",
+      contactFirstName: "Jean-Paul N'Guessan",
+    });
+
+    const transcriber = assistant.transcriber as { keywords?: string[] };
+    const keywords = transcriber.keywords ?? [];
+    expect(keywords).toContain("Ivoire");
+    expect(keywords).toContain("Jean");
+    expect(keywords.every((keyword) => /^[a-z0-9]+$/i.test(keyword))).toBe(true);
+  });
+
   it("présente le bon prénom pour chacune des deux voix Sonara", () => {
     const ingrid = buildAssistant({
       aiBrief: "Mène une conversation courte.", aiVoice: "awa_female_ci",

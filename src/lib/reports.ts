@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { getSupabaseOrigin, getSupabaseServiceHeaders } from "@/lib/supabase";
+import { toExcelCsv } from "@/lib/csv";
 
 const REPORT_BUCKET = "sonara-reports";
 
@@ -45,22 +46,6 @@ function formatAnswers(answers: unknown, questions: ReportQuestion[]): string {
     .filter(([key, value]) => !metadata.has(key) && value !== null && value !== undefined && value !== "")
     .map(([key, value]) => `${labels.get(key) ?? key} : ${Array.isArray(value) ? value.join(", ") : String(value)}`)
     .join(" | ");
-}
-
-function csvEscape(value: unknown): string {
-  const text = String(value ?? "").replace(/\r?\n/g, " ");
-  // Empêche l'interprétation d'une valeur comme formule dans Excel.
-  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
-function toCsv(rows: Record<string, unknown>[]): string {
-  if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  return [
-    headers.map(csvEscape).join(","),
-    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(",")),
-  ].join("\r\n");
 }
 
 async function ensureBucket(origin: string, key: string) {
@@ -172,7 +157,7 @@ export async function generateReport(scope: ReportScope) {
         "Résumé de l'échange": call.summary?.trim() || "Aucun retour exploitable.",
       })),
     ];
-    const content = `\uFEFF${toCsv(rows)}`;
+    const content = toExcelCsv(rows);
     const path = `${scope.companyId}/${report.id}.csv`;
     await uploadReport(path, content);
     const name = scope.campaignId

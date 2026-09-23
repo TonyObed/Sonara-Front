@@ -25,7 +25,7 @@ export function StatsSection() {
               color: "var(--text-primary)",
             }}
           >
-            Le centre d'appels, sans le centre d'appels.
+            Le centre d&apos;appels, sans le centre d&apos;appels.
           </h2>
           <p
             style={{
@@ -77,7 +77,7 @@ export function StatsSection() {
                 color: "var(--text-secondary)",
               }}
             >
-              de coûts par rapport à un centre d'appels classique
+              de coûts par rapport à un centre d&apos;appels classique
             </div>
           </Reveal>
 

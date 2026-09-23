@@ -69,3 +69,8 @@ Object.defineProperty(window.HTMLMediaElement.prototype, 'play', {
     return () => Promise.resolve();
   }
 });
+
+Object.defineProperty(window.HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  value: () => null,
+});
