@@ -12,6 +12,10 @@ import {
 import { AcceptInviteSchema } from "@/lib/validation";
 import { ok, badRequest, zodError, handleError } from "@/lib/response";
 import { ZodError } from "zod";
+import {
+  hashRefreshToken,
+  inviteTokenLookupValues,
+} from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,8 +23,8 @@ export async function POST(request: NextRequest) {
     const input = AcceptInviteSchema.parse(body);
 
     // Retrouver l'invité par son token
-    const user = await db.user.findUnique({
-      where: { inviteToken: input.token },
+    const user = await db.user.findFirst({
+      where: { inviteToken: { in: inviteTokenLookupValues(input.token) } },
       include: { company: { select: { id: true, name: true, email: true, plan: true, apiCredit: true } } },
     });
 
@@ -60,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     await db.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashRefreshToken(refreshToken),
         companyId: user.company.id,
         userId: activatedUser.id,
         expiresAt: getRefreshTokenExpiry(),
@@ -78,7 +82,6 @@ export async function POST(request: NextRequest) {
         lastName: activatedUser.lastName,
         role: activatedUser.role,
       },
-      accessToken,
     });
   } catch (error) {
     if (error instanceof ZodError) return zodError(error);

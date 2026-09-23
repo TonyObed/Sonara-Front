@@ -6,6 +6,7 @@ import { verifyResetToken } from "@/lib/auth";
 import { ResetPasswordSchema } from "@/lib/validation";
 import { ok, badRequest, unauthorized, zodError, handleError } from "@/lib/response";
 import { ZodError } from "zod";
+import { passwordStateFingerprint } from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +23,11 @@ export async function POST(request: NextRequest) {
       where: { id: payload.sub },
     });
 
-    if (!company || company.email !== payload.email) {
+    if (
+      !company
+      || company.email !== payload.email
+      || passwordStateFingerprint(company.passwordHash) !== payload.passwordFingerprint
+    ) {
       return badRequest("Lien de réinitialisation invalide.");
     }
 

@@ -6,6 +6,11 @@ import { ok, unauthorized, badRequest, handleError } from "@/lib/response";
 import { verify } from "otplib";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import {
+  decryptTotpSecret,
+  encryptTotpSecret,
+  isEncryptedTotpSecret,
+} from "@/lib/totp-secret";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,9 +34,10 @@ export async function POST(request: NextRequest) {
 
     // Valider le code TOTP (6 chiffres attendus)
     let valid = false;
+    const totpSecret = decryptTotpSecret(company.twoFactorSecret);
     if (/^\d{6}$/.test(code.trim())) {
       try {
-        const result = await verify({ token: code.trim(), secret: company.twoFactorSecret });
+        const result = await verify({ token: code.trim(), secret: totpSecret });
         valid = result.valid;
       } catch {
         valid = false;
@@ -62,6 +68,9 @@ export async function POST(request: NextRequest) {
       where: { id: company.id },
       data: {
         twoFactorEnabled: true,
+        twoFactorSecret: isEncryptedTotpSecret(company.twoFactorSecret)
+          ? company.twoFactorSecret
+          : encryptTotpSecret(totpSecret),
         twoFactorBackupCodes: hashedBackupCodes,
       },
     });

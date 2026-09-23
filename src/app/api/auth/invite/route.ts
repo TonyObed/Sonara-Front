@@ -17,6 +17,7 @@ import {
   handleError,
 } from "@/lib/response";
 import { ZodError } from "zod";
+import { hashInviteToken, inviteTokenLookupValues } from "@/lib/session-token";
 
 // ─── POST : Générer un lien d'invitation ──────────────────────────────────────
 
@@ -61,7 +62,11 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       await db.user.update({
         where: { id: existingUser.id },
-        data: { inviteToken, inviteExpiry, role: input.role as "MANAGER" | "VIEWER" },
+        data: {
+          inviteToken: hashInviteToken(inviteToken),
+          inviteExpiry,
+          role: input.role as "MANAGER" | "VIEWER",
+        },
       });
     } else {
       await db.user.create({
@@ -69,7 +74,7 @@ export async function POST(request: NextRequest) {
           companyId: auth.companyId,
           email: input.email,
           role: input.role as "MANAGER" | "VIEWER",
-          inviteToken,
+          inviteToken: hashInviteToken(inviteToken),
           inviteExpiry,
           isActive: false,
         },
@@ -104,8 +109,8 @@ export async function GET(request: NextRequest) {
 
     if (!token) return badRequest("Token d'invitation manquant.");
 
-    const user = await db.user.findUnique({
-      where: { inviteToken: token },
+    const user = await db.user.findFirst({
+      where: { inviteToken: { in: inviteTokenLookupValues(token) } },
       include: { company: { select: { name: true, plan: true } } },
     });
 

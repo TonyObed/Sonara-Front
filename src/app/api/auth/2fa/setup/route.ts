@@ -5,6 +5,7 @@ import { authenticateRequest } from "@/lib/auth";
 import { ok, unauthorized, handleError } from "@/lib/response";
 import { generateSecret, generateURI } from "otplib";
 import QRCode from "qrcode";
+import { encryptTotpSecret } from "@/lib/totp-secret";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     await db.company.update({
       where: { id: company.id },
       data: {
-        twoFactorSecret: secret,
+        twoFactorSecret: encryptTotpSecret(secret),
         // s'assurer que c'est désactivé jusqu'à validation par code
         twoFactorEnabled: false,
       },

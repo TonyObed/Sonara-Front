@@ -9,6 +9,7 @@ import {
   getRefreshTokenExpiry,
 } from "@/lib/auth";
 import { unauthorized, handleError, ok } from "@/lib/response";
+import { hashRefreshToken, refreshTokenLookupValues } from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,8 +27,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier que le token existe en BDD (pas révoqué)
-    const storedToken = await db.refreshToken.findUnique({
-      where: { token: refreshToken },
+    const storedToken = await db.refreshToken.findFirst({
+      where: { token: { in: refreshTokenLookupValues(refreshToken) } },
       include: { company: true },
     });
 
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
 
     // Remplacer l'ancien refresh token
     await db.$transaction([
-      db.refreshToken.delete({ where: { token: refreshToken } }),
+      db.refreshToken.delete({ where: { id: storedToken.id } }),
       db.refreshToken.create({
         data: {
-          token: newRefreshToken,
+          token: hashRefreshToken(newRefreshToken),
           companyId: company.id,
           userId: storedToken.userId,
           expiresAt: getRefreshTokenExpiry(),
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     await setAuthCookies(newAccessToken, newRefreshToken);
 
-    return ok({ accessToken: newAccessToken });
+    return ok({ refreshed: true });
   } catch (error) {
     return handleError(error);
   }

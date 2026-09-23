@@ -18,6 +18,7 @@ import {
 } from "@/lib/response";
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { ZodError } from "zod";
+import { hashRefreshToken } from "@/lib/session-token";
 
 function splitFullName(fullName: string): { firstName: string; lastName: string | null } {
   const [firstName, ...rest] = fullName.trim().split(/\s+/);
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     // Stocker le refresh token en BDD
     await db.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashRefreshToken(refreshToken),
         companyId: company.id,
         userId: user.id,
         expiresAt: getRefreshTokenExpiry(),
@@ -115,7 +116,6 @@ export async function POST(request: NextRequest) {
           lastName: user.lastName,
           role: user.role,
         },
-        accessToken,
       },
       undefined,
       201

@@ -1,0 +1,35 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, #13234a 0, #090b12 48%, #05060a 100%);
+  color: #f8fafc;
+}
+
+.card {
+  width: min(100%, 480px);
+  padding: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: rgba(12, 16, 28, 0.94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.brand { color: #6ea0ff; font-weight: 900; letter-spacing: .16em; text-decoration: none; }
+.eyebrow { margin: 28px 0 8px; color: #6ea0ff; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+.card h1 { margin: 0 0 12px; font-size: 34px; }
+.muted { color: #a8b0c2; line-height: 1.6; }
+.card form { display: grid; gap: 16px; margin-top: 24px; }
+.card label { display: grid; gap: 8px; color: #dce2ee; font-size: 14px; font-weight: 650; }
+.card input { width: 100%; padding: 13px 14px; border: 1px solid rgba(255,255,255,.14); border-radius: 11px; background: #111726; color: #fff; font: inherit; }
+.card input:focus { outline: 2px solid #4d8aff; border-color: transparent; }
+.card button { padding: 14px 18px; border: 0; border-radius: 11px; background: #0052ff; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.card button:disabled { cursor: wait; opacity: .6; }
+.error { color: #ff9b9b; line-height: 1.5; }
+.back { color: #8db2ff; }
+
+@media (max-width: 560px) {
+  .card { padding: 26px 20px; }
+  .card h1 { font-size: 28px; }
+}

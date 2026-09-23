@@ -50,7 +50,14 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateRequest(request);
     if (!auth) return unauthorized();
-    if (auth.role !== "ADMIN") return forbidden("Accès réservé aux administrateurs.");
+    const backofficeCompanyId = process.env.SONARA_BACKOFFICE_COMPANY_ID;
+    if (
+      auth.role !== "ADMIN"
+      || !backofficeCompanyId
+      || auth.companyId !== backofficeCompanyId
+    ) {
+      return forbidden("Accès réservé au backoffice Sonara.");
+    }
 
     const leads = await db.lead.findMany({
       orderBy: { createdAt: "desc" },

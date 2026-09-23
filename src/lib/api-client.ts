@@ -239,11 +239,11 @@ const patch = <T>(p: string, body?: unknown) =>
 export const api = {
   auth: {
     register: (body: { fullName: string; companyName: string; email: string; password: string }) =>
-      post<{ company: Company; user: User; accessToken: string }>("/auth/register", body),
+      post<{ company: Company; user: User }>("/auth/register", body),
     login: (body: { email: string; password: string }) =>
-      post<{ company: Company; user: User; accessToken: string; twoFactorRequired?: boolean; preAuthToken?: string }>("/auth/login", body),
+      post<{ company: Company; user: User; twoFactorRequired?: boolean; preAuthToken?: string }>("/auth/login", body),
     verify2FA: (body: { preAuthToken: string; code: string }) =>
-      post<{ company: Company; user: User; accessToken: string }>("/auth/2fa/verify", body),
+      post<{ company: Company; user: User }>("/auth/2fa/verify", body),
     logout: () => post<{ message: string }>("/auth/logout"),
     me: () => get<{ company: Company; user: User }>("/auth/me"),
     updateProfile: (body: { firstName?: string; lastName?: string | null; email?: string; avatarUrl?: string | null }) =>
@@ -259,7 +259,7 @@ export const api = {
         `/auth/invite?token=${encodeURIComponent(token)}`
       ),
     acceptInvite: (body: { token: string; firstName: string; lastName: string; password: string }) =>
-      post<{ company: Company; user: User; accessToken: string }>("/auth/accept-invite", body),
+      post<{ company: Company; user: User }>("/auth/accept-invite", body),
   },
 
   campaigns: {

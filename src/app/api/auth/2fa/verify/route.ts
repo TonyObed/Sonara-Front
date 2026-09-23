@@ -12,6 +12,12 @@ import { verify } from "otplib";
 import bcrypt from "bcryptjs";
 import { ok, unauthorized, tooManyRequests, handleError } from "@/lib/response";
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { hashRefreshToken } from "@/lib/session-token";
+import {
+  decryptTotpSecret,
+  encryptTotpSecret,
+  isEncryptedTotpSecret,
+} from "@/lib/totp-secret";
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +63,10 @@ export async function POST(request: NextRequest) {
     // 4. Code TOTP : uniquement si 6 chiffres (sinon otplib lève sur un code de secours)
     if (/^\d{6}$/.test(rawCode)) {
       try {
-        const result = await verify({ token: rawCode, secret: company.twoFactorSecret });
+        const result = await verify({
+          token: rawCode,
+          secret: decryptTotpSecret(company.twoFactorSecret),
+        });
         isCodeValid = result.valid;
       } catch {
         isCodeValid = false;
@@ -81,6 +90,14 @@ export async function POST(request: NextRequest) {
 
     if (!isCodeValid) {
       return unauthorized("Code de double authentification incorrect.");
+    }
+
+    // Migration transparente des comptes créés avant le chiffrement au repos.
+    if (!isEncryptedTotpSecret(company.twoFactorSecret)) {
+      await db.company.update({
+        where: { id: company.id },
+        data: { twoFactorSecret: encryptTotpSecret(company.twoFactorSecret) },
+      });
     }
 
     // 6. Si un code de secours a été utilisé, le consommer (supprimer du tableau)
@@ -119,7 +136,7 @@ export async function POST(request: NextRequest) {
     // 9. Stocker le token de rafraîchissement
     await db.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashRefreshToken(refreshToken),
         companyId: company.id,
         userId: user?.id,
         expiresAt: getRefreshTokenExpiry(),
@@ -154,7 +171,6 @@ export async function POST(request: NextRequest) {
             role: user.role,
           }
         : null,
-      accessToken,
     });
   } catch (error) {
     return handleError(error);

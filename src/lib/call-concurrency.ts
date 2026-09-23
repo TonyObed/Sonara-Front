@@ -21,3 +21,14 @@ export function getEffectiveCallConcurrency(
 export function getServerCallConcurrencyCap(companyMaxConcurrentCalls?: number | null): number {
   return getEffectiveCallConcurrency(Number.MAX_SAFE_INTEGER, companyMaxConcurrentCalls);
 }
+
+/** Plafond partagé par toutes les campagnes utilisant le même compte téléphonique. */
+export function getGlobalCallConcurrencyCap(
+  configuredCap = Number(
+    process.env.GLOBAL_MAX_CONCURRENT_CALLS
+      ?? process.env.CAMPAIGN_MAX_CONCURRENT_CALLS
+      ?? DEFAULT_DISPATCH_CONCURRENCY,
+  ),
+): number {
+  return validLimit(configuredCap, DEFAULT_DISPATCH_CONCURRENCY);
+}

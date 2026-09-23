@@ -8,7 +8,10 @@ import { unauthorized, ok, badRequest, handleError } from "@/lib/response";
 import { triggerOutboundCall } from "@/lib/vapi";
 import { recomputeCampaignStatus } from "@/lib/campaign-status";
 import { inferCampaignQuestions, isNpsQuestionLabel } from "@/lib/campaign-questions";
-import { getEffectiveCallConcurrency } from "@/lib/call-concurrency";
+import {
+  getEffectiveCallConcurrency,
+  getGlobalCallConcurrencyCap,
+} from "@/lib/call-concurrency";
 
 type ClaimedContact = {
   id: string;
@@ -169,23 +172,58 @@ export async function POST(request: NextRequest) {
       campaign.concurrency,
       settings?.maxConcurrentCalls,
     );
+    const globalConcurrencyCap = getGlobalCallConcurrencyCap();
 
-    // Verrouiller la campagne pendant le comptage + la réservation. Sans ce
-    // verrou, deux invocations simultanées peuvent chacune voir zéro appel et
-    // réserver une vague complète. `CALLING` est compté sur les contacts (et
-    // non seulement les appels) pour couvrir l'intervalle avant la création du
-    // record Call et l'envoi vers Vapi.
+    // Verrouiller d'abord le répartiteur global, puis la campagne, pendant le
+    // comptage + la réservation. Sans le verrou global, plusieurs campagnes
+    // pourraient chacune respecter leur limite tout en saturant le compte Vapi.
+    // `CALLING` couvre aussi l'intervalle avant la création du record Call.
     const claim = await db.$transaction(async (tx) => {
-      const lock = await tx.$queryRaw<Array<{ locked: boolean }>>`
+      const globalLock = await tx.$queryRaw<Array<{ locked: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(hashtext('sonara:global-call-dispatch')) AS locked
+      `;
+      if (!globalLock[0]?.locked) {
+        return {
+          locked: false,
+          lockScope: "global" as const,
+          inProgressCount: 0,
+          globalInProgressCount: 0,
+          slotsAvailable: 0,
+          contacts: [] as ClaimedContact[],
+        };
+      }
+
+      const campaignLock = await tx.$queryRaw<Array<{ locked: boolean }>>`
         SELECT pg_try_advisory_xact_lock(hashtext(${campaignId})) AS locked
       `;
-      if (!lock[0]?.locked) return { locked: false, inProgressCount: 0, slotsAvailable: 0, contacts: [] as ClaimedContact[] };
+      if (!campaignLock[0]?.locked) {
+        return {
+          locked: false,
+          lockScope: "campaign" as const,
+          inProgressCount: 0,
+          globalInProgressCount: 0,
+          slotsAvailable: 0,
+          contacts: [] as ClaimedContact[],
+        };
+      }
 
-      const inProgressCount = await tx.contact.count({
-        where: { campaignId, status: "CALLING" },
-      });
-      const slotsAvailable = effectiveConcurrency - inProgressCount;
-      if (slotsAvailable <= 0) return { locked: true, inProgressCount, slotsAvailable, contacts: [] as ClaimedContact[] };
+      const [inProgressCount, globalInProgressCount] = await Promise.all([
+        tx.contact.count({ where: { campaignId, status: "CALLING" } }),
+        tx.contact.count({ where: { status: "CALLING" } }),
+      ]);
+      const campaignSlotsAvailable = effectiveConcurrency - inProgressCount;
+      const globalSlotsAvailable = globalConcurrencyCap - globalInProgressCount;
+      const slotsAvailable = Math.min(campaignSlotsAvailable, globalSlotsAvailable);
+      if (slotsAvailable <= 0) {
+        return {
+          locked: true,
+          lockScope: null,
+          inProgressCount,
+          globalInProgressCount,
+          slotsAvailable,
+          contacts: [] as ClaimedContact[],
+        };
+      }
 
       const contacts = await tx.$queryRaw<ClaimedContact[]>`
         WITH candidates AS (
@@ -219,17 +257,32 @@ export async function POST(request: NextRequest) {
                   contacts.segment,
                   contacts.attempts
       `;
-      return { locked: true, inProgressCount, slotsAvailable, contacts };
+      return {
+        locked: true,
+        lockScope: null,
+        inProgressCount,
+        globalInProgressCount,
+        slotsAvailable,
+        contacts,
+      };
     });
 
     if (!claim.locked) {
-      return ok({ processed: 0, message: "Une autre vague de cette campagne est déjà en préparation." });
+      return ok({
+        processed: 0,
+        message: claim.lockScope === "global"
+          ? "Une autre vague d'appels est déjà en préparation."
+          : "Une autre vague de cette campagne est déjà en préparation.",
+      });
     }
 
     if (claim.slotsAvailable <= 0) {
+      const globalLimitReached = claim.globalInProgressCount >= globalConcurrencyCap;
       return ok({
         processed: 0,
-        message: `Concurrence maximale atteinte (${effectiveConcurrency} appels simultanés).`,
+        message: globalLimitReached
+          ? `Plafond global atteint (${globalConcurrencyCap} appels simultanés).`
+          : `Concurrence maximale de la campagne atteinte (${effectiveConcurrency} appels simultanés).`,
       });
     }
 

@@ -106,6 +106,26 @@ export const TestCallSchema = z.object({
   firstName: z.string().max(50).optional(),
 });
 
+// ─── PARAMÈTRES ENTREPRISE ───────────────────────────────────────────────────
+
+const OptionalHttpsUrlSchema = z.union([
+  z.literal(""),
+  z.string().trim().url("URL webhook invalide").max(2048).refine(
+    (value) => new URL(value).protocol === "https:",
+    "Le webhook doit utiliser HTTPS",
+  ),
+]);
+
+export const CompanySettingsSchema = z.object({
+  timezone: z.string().trim().min(1).max(64).optional(),
+  displayPhone: z.string().trim().max(30).optional(),
+  transferAgentNumber: z.string().trim().max(30).optional(),
+  webhookUrl: OptionalHttpsUrlSchema.optional(),
+  maxConcurrentCalls: z.number().int().min(1).max(100).optional(),
+  autoRechargeEnabled: z.boolean().optional(),
+  autoRechargeThreshold: z.number().int().min(0).max(1_000_000).optional(),
+}).strict();
+
 // ─── CAMPAIGNS ────────────────────────────────────────────────────────────────
 
 export const CreateCampaignSchema = z.object({

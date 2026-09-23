@@ -6,6 +6,7 @@ import { ForgotPasswordSchema } from "@/lib/validation";
 import { ok, tooManyRequests, zodError, handleError } from "@/lib/response";
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { ZodError } from "zod";
+import { passwordStateFingerprint } from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     const company = await db.company.findUnique({
       where: { email: input.email },
-      select: { id: true, email: true, isActive: true },
+      select: { id: true, email: true, isActive: true, passwordHash: true },
     });
 
     // Réponse identique que le compte existe ou non (anti-énumération)
@@ -34,7 +35,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Générer un token signé expirant en 1h (CDC A3)
-    const resetToken = await generateResetToken(company.id, company.email);
+    const resetToken = await generateResetToken(
+      company.id,
+      company.email,
+      passwordStateFingerprint(company.passwordHash),
+    );
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
 
     // TODO Phase 2 : envoyer l'email via SMTP

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { clearAuthCookies, verifyRefreshToken } from "@/lib/auth";
 import { ok } from "@/lib/response";
+import { refreshTokenLookupValues } from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   // Récupérer le refresh token du cookie pour l'invalider en BDD
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (payload) {
       // Supprimer le refresh token de la BDD
       await db.refreshToken
-        .delete({ where: { token: refreshToken } })
+        .deleteMany({ where: { token: { in: refreshTokenLookupValues(refreshToken) } } })
         .catch(() => {}); // Ne pas planter si déjà supprimé
     }
   }

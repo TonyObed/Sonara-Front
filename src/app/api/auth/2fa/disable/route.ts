@@ -6,6 +6,7 @@ import { ok, unauthorized, badRequest, handleError } from "@/lib/response";
 import { verify } from "otplib";
 import bcrypt from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
+import { decryptTotpSecret } from "@/lib/totp-secret";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,10 @@ export async function POST(request: NextRequest) {
     // 1. Essayer de valider via TOTP (6 chiffres)
     if (code && company.twoFactorSecret && /^\d{6}$/.test(code.trim())) {
       try {
-        const result = await verify({ token: code.trim(), secret: company.twoFactorSecret });
+        const result = await verify({
+          token: code.trim(),
+          secret: decryptTotpSecret(company.twoFactorSecret),
+        });
         isConfirmed = result.valid;
       } catch {
         isConfirmed = false;

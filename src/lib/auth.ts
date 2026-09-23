@@ -170,12 +170,17 @@ export function getRefreshTokenExpiry(): Date {
 interface ResetTokenPayload extends JWTPayload {
   sub: string;       // companyId
   email: string;
+  passwordFingerprint: string;
   type: "password-reset";
 }
 
-export async function generateResetToken(companyId: string, email: string): Promise<string> {
+export async function generateResetToken(
+  companyId: string,
+  email: string,
+  passwordFingerprint: string,
+): Promise<string> {
   // Réutilise le secret refresh (distinct du secret access) + type dédié
-  return new SignJWT({ sub: companyId, email, type: "password-reset" })
+  return new SignJWT({ sub: companyId, email, passwordFingerprint, type: "password-reset" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("1h") // CDC A3 : expiration 1h
@@ -185,7 +190,7 @@ export async function generateResetToken(companyId: string, email: string): Prom
 export async function verifyResetToken(token: string): Promise<ResetTokenPayload | null> {
   try {
     const { payload } = await jwtVerify<ResetTokenPayload>(token, getRefreshSecret());
-    if (payload.type !== "password-reset") return null;
+    if (payload.type !== "password-reset" || !payload.passwordFingerprint) return null;
     return payload;
   } catch {
     return null;

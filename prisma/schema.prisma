@@ -84,7 +84,7 @@ model Company {
   isSandbox            Boolean  @default(false) @map("is_sandbox") // crédits non bloquants pendant les tests
   isActive             Boolean  @default(true) @map("is_active")
   // ── 2FA (TOTP — CDC A9) ──
-  twoFactorSecret      String?  @map("two_factor_secret") // secret TOTP base32 (à chiffrer en P2)
+  twoFactorSecret      String?  @map("two_factor_secret") // secret TOTP chiffré AES-256-GCM
   twoFactorEnabled     Boolean  @default(false) @map("two_factor_enabled")
   twoFactorBackupCodes Json?    @map("two_factor_backup_codes") // codes de secours hashés (bcrypt)
   createdAt            DateTime @default(now()) @map("created_at")

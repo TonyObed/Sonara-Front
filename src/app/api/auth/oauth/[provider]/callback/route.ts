@@ -18,6 +18,7 @@ import {
   splitName,
   type OAuthProvider,
 } from "@/lib/oauth";
+import { hashRefreshToken } from "@/lib/session-token";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -102,7 +103,7 @@ export async function GET(
 
     await db.refreshToken.create({
       data: {
-        token: rt,
+        token: hashRefreshToken(rt),
         companyId: company.id,
         userId: user?.id,
         expiresAt: getRefreshTokenExpiry(),

@@ -13,6 +13,7 @@ import { LoginSchema } from "@/lib/validation";
 import { badRequest, ok, unauthorized, tooManyRequests, zodError, handleError } from "@/lib/response";
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { ZodError } from "zod";
+import { hashRefreshToken } from "@/lib/session-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Stocker le refresh token (invalider les anciens si besoin)
     await db.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashRefreshToken(refreshToken),
         companyId: company.id,
         userId: adminUser?.id,
         expiresAt: getRefreshTokenExpiry(),
@@ -110,7 +111,6 @@ export async function POST(request: NextRequest) {
             role: adminUser.role,
           }
         : null,
-      accessToken,
     });
 
   } catch (error) {

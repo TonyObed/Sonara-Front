@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getEffectiveCallConcurrency, getServerCallConcurrencyCap } from "@/lib/call-concurrency";
+import {
+  getEffectiveCallConcurrency,
+  getGlobalCallConcurrencyCap,
+  getServerCallConcurrencyCap,
+} from "@/lib/call-concurrency";
 
 describe("limite de vague d'appels", () => {
   it("protège le MVP avec deux appels maximum par défaut", () => {
@@ -20,5 +24,13 @@ describe("getServerCallConcurrencyCap", () => {
   it("retourne le plafond réellement appliqué au dashboard", () => {
     expect(getServerCallConcurrencyCap(10)).toBe(2);
     expect(getServerCallConcurrencyCap(1)).toBe(1);
+  });
+});
+
+describe("getGlobalCallConcurrencyCap", () => {
+  it("applique un plafond global indépendant des campagnes", () => {
+    expect(getGlobalCallConcurrencyCap(12)).toBe(12);
+    expect(getGlobalCallConcurrencyCap(0)).toBe(2);
+    expect(getGlobalCallConcurrencyCap(Number.NaN)).toBe(2);
   });
 });
